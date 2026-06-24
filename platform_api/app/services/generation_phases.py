@@ -2076,51 +2076,69 @@ class Phase2Generator:
             )
             return {"images": [], "thumbnails": []}
 
-        # ===== 步骤A：收集并转换所有参考图为 Base64 =====
+        # ===== 步骤A：收集并转换所有参考图 =====
         storage_service = get_storage_service()
 
+        # 根据图片模型平台决定 prefer_url 参数
+        # 即梦（jimeng）等火山引擎系平台不支持 data URL（base64），需要公网 URL
+        # 百炼（bailian）、可灵（kling）等平台支持 base64 参考图
+        image_platform = input_data.image_model_platform or ""
+        prefer_url_for_platform = image_platform in ("jimeng", "volcengine")
+
         # 对标图（用于构图/场景/风格参考）
-        benchmark_b64_list: List[str] = []
+        benchmark_ref_list: List[str] = []
         if input_data.benchmark_image_enabled and input_data.benchmark_material_images:
             for url in input_data.benchmark_material_images:
-                _, b64 = await storage_service.process_reference_image(
-                    url, prefer_url=False, max_size_bytes=4 * 1024 * 1024
+                ref_url, ref_b64 = await storage_service.process_reference_image(
+                    url,
+                    prefer_url=prefer_url_for_platform,
+                    max_size_bytes=4 * 1024 * 1024,
                 )
-                if b64:
-                    benchmark_b64_list.append(b64)
+                if prefer_url_for_platform and ref_url:
+                    benchmark_ref_list.append(ref_url)
+                elif ref_b64:
+                    benchmark_ref_list.append(ref_b64)
             logger.info(
-                "[Phase2] 对标图转换 Base64 | total=%s | success=%s",
+                "[Phase2] 对标图转换 | total=%s | success=%s | use_url=%s | platform=%s",
                 len(input_data.benchmark_material_images),
-                len(benchmark_b64_list),
+                len(benchmark_ref_list),
+                prefer_url_for_platform,
+                image_platform,
             )
 
         # 产品图（用于主体外观参考）
         # 优先使用模板附件中的产品图，回退到素材附件
         product_urls = input_data.template_product_images or input_data.material_images
-        product_b64_list: List[str] = []
+        product_ref_list: List[str] = []
         if product_urls:
             for url in product_urls:
-                _, b64 = await storage_service.process_reference_image(
-                    url, prefer_url=False, max_size_bytes=4 * 1024 * 1024
+                ref_url, ref_b64 = await storage_service.process_reference_image(
+                    url,
+                    prefer_url=prefer_url_for_platform,
+                    max_size_bytes=4 * 1024 * 1024,
                 )
-                if b64:
-                    product_b64_list.append(b64)
+                if prefer_url_for_platform and ref_url:
+                    product_ref_list.append(ref_url)
+                elif ref_b64:
+                    product_ref_list.append(ref_b64)
             logger.info(
-                "[Phase2] 产品图转换 Base64 | total=%s | success=%s",
+                "[Phase2] 产品图转换 | total=%s | success=%s | use_url=%s | platform=%s",
                 len(product_urls),
-                len(product_b64_list),
+                len(product_ref_list),
+                prefer_url_for_platform,
+                image_platform,
             )
 
         # 解析对标图角色配置（list 格式，按索引对应每张对标图）
         bench_roles_list = self._parse_benchmark_roles(input_data)
 
         logger.info(
-            "[Phase2] 图片生成 | prompts=%s | platform=%s | model_id=%s | benchmark_b64=%s | product_b64=%s",
+            "[Phase2] 图片生成 | prompts=%s | platform=%s | model_id=%s | benchmark_refs=%s | product_refs=%s",
             len(prompts),
             platform,
             model_config.model_id,
-            len(benchmark_b64_list),
-            len(product_b64_list),
+            len(benchmark_ref_list),
+            len(product_ref_list),
         )
 
         # 调试日志：验证图片模型配置
@@ -2164,9 +2182,9 @@ class Phase2Generator:
             benchmark_role_text = ""
 
             # 对标图：按索引顺序循环取，每张生成图用一张不同的对标图
-            if benchmark_b64_list:
-                bench_idx = i % len(benchmark_b64_list)
-                selected_refs.append(benchmark_b64_list[bench_idx])
+            if benchmark_ref_list:
+                bench_idx = i % len(benchmark_ref_list)
+                selected_refs.append(benchmark_ref_list[bench_idx])
                 n_benchmark = 1
                 # 取对应对标图的角色要求（用模型视角：它收到的数组里这就是第1张）
                 if bench_idx < len(bench_roles_list):
@@ -2178,12 +2196,12 @@ class Phase2Generator:
                         benchmark_role_text = f"第1张（对标图）：请重点参考其{roledesc}，该图片主体产品不作为生成对象"
 
             # 产品图：随机取 2 张
-            if product_b64_list:
-                n_product = min(2, len(product_b64_list))
+            if product_ref_list:
+                n_product = min(2, len(product_ref_list))
                 sampled = (
-                    random.sample(product_b64_list, n_product)
+                    random.sample(product_ref_list, n_product)
                     if n_product > 1
-                    else [random.choice(product_b64_list)]
+                    else [random.choice(product_ref_list)]
                 )
                 selected_refs.extend(sampled)
 
@@ -2203,7 +2221,7 @@ class Phase2Generator:
                 "[Phase2] 生成图片 %d/%d | 对标图=原始索引%s | 产品参考图=%s张",
                 i + 1,
                 len(prompts),
-                (i % len(benchmark_b64_list)) + 1 if benchmark_b64_list else 0,
+                (i % len(benchmark_ref_list)) + 1 if benchmark_ref_list else 0,
                 n_product,
             )
 

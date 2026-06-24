@@ -174,7 +174,7 @@
               </template>
             </el-table-column>
             <el-table-column prop="created_at" label="创建时间" width="180" />
-            <el-table-column label="操作" min-width="140" fixed="right">
+            <el-table-column label="操作" min-width="280" fixed="right" align="left">
               <template #default="{ row }">
                 <div class="action-btns">
                   <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
@@ -1094,9 +1094,13 @@ onMounted(() => {
 .action-btns {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   flex-wrap: nowrap;
-  gap: 2px;
-  width: 100%;
+  gap: 8px;
+  white-space: nowrap;
+
+  .el-button {
+    white-space: nowrap;
+  }
 }
 </style>

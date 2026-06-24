@@ -2731,11 +2731,11 @@ watch(() => templateForm.contentType, (newVal) => {
 
 .template-card {
   :deep(.el-card__header) {
-    padding: 8px 10px;
+    padding: 2px 2px;
   }
 
   :deep(.el-card__body) {
-    padding: 8px 10px;
+    padding: 2px 2px;
   }
 
   .card-header {
@@ -2815,14 +2815,14 @@ watch(() => templateForm.contentType, (newVal) => {
   display: flex;
   justify-content: flex-end;
   flex-wrap: nowrap;
-  gap: 0;
-  margin-top: 8px;
+  gap: 2px;
+  margin-top: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--border-color);
 
   .el-button--small.is-link {
-    padding: 1px 3px;
-    font-size: 12px;
+    padding: 1px 2px;
+    font-size: 11px;
   }
 }
 

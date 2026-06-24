@@ -152,7 +152,7 @@
               </template>
             </el-table-column>
 
-            <el-table-column label="操作" width="260" fixed="right">
+            <el-table-column label="操作" width="300" fixed="right">
               <template #default="{ row }">
                 <el-button-group>
                   <el-button size="small" @click="handleView(row)">查看</el-button>

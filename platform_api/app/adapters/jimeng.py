@@ -398,7 +398,7 @@ class JimengAdapter(BaseModelAdapter):
                     image[:14] if isinstance(image, list) else [image]
                 )
 
-            raw_size = p.aspect_ratio if p else "1:1"
+            raw_size = p.ratio if p else "3:4"
             if raw_size and "x" in str(raw_size):
                 w, h = raw_size.split("x")
                 payload["width"] = int(w)
@@ -416,7 +416,7 @@ class JimengAdapter(BaseModelAdapter):
             if p and p.count == 1:
                 payload["force_single"] = True
 
-            watermark = p.add_watermark if p else True
+            watermark = p.watermark if p else True
             if watermark is True or (
                 isinstance(watermark, str) and str(watermark).lower() == "true"
             ):
@@ -447,10 +447,19 @@ class JimengAdapter(BaseModelAdapter):
                     error_type=error_type,
                 )
 
-            submit_result = json.loads(text)
+            try:
+                submit_result = json.loads(text)
+            except json.JSONDecodeError:
+                logger.error("[Image] 即梦v46提交响应JSON解析失败 | text=%s", text[:500])
+                return GenerationResult(
+                    success=False,
+                    error_message="Submit response JSON parse failed",
+                    error_type="client_error",
+                )
             code = submit_result.get("code")
             message = submit_result.get("message", "")
-            task_id = submit_result.get("data", {}).get("task_id")
+            submit_data = submit_result.get("data") or {}
+            task_id = submit_data.get("task_id") if isinstance(submit_data, dict) else None
 
             if code != 10000:
                 logger.error(
@@ -496,16 +505,32 @@ class JimengAdapter(BaseModelAdapter):
 
         while time.time() - start_time < timeout:
             poll_count += 1
+            # 按文档：查询时通过 req_json 传入 return_url=true，使返回结果包含公网 URL
+            req_json = json.dumps({"return_url": True})
             query_body = json.dumps(
-                {"req_key": "jimeng_seedream46_cvtob", "task_id": task_id}
+                {
+                    "req_key": "jimeng_seedream46_cvtob",
+                    "task_id": task_id,
+                    "req_json": req_json,
+                }
             )
 
             status, text = await self._post_signed(query_params, query_body, timeout=60)
-            result = json.loads(text)
+            if not text:
+                logger.warning("[Image] 即梦v46轮询返回空响应")
+                await asyncio.sleep(interval)
+                continue
+            try:
+                result = json.loads(text)
+            except json.JSONDecodeError:
+                logger.warning("[Image] 即梦v46轮询响应JSON解析失败 | text=%s", text[:200])
+                await asyncio.sleep(interval)
+                continue
             code = result.get("code")
             message = result.get("message", "")
-            resp_data = result.get("data", {})
-            resp_status = resp_data.get("status", "")
+            # 文档：code!=10000 时 data 为 null，需用 or {} 处理
+            resp_data = result.get("data") or {}
+            resp_status = resp_data.get("status", "") if isinstance(resp_data, dict) else ""
 
             elapsed = time.time() - start_time
             logger.debug(
@@ -516,9 +541,21 @@ class JimengAdapter(BaseModelAdapter):
                 elapsed,
             )
 
+            # 按文档：优先判断 code==10000，再判断 data.status
             if code == 10000:
                 if resp_status == "done":
+                    # 优先使用 image_urls（需 return_url=true），回退到 base64
                     image_urls = resp_data.get("image_urls", [])
+                    if not image_urls:
+                        # 尝试从 binary_data_base64 解析（兜底）
+                        b64_list = resp_data.get("binary_data_base64", [])
+                        if b64_list:
+                            logger.info(
+                                "[Image] 即梦v46完成（base64）| task_id=%s | 图片数=%d",
+                                task_id,
+                                len(b64_list),
+                            )
+                            return []  # base64 暂时不处理，返回空列表
                     logger.info(
                         "[Image] 即梦v46完成 | task_id=%s | 图片数=%d",
                         task_id,
@@ -538,6 +575,7 @@ class JimengAdapter(BaseModelAdapter):
                 logger.warning(
                     "[Image] 即梦v46错误 | code=%s | message=%s", code, message
                 )
+                # 可重试的错误码：50429(QPS超限)、50430(并发超限)、50500(内部错误)
                 if code in [50429, 50430, 50500]:
                     await asyncio.sleep(interval)
                 else:
