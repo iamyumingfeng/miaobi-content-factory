@@ -15,10 +15,10 @@ from sqlalchemy import Integer, and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-logger = logging.getLogger(__name__)
-
 from app.models import (DashboardAlertDismissal, GenerationItem,
                         GenerationTask, Operator, SubUser)
+
+logger = logging.getLogger(__name__)
 
 
 class DashboardService:

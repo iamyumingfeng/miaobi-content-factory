@@ -29,11 +29,16 @@ from app.adapters.base import GenerationResult
 from app.adapters.params import ImageGenParams, TextGenParams
 from app.core.database import async_session_maker
 from app.core.retry import NonRetryableError
-from app.models import (CreativeSeed, GenerationItem,
-                        GenerationItemExecutionLog, GenerationTask, Material,
-                        SubUser, Template)
-from app.services.generation_context import (GenerationInputData,
-                                             GenerationOutputData)
+from app.models import (
+    CreativeSeed,
+    GenerationItem,
+    GenerationItemExecutionLog,
+    GenerationTask,
+    Material,
+    SubUser,
+    Template,
+)
+from app.services.generation_context import GenerationInputData, GenerationOutputData
 
 logger = logging.getLogger(__name__)
 
@@ -517,7 +522,7 @@ async def phase1_load_input_data(
                         CreativeSeed.status == "enabled",
                         or_(
                             CreativeSeed.owner_operator_id == owner_operator_id,
-                            CreativeSeed.is_system == True,
+                            CreativeSeed.is_system,
                         ),
                     ]
                     if seed_ids and auto_seed_types:
@@ -1062,8 +1067,9 @@ class Phase2Generator:
             # ========== 步骤1：使用 OptimizedContentGenerator 构建提示词 ==========
             prompt_build_start = datetime.utcnow()
             config = self._build_optimized_config(input_data)
-            from app.services.prompt_generator_optimized import \
-                OptimizedContentGenerator
+            from app.services.prompt_generator_optimized import (
+                OptimizedContentGenerator,
+            )
 
             system_prompt, text_prompt = (
                 OptimizedContentGenerator._build_combined_prompts(config)
@@ -1332,8 +1338,7 @@ class Phase2Generator:
                 # 模型平台返回的URL可能是临时的，需要保存到本地COS
                 if output_data.generated_image_urls:
                     try:
-                        from app.services.storage_service import \
-                            get_storage_service
+                        from app.services.storage_service import get_storage_service
 
                         storage_service = get_storage_service()
 
@@ -1366,8 +1371,7 @@ class Phase2Generator:
                 base64_images = image_result.get("base64_images", [])
                 if base64_images:
                     try:
-                        from app.services.storage_service import \
-                            get_storage_service
+                        from app.services.storage_service import get_storage_service
 
                         storage_service = get_storage_service()
 
@@ -1470,8 +1474,7 @@ class Phase2Generator:
         - User Prompt: 具体任务、素材、创意配置（使用 OptimizedContentGenerator 构建）
         """
         config = self._build_optimized_config(input_data)
-        from app.services.prompt_generator_optimized import \
-            OptimizedContentGenerator
+        from app.services.prompt_generator_optimized import OptimizedContentGenerator
 
         system_prompt, user_prompt = OptimizedContentGenerator._build_combined_prompts(
             config
@@ -1571,8 +1574,7 @@ class Phase2Generator:
         raw_seed_config = input_data.raw_seed_config or {}
         import random as _random
 
-        from app.services.prompt_generator_optimized import \
-            OptimizedContentGenerator
+        from app.services.prompt_generator_optimized import OptimizedContentGenerator
 
         viral_type = seeds.get("viral_type")
         if not viral_type:
@@ -2349,7 +2351,9 @@ class Phase2Generator:
         try:
             from app.models import GenerationItem
             from app.services.async_embedding_service import (
-                AsyncEmbeddingService, EmbeddingSaveRequest)
+                AsyncEmbeddingService,
+                EmbeddingSaveRequest,
+            )
             from app.services.dedup_service import DedupService
 
             # 创建临时的 GenerationItem 对象用于去重检测
@@ -2516,7 +2520,7 @@ class Phase2Generator:
                 first_brace = text_to_parse.find("{")
                 last_brace = text_to_parse.rfind("}")
                 if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                    text_to_parse = text_to_parse[first_brace : last_brace + 1]
+                    text_to_parse = text_to_parse[first_brace:last_brace + 1]
                     logger.debug(
                         "[Phase2] 提取 {} 之间的内容 | length=%s", len(text_to_parse)
                     )

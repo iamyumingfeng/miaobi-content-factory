@@ -15,11 +15,20 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import (MaterialNotFoundError, NotFoundError,
-                                 SystemResourceError)
-from app.models import (GenerationTask, Material, MaterialAttachment,
-                        MaterialCategory, MaterialFavorite, MaterialTag,
-                        MaterialTagRel)
+from app.core.exceptions import (
+    MaterialNotFoundError,
+    NotFoundError,
+    SystemResourceError,
+)
+from app.models import (
+    GenerationTask,
+    Material,
+    MaterialAttachment,
+    MaterialCategory,
+    MaterialFavorite,
+    MaterialTag,
+    MaterialTagRel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -882,10 +891,8 @@ class MaterialService:
         Args:
             owner_operator_id: 创作管理员ID，None表示超级管理员（可删除所有素材）
         """
-        from app.models import (MaterialAttachment, MaterialFavorite,
-                                MaterialTagRel)
-        from app.services.storage_service import (ResourceType,
-                                                  get_storage_service)
+        from app.models import MaterialAttachment, MaterialFavorite, MaterialTagRel
+        from app.services.storage_service import ResourceType, get_storage_service
 
         query = select(Material).where(Material.id == material_id)
         if owner_operator_id is not None:

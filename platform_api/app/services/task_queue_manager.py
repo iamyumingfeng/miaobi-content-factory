@@ -323,8 +323,9 @@ class TaskQueueManager:
                 # 分发到 Celery
                 try:
 
-                    from app.tasks.generation_tasks import \
-                        process_generation_item_phased
+                    from app.tasks.generation_tasks import (
+                        process_generation_item_phased,
+                    )
 
                     celery_task = process_generation_item_phased.delay(
                         item_id, task_owner_id

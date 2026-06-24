@@ -106,7 +106,7 @@ class CreativeSeedService:
                 CreativeSeed.id == seed_id,
                 or_(
                     CreativeSeed.owner_operator_id == owner_operator_id,
-                    CreativeSeed.is_system == True,  # 系统种子所有人可见
+                    CreativeSeed.is_system,  # 系统种子所有人可见
                 ),
             )
         )
@@ -145,7 +145,7 @@ class CreativeSeedService:
         conditions = [
             or_(
                 CreativeSeed.owner_operator_id == owner_operator_id,
-                CreativeSeed.is_system == True,
+                CreativeSeed.is_system,
             )
         ]
 
@@ -313,7 +313,7 @@ class CreativeSeedService:
             CreativeSeed.status == "enabled",
             or_(
                 CreativeSeed.owner_operator_id == owner_operator_id,
-                CreativeSeed.is_system == True,
+                CreativeSeed.is_system,
             ),
         ]
 
@@ -403,7 +403,7 @@ class CreativeSeedService:
             CreativeSeed.status == "enabled",
             or_(
                 CreativeSeed.owner_operator_id == owner_operator_id,
-                CreativeSeed.is_system == True,
+                CreativeSeed.is_system,
             ),
         ]
 

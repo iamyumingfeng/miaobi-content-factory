@@ -1785,7 +1785,7 @@ class DedupService:
             "..." if len(text) > 200 else "",
         )
 
-        checked_at = datetime.utcnow()
+        datetime.utcnow()
 
         # 1. 计算内容哈希
         content_hash = cls._compute_content_hash(text)

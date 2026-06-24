@@ -479,7 +479,7 @@ class StorageService:
             logger.info(
                 f"[StorageService] Found duplicate prefix, fixing: {relative_path}"
             )
-            final_path = final_path[len(expected_prefix) :]
+            final_path = final_path[len(expected_prefix):]
         elif final_path.startswith(expected_prefix):
             # 只有一个前缀，保持不变
             logger.info(
@@ -591,7 +591,7 @@ class StorageService:
                     expected_prefix = prefix + "/"
                     double_prefix = expected_prefix + prefix + "/"
                     if relative_path.startswith(double_prefix):
-                        relative_path = relative_path[len(expected_prefix) :]
+                        relative_path = relative_path[len(expected_prefix):]
 
                 # 按照新的配置重新生成 URL
                 if self.storage_url_type == "local":
@@ -615,7 +615,7 @@ class StorageService:
                     cos_prefix = self._get_cos_url_prefix()
                     if url.startswith(cos_prefix):
                         # 转换 COS URL 回本地路径
-                        relative_path = url[len(cos_prefix) :].lstrip("/")
+                        relative_path = url[len(cos_prefix):].lstrip("/")
                         local_url = f"/cos/{relative_path}"
                         logger.info(
                             f"[StorageService] Converting COS URL to local: {url} -> {local_url}"
@@ -623,7 +623,7 @@ class StorageService:
                         return local_url
                 # 检查是否是 IP URL
                 if self.storage_url_prefix and url.startswith(self.storage_url_prefix):
-                    relative_path = url[len(self.storage_url_prefix) :].lstrip("/")
+                    relative_path = url[len(self.storage_url_prefix):].lstrip("/")
                     if relative_path.startswith("cos/"):
                         relative_path = relative_path[4:]  # 去掉 cos/
                         local_url = f"/cos/{relative_path}"
@@ -659,7 +659,7 @@ class StorageService:
                 expected_prefix = prefix + "/"
                 double_prefix = expected_prefix + prefix + "/"
                 if relative_path.startswith(double_prefix):
-                    relative_path = relative_path[len(expected_prefix) :]
+                    relative_path = relative_path[len(expected_prefix):]
 
             # 根据配置决定是否转换
             if self.storage_url_type == "local":

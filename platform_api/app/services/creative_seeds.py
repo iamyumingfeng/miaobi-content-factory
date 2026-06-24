@@ -514,7 +514,7 @@ async def get_creative_seeds_for_generation_async(
         conditions.append(
             or_(
                 CreativeSeedModel.owner_operator_id == owner_operator_id,
-                CreativeSeedModel.is_system == True,
+                CreativeSeedModel.is_system,
             )
         )
 
@@ -524,7 +524,7 @@ async def get_creative_seeds_for_generation_async(
             or_(
                 CreativeSeedModel.category == category,
                 CreativeSeedModel.category == "通用",
-                CreativeSeedModel.category == None,
+                CreativeSeedModel.category is None,
             )
         )
 
@@ -616,7 +616,7 @@ async def get_creative_seeds_from_db(
                 CreativeSeedModel.status == "enabled",
                 or_(
                     CreativeSeedModel.owner_operator_id == owner_operator_id,
-                    CreativeSeedModel.is_system == True,
+                    CreativeSeedModel.is_system,
                 ),
             ]
             if category and category != "通用":

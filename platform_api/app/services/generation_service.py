@@ -18,12 +18,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.config import get_settings
-from app.core.exceptions import (GenerationItemNotFoundError,
-                                 GenerationTaskNotFoundError)
-from app.models import (GenerationItem, GenerationItemExecutionLog,
-                        GenerationTask, GenerationTaskProgressLog,
-                        GenerationTaskSubuser, GenerationTaskTemplate,
-                        Material, SubUser, Template)
+from app.core.exceptions import GenerationItemNotFoundError, GenerationTaskNotFoundError
+from app.models import (
+    GenerationItem,
+    GenerationItemExecutionLog,
+    GenerationTask,
+    GenerationTaskProgressLog,
+    GenerationTaskSubuser,
+    GenerationTaskTemplate,
+    Material,
+    SubUser,
+    Template,
+)
 from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
