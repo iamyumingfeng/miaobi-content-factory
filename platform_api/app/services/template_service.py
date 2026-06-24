@@ -14,11 +14,11 @@ from typing import List, Optional
 from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-logger = logging.getLogger(__name__)
-
 from app.core.exceptions import (NotFoundError, TemplateNotFoundError)
 from app.models import (Template, TemplateAttachment, TemplateCategory,
                         TemplatePlatform, TemplateTag, TemplateTagRel)
+
+logger = logging.getLogger(__name__)
 
 
 class TemplateService:

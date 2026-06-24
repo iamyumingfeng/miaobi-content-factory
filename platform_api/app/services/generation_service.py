@@ -17,8 +17,6 @@ from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-logger = logging.getLogger(__name__)
-
 from app.core.config import get_settings
 from app.core.exceptions import (GenerationItemNotFoundError,
                                  GenerationTaskNotFoundError)
@@ -28,6 +26,8 @@ from app.models import (GenerationItem, GenerationItemExecutionLog,
                         Material, SubUser,
                         Template)
 from app.services.storage_service import StorageService
+
+logger = logging.getLogger(__name__)
 
 
 def _is_valid_cos_url(url: str) -> bool:

@@ -125,7 +125,6 @@ def on_task_prerun(sender=None, task_id=None, task=None, **kwargs):
         # 只处理 generation 相关的任务
         if task and "generation" in task.name:
             item_id = None
-            owner_operator_id = None
 
             # 从任务参数中提取 item_id
             args = kwargs.get("args", [])

@@ -183,7 +183,6 @@ class TrendAnalysisService:
                     period_str = str(period)[:7]
                 generated = row.generated or 0
                 completed = row.completed or 0
-                failed = row.failed or 0
                 success_rate = (completed / generated * 100) if generated > 0 else 0
 
                 data.append(

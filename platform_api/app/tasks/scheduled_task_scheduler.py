@@ -160,7 +160,7 @@ def get_pending_tasks_sync(db, limit: int = 100):
         select(ScheduledTask)
         .where(
             and_(
-                ScheduledTask.is_active == True,
+                ScheduledTask.is_active.is_(True),
                 ScheduledTask.status == "active",
                 ScheduledTask.next_execution_at <= now,
             )

@@ -274,7 +274,7 @@ class TokenService:
             select(RefreshToken).where(
                 RefreshToken.user_id == user_id,
                 RefreshToken.user_type == user_type,
-                RefreshToken.is_revoked == False,
+                RefreshToken.is_revoked.is_(False),
                 RefreshToken.expires_at > datetime.utcnow(),
             )
         )
@@ -301,7 +301,7 @@ class TokenService:
         """
         result = await db.execute(
             update(RefreshToken)
-            .where(RefreshToken.jti == jti, RefreshToken.is_revoked == False)
+            .where(RefreshToken.jti == jti, RefreshToken.is_revoked.is_(False))
             .values(
                 is_revoked=True,
                 revoked_at=datetime.utcnow(),
@@ -333,7 +333,7 @@ class TokenService:
             .where(
                 RefreshToken.user_id == user_id,
                 RefreshToken.user_type == user_type,
-                RefreshToken.is_revoked == False,
+                ~RefreshToken.is_revoked,
             )
             .values(
                 is_revoked=True,

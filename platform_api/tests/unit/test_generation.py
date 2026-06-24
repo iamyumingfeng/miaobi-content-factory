@@ -213,20 +213,22 @@ class TestGenerationService:
             status="failed",
             retry_count=0,
             owner_operator_id=1,
+            distribution_status=None,
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = item
         mock_db.execute = AsyncMock(return_value=mock_result)
-        mock_db.add = MagicMock()
         mock_db.commit = AsyncMock()
         mock_db.refresh = AsyncMock()
 
-        with patch.object(GenerationService, 'update_generation_item_status', new_callable=AsyncMock):
-            await GenerationService.retry_failed_item(
+        with patch.object(GenerationService, 'recalculate_task_counts', new_callable=AsyncMock):
+            result = await GenerationService.retry_failed_item(
                 db=mock_db,
                 item_id=1,
                 owner_operator_id=1,
             )
+            assert result is not None
+            assert result.status == "queued"
 
     async def test_retry_non_failed_item_raises_error(self) -> None:
         """测试重试非失败状态的子任务应抛出错误"""
@@ -237,12 +239,13 @@ class TestGenerationService:
             sub_user_id=1,
             status="completed",
             owner_operator_id=1,
+            distribution_status=None,
         )
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = item
         mock_db.execute = AsyncMock(return_value=mock_result)
 
-        with pytest.raises(ValueError, match="只能重试失败的子任务"):
+        with pytest.raises(ValueError, match="无法重置该子任务"):
             await GenerationService.retry_failed_item(
                 db=mock_db,
                 item_id=1,

@@ -103,27 +103,26 @@ class TestAuthServiceLogoutStatusUpdate:
     @pytest.mark.asyncio
     async def test_logout_updates_operator_status_to_offline(self):
         """验证创作管理员退出时 status 更新为 offline"""
-        from app.api.v1.auth import logout
-        
+        from app.services.token_service import TokenService
+
         mock_db = AsyncMock()
-        
+
         mock_user = MagicMock(spec=Operator)
         mock_user.id = 1
         mock_user.status = "online"
-        
+
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute.return_value = mock_result
-        
-        # 模拟 payload
-        payload = {
-            "sub": "1",
-            "user_type": "operator"
-        }
-        
+
         # 执行 logout
-        await logout(payload=payload, db=mock_db)
-        
+        await TokenService.logout(
+            db=mock_db,
+            user_id=1,
+            user_type="operator",
+            refresh_token_str="dummy_token"
+        )
+
         # 验证状态更新
         assert mock_user.status == "offline"
         mock_db.commit.assert_called()
@@ -131,27 +130,26 @@ class TestAuthServiceLogoutStatusUpdate:
     @pytest.mark.asyncio
     async def test_logout_updates_sub_user_status_to_offline(self):
         """验证创作者退出时 status 更新为 offline"""
-        from app.api.v1.auth import logout
-        
+        from app.services.token_service import TokenService
+
         mock_db = AsyncMock()
-        
+
         mock_user = MagicMock(spec=SubUser)
         mock_user.id = 1
         mock_user.status = "online"
-        
+
         mock_result = MagicMock()
         mock_result.scalar_one_or_none.return_value = mock_user
         mock_db.execute.return_value = mock_result
-        
-        # 模拟 payload
-        payload = {
-            "sub": "1",
-            "user_type": "sub_user"
-        }
-        
+
         # 执行 logout
-        await logout(payload=payload, db=mock_db)
-        
+        await TokenService.logout(
+            db=mock_db,
+            user_id=1,
+            user_type="sub_user",
+            refresh_token_str="dummy_token"
+        )
+
         # 验证状态更新
         assert mock_user.status == "offline"
         mock_db.commit.assert_called()

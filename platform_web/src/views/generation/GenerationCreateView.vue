@@ -2109,6 +2109,8 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+@import './generation.scss';
+
 .generation-create-view {
   padding: 0;
   display: flex;

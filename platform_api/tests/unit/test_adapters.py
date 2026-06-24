@@ -190,6 +190,9 @@ class TestBaseModelAdapter:
         async def get_concurrent_limit(self) -> int:
             return self.config.max_concurrency
 
+        def model_max_pixels(self, model_id: str = None) -> int:
+            return 2048
+
     def test_adapter_initialization(self) -> None:
         """测试适配器初始化"""
         config = ModelConfig(

@@ -192,7 +192,7 @@ async def _start_generation_task_async(task_id: int, owner_operator_id: int):
                     item.template_id,
                 )
                 # 加入等待队列
-                queue_position = task_queue_manager.enqueue_task(
+                task_queue_manager.enqueue_task(
                     item.id, owner_operator_id
                 )
                 queued_count += 1

@@ -305,16 +305,6 @@ class MaterialPlatformService:
                     category_material_count += count
                     tagged_material_count += count
 
-                # 计算该分类下无标签素材数量
-                category_no_tag_count = (
-                    await self.db.scalar(
-                        select(func.count(func.distinct(MaterialTagRel.material_id)))
-                        .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
-                        .join(Material, Material.id == MaterialTagRel.material_id)
-                        .where(MaterialTag.category_id == category.id)
-                    )
-                    or 0
-                )
                 # 无标签 = 该分类下总素材数 - 有标签的素材数
                 # 但这里我们无法直接获取分类总素材数，所以用标签统计推导
                 # 实际上 "无标签" 指的是没有关联任何标签的素材

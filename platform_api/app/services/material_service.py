@@ -15,13 +15,13 @@ from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-logger = logging.getLogger(__name__)
-
 from app.core.exceptions import (MaterialNotFoundError, NotFoundError,
                                  SystemResourceError)
 from app.models import (GenerationTask, Material, MaterialAttachment,
                         MaterialCategory, MaterialFavorite, MaterialTag,
                         MaterialTagRel)
+
+logger = logging.getLogger(__name__)
 
 
 class MaterialService:
