@@ -1,0 +1,51 @@
+// ============================================
+// 主题过渡样式 - 精炼版
+// ============================================
+// 主题切换时各组件的平滑过渡
+
+.layout-aside,
+.layout-header,
+.layout-main,
+.layout-content,
+.card,
+.el-card,
+.el-button,
+.el-input__wrapper,
+.el-select__wrapper,
+.el-dialog,
+.el-drawer,
+.el-table,
+.el-menu,
+.el-menu-item,
+.el-sub-menu__title,
+.el-tag,
+.el-pagination button {
+  transition:
+    background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// 全局背景
+html {
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+// 卡片通用样式 - 温润浮起
+.card {
+  @include surface-raised;
+  color: var(--color-text-primary);
+}
+
+// 页面标题
+.page-title {
+  color: var(--color-text-primary);
+}
+
+.section-title {
+  color: var(--color-text-primary);
+  font-weight: $font-weight-semibold;
+}

@@ -1,0 +1,97 @@
+
+  // ============================================
+  // 统一页面样式模板
+  // ============================================
+  // 版本：6.0.0 · 现代企业级
+  // ============================================
+
+  @import './variables.scss';
+  @import './mixins.scss';
+
+  // ============================================
+  // 页面标题
+  // ============================================
+
+  .page-title {
+    @include page-title;
+  }
+
+  // ============================================
+  // 主卡片容器
+  // ============================================
+
+  .card {
+    @include card-base;
+  }
+
+  // ============================================
+  // 工具栏 - 精简高效
+  // ============================================
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: $spacing-sm;
+    padding: $spacing-md 0;
+    margin-bottom: $spacing-md;
+    border-bottom: 1px solid var(--color-border-default);
+  }
+
+  .toolbar-left, .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: $spacing-sm;
+  }
+
+  // ============================================
+  // 分页 - 现代简洁
+  // ============================================
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: $spacing-md 0;
+    margin-top: $spacing-md;
+    border-top: 1px solid var(--color-border-default);
+  }
+
+  .total-text {
+    font-size: $font-size-sm;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    margin-right: $spacing-md;
+  }
+
+  // ============================================
+  // 响应式
+  // ============================================
+
+  @include mobile {
+    .page-title {
+      font-size: $font-size-xl;
+    }
+
+    .card {
+      padding: $spacing-md;
+      border-radius: var(--radius-lg);
+    }
+
+    .toolbar {
+      flex-direction: column;
+      gap: $spacing-sm;
+    }
+
+    .toolbar-left, .toolbar-right {
+      width: 100%;
+      flex-wrap: wrap;
+    }
+
+    .pagination {
+      flex-direction: column;
+      gap: $spacing-sm;
+    }
+  }
+

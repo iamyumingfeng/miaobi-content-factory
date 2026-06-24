@@ -1,0 +1,329 @@
+
+  // ============================================
+  // 妙笔内容工场 - 统一 CSS 变量定义
+  // ============================================
+  // 版本：6.0.0
+  // 设计风格：专业 SaaS · 现代极简 · 企业级品质
+  // ============================================
+
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  // ============================================
+  // 配色系统 - 现代企业蓝
+  // ============================================
+
+  // 主色系 - 现代科技蓝（渐变色系）
+  $color-primary: #1677FF;
+  $color-primary-hover: #0F66D6;
+  $color-primary-light: #4096FF;
+  $color-primary-bg: rgba(22, 119, 255, 0.08);
+  $color-primary-bg-hover: rgba(22, 119, 255, 0.12);
+
+  // 功能色系
+  $color-success: #00B42A;
+  $color-success-bg: rgba(0, 180, 42, 0.08);
+  
+  $color-warning: #FF7D00;
+  $color-warning-bg: rgba(255, 125, 0, 0.08);
+  
+  $color-error: #F53F3F;
+  $color-error-bg: rgba(245, 63, 63, 0.08);
+  
+  $color-info: #86909C;
+  $color-info-bg: rgba(134, 144, 156, 0.08);
+
+  // 中性色 - 专业分层
+  $light-bg-primary: #F7F8FA;
+  $light-bg-secondary: #FFFFFF;
+  $light-bg-tertiary: #F2F3F5;
+  $light-bg-elevated: #FFFFFF;
+
+  $light-bg-sidebar: #FFFFFF;
+  $light-bg-sidebar-sub: #F7F8FA;
+
+  $light-text-primary: #1D2129;
+  $light-text-secondary: #4E5969;
+  $light-text-muted: #86909C;
+  $light-text-placeholder: #C9CDD4;
+  $light-text-inverse: #FFFFFF;
+  $light-text-sidebar: #1D2129;
+  $light-text-sidebar-secondary: #4E5969;
+
+  // 边框色 - 精细分层
+  $light-border-default: rgba(0, 0, 0, 0.06);
+  $light-border-hover: rgba(0, 0, 0, 0.10);
+  $light-border-focus: rgba(22, 119, 255, 0.20);
+
+  // 阴影 - 现代层次
+  $light-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.03);
+  $light-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  $light-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08);
+  $light-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.10);
+
+  // ============================================
+  // 暗色主题 - 现代深灰
+  // ============================================
+
+  $dark-bg-primary: #1A1A1A;
+  $dark-bg-secondary: #232323;
+  $dark-bg-tertiary: #2A2A2A;
+  $dark-bg-elevated: #232323;
+
+  $dark-bg-sidebar: #1A1A1A;
+  $dark-bg-sidebar-sub: #232323;
+
+  $dark-text-primary: #F2F3F5;
+  $dark-text-secondary: #C9CDD4;
+  $dark-text-muted: #86909C;
+  $dark-text-placeholder: #4E5969;
+  $dark-text-inverse: #1D2129;
+  $dark-text-sidebar: #F2F3F5;
+  $dark-text-sidebar-secondary: #C9CDD4;
+
+  $dark-border-default: rgba(255, 255, 255, 0.08);
+  $dark-border-hover: rgba(255, 255, 255, 0.12);
+  $dark-border-focus: rgba(64, 150, 255, 0.30);
+
+  $dark-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.20);
+  $dark-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.30);
+  $dark-shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.40);
+  $dark-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.50);
+
+  // ============================================
+  // 字体 - 企业级排版
+  // ============================================
+
+  $font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  $font-family-heading: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  $font-family-body: $font-family-base;
+  $font-family-mono: 'SF Mono', Monaco, 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace;
+
+  $font-size-xs: 12px;
+  $font-size-sm: 13px;
+  $font-size-base: 14px;
+  $font-size-md: 14px;
+  $font-size-lg: 15px;
+  $font-size-xl: 16px;
+  $font-size-2xl: 20px;
+  $font-size-3xl: 24px;
+  $font-size-4xl: 32px;
+  $font-size-5xl: 48px;
+
+  $font-weight-light: 300;
+  $font-weight-normal: 400;
+  $font-weight-medium: 500;
+  $font-weight-semibold: 600;
+  $font-weight-bold: 700;
+
+  $line-height-tight: 1.2;
+  $line-height-normal: 1.5;
+  $line-height-relaxed: 1.7;
+
+  $letter-spacing-tight: -0.01em;
+  $letter-spacing-normal: 0;
+  $letter-spacing-wide: 0.02em;
+
+  // ============================================
+  // 间距 - 现代8点栅格
+  // ============================================
+
+  $spacing-xs: 4px;
+  $spacing-sm: 8px;
+  $spacing-md: 16px;
+  $spacing-lg: 24px;
+  $spacing-xl: 32px;
+  $spacing-2xl: 48px;
+  $spacing-3xl: 64px;
+
+  // ============================================
+  // 圆角 - 现代美学
+  // ============================================
+
+  $radius-xs: 4px;
+  $radius-sm: 6px;
+  $radius-md: 8px;
+  $radius-lg: 10px;
+  $radius-xl: 12px;
+  $radius-2xl: 16px;
+  $radius-3xl: 24px;
+  $radius-full: 9999px;
+
+  // ============================================
+  // 动画 - 流畅自然
+  // ============================================
+
+  $transition-fast: 150ms;
+  $transition-normal: 200ms;
+  $transition-slow: 300ms;
+
+  $easing-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  $easing-decelerate: cubic-bezier(0, 0, 0.2, 1);
+  $easing-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+  // ============================================
+  // 布局 - 企业级架构
+  // ============================================
+
+  $sidebar-width: 240px;
+  $sidebar-collapsed-width: 64px;
+  $header-height: 56px;
+  $content-max-width: 1280px;
+
+  // ============================================
+  // CSS 变量暴露
+  // ============================================
+
+  :root {
+    // 主色系
+    --color-primary: #{$color-primary};
+    --color-primary-hover: #{$color-primary-hover};
+    --color-primary-light: #{$color-primary-light};
+    --color-primary-bg: #{$color-primary-bg};
+    --color-primary-bg-hover: #{$color-primary-bg-hover};
+
+    // 功能色系
+    --color-success: #{$color-success};
+    --color-success-bg: #{$color-success-bg};
+    --color-warning: #{$color-warning};
+    --color-warning-bg: #{$color-warning-bg};
+    --color-error: #{$color-error};
+    --color-error-bg: #{$color-error-bg};
+    --color-info: #{$color-info};
+    --color-info-bg: #{$color-info-bg};
+
+    // 背景色系
+    --color-bg-primary: #{$light-bg-primary};
+    --color-bg-secondary: #{$light-bg-secondary};
+    --color-bg-tertiary: #{$light-bg-tertiary};
+    --color-bg-elevated: #{$light-bg-elevated};
+    --bg-primary: var(--color-bg-primary);
+    --bg-secondary: var(--color-bg-secondary);
+    --bg-tertiary: var(--color-bg-tertiary);
+    --bg-elevated: var(--color-bg-elevated);
+
+    // 侧边栏
+    --color-bg-sidebar: #{$light-bg-sidebar};
+    --color-bg-sidebar-sub: #{$light-bg-sidebar-sub};
+    --bg-sidebar: var(--color-bg-sidebar);
+    --bg-sidebar-sub: var(--color-bg-sidebar-sub);
+
+    // 文字色系
+    --color-text-primary: #{$light-text-primary};
+    --color-text-secondary: #{$light-text-secondary};
+    --color-text-muted: #{$light-text-muted};
+    --color-text-placeholder: #{$light-text-placeholder};
+    --color-text-inverse: #{$light-text-inverse};
+    --color-text-sidebar: #{$light-text-sidebar};
+    --color-text-sidebar-secondary: #{$light-text-sidebar-secondary};
+    --text-primary: var(--color-text-primary);
+    --text-secondary: var(--color-text-secondary);
+    --text-muted: var(--color-text-muted);
+    --text-placeholder: var(--color-text-placeholder);
+    --text-inverse: var(--color-text-inverse);
+    --text-sidebar: var(--color-text-sidebar);
+    --text-sidebar-secondary: var(--color-text-sidebar-secondary);
+
+    // 边框色系
+    --color-border-default: #{$light-border-default};
+    --color-border-hover: #{$light-border-hover};
+    --color-border-focus: #{$light-border-focus};
+    --border-default: var(--color-border-default);
+    --border-hover: var(--color-border-hover);
+    --border-focus: var(--color-border-focus);
+
+    // 阴影
+    --shadow-sm: #{$light-shadow-sm};
+    --shadow-md: #{$light-shadow-md};
+    --shadow-lg: #{$light-shadow-lg};
+    --shadow-xl: #{$light-shadow-xl};
+
+    // 字体
+    --font-family-base: #{$font-family-base};
+    --font-family-heading: #{$font-family-heading};
+    --font-family-body: #{$font-family-body};
+    --font-family-mono: #{$font-family-mono};
+
+    // 间距
+    --spacing-xs: #{$spacing-xs};
+    --spacing-sm: #{$spacing-sm};
+    --spacing-md: #{$spacing-md};
+    --spacing-lg: #{$spacing-lg};
+    --spacing-xl: #{$spacing-xl};
+    --spacing-2xl: #{$spacing-2xl};
+    --spacing-3xl: #{$spacing-3xl};
+
+    // 圆角
+    --radius-xs: #{$radius-xs};
+    --radius-sm: #{$radius-sm};
+    --radius-md: #{$radius-md};
+    --radius-lg: #{$radius-lg};
+    --radius-xl: #{$radius-xl};
+    --radius-2xl: #{$radius-2xl};
+    --radius-3xl: #{$radius-3xl};
+    --radius-full: #{$radius-full};
+
+    // 动画
+    --transition-fast: #{$transition-fast};
+    --transition-normal: #{$transition-normal};
+    --transition-slow: #{$transition-slow};
+    --easing-standard: #{$easing-standard};
+
+    // 布局
+    --sidebar-width: #{$sidebar-width};
+    --sidebar-collapsed-width: #{$sidebar-collapsed-width};
+    --header-height: #{$header-height};
+    --content-max-width: #{$content-max-width};
+  }
+
+  // ============================================
+  // 暗色主题变量覆盖
+  // ============================================
+
+  html.dark {
+    --color-bg-primary: #{$dark-bg-primary};
+    --color-bg-secondary: #{$dark-bg-secondary};
+    --color-bg-tertiary: #{$dark-bg-tertiary};
+    --color-bg-elevated: #{$dark-bg-elevated};
+
+    --color-bg-sidebar: #{$dark-bg-sidebar};
+    --color-bg-sidebar-sub: #{$dark-bg-sidebar-sub};
+
+    --color-text-primary: #{$dark-text-primary};
+    --color-text-secondary: #{$dark-text-secondary};
+    --color-text-muted: #{$dark-text-muted};
+    --color-text-placeholder: #{$dark-text-placeholder};
+    --color-text-inverse: #{$dark-text-inverse};
+    --color-text-sidebar: #{$dark-text-sidebar};
+    --color-text-sidebar-secondary: #{$dark-text-sidebar-secondary};
+
+    --color-border-default: #{$dark-border-default};
+    --color-border-hover: #{$dark-border-hover};
+    --color-border-focus: #{$dark-border-focus};
+
+    --shadow-sm: #{$dark-shadow-sm};
+    --shadow-md: #{$dark-shadow-md};
+    --shadow-lg: #{$dark-shadow-lg};
+    --shadow-xl: #{$dark-shadow-xl};
+
+    --color-primary: #4096FF;
+    --color-primary-hover: #1677FF;
+    --color-primary-light: #69B1FF;
+    --color-primary-bg: rgba(64, 150, 255, 0.14);
+    --color-primary-bg-hover: rgba(64, 150, 255, 0.20);
+  }
+
+  // ============================================
+  // 响应式断点
+  // ============================================
+
+  $breakpoint-xs: 480px;
+  $breakpoint-sm: 640px;
+  $breakpoint-md: 768px;
+  $breakpoint-lg: 1024px;
+  $breakpoint-xl: 1280px;
+  $breakpoint-2xl: 1536px;
+
+  @mixin mobile { @media (max-width: #{$breakpoint-md - 1px}) { @content; } }
+  @mixin tablet { @media (min-width: #{$breakpoint-md}) and (max-width: #{$breakpoint-lg - 1px}) { @content; } }
+  @mixin desktop { @media (min-width: #{$breakpoint-lg}) { @content; } }
+

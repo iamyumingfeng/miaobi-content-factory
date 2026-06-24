@@ -1,0 +1,300 @@
+// 内容生成页面样式
+@import '../../assets/styles/variables.scss';
+@import '../../assets/styles/mixins.scss';
+
+// 页面标题（统一）
+.page-title {
+  @include page-title;
+}
+
+// 主卡片容器
+.card {
+  @include glass-card;
+  padding: $spacing-xl;
+  border-radius: $radius-2xl;
+}
+
+// 工具栏 - 现代简洁设计（与 page-template.scss 统一）
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  padding: $spacing-sm 0;
+  margin-bottom: $spacing-md;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+// 任务卡片
+.task-card {
+  @include glass-card($hoverable: true);
+  padding: $spacing-md $spacing-lg;
+  border-radius: $radius-lg;
+  transition: all $transition-normal $easing-standard;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-primary);
+  }
+}
+
+.task-header {
+  @include flex-between;
+  margin-bottom: $spacing-sm;
+  padding-bottom: $spacing-xs;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.task-title {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+.task-id {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-primary);
+}
+
+.task-name {
+  font-size: $font-size-md;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+}
+
+.task-time {
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+}
+
+// 进度统计 - 紧凑行内布局
+.progress-stats {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  flex-wrap: wrap;
+  margin-top: $spacing-sm;
+}
+
+.task-progress {
+  margin-top: $spacing-xs;
+}
+
+:deep(.el-progress) {
+  margin-top: $spacing-xs;
+  .el-progress-bar__outer {
+    height: 6px !important;
+  }
+}
+
+.stat-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: transparent;
+  border-radius: $radius-sm;
+  border: none;
+  font-size: $font-size-xs;
+  transition: none;
+
+  &:hover {
+    background: transparent;
+    border-color: transparent;
+  }
+}
+
+.stat-label {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+  font-weight: $font-weight-medium;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.stat-value {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+
+  &.pending {
+    color: var(--color-warning);
+  }
+
+  &.processing {
+    color: var(--color-primary);
+  }
+
+  &.failed {
+    color: var(--color-error);
+  }
+
+  &.pending-publish {
+    color: var(--color-warning);
+  }
+
+  &.published {
+    color: var(--color-success);
+  }
+}
+
+// 分页 - 紧凑设计
+.pagination {
+  padding: $spacing-sm 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--color-border-default);
+  margin-top: $spacing-sm;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+.total-text {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+// 操作按钮样式（优化配色）
+.el-button.is-link {
+  &.el-button--primary {
+    @include button-link-primary;
+  }
+
+  &.el-button--success {
+    @include button-link-success;
+  }
+
+  &.el-button--warning {
+    @include button-link-warning;
+  }
+
+  &.el-button--danger {
+    @include button-link-danger;
+  }
+}
+
+// Element Plus 组件覆盖
+.el-button--primary {
+  @include button-primary;
+}
+
+.el-button--success {
+  @include button-success;
+}
+
+.el-button--warning {
+  @include button-warning;
+}
+
+.el-button--danger {
+  @include button-danger;
+}
+
+.el-button--default {
+  @include button-secondary;
+}
+
+.el-tag {
+  border-radius: $radius-md;
+  font-weight: $font-weight-medium;
+  border: none;
+
+  &.el-tag--success {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+
+  &.el-tag--warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+  }
+
+  &.el-tag--danger {
+    background: var(--color-error-bg);
+    color: var(--color-error);
+  }
+
+  &.el-tag--info {
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+  }
+}
+
+// 任务底部信息
+.task-footer {
+  margin-top: $spacing-sm;
+  padding-top: $spacing-sm;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.task-meta {
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+
+  .meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+.task-actions {
+  display: flex;
+  align-items: center;
+  gap: $spacing-xs;
+}
+
+// 响应式设计
+@include mobile {
+  .page-title {
+    font-size: $font-size-xl;
+  }
+
+  .card {
+    padding: $spacing-md;
+    border-radius: $radius-xl;
+  }
+
+  .toolbar {
+    padding: 0;
+    flex-direction: column;
+    gap: $spacing-xs;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .progress-stats {
+    gap: $spacing-sm;
+  }
+
+  .stat-item {
+    padding: 2px 6px;
+  }
+
+  .stat-value {
+    font-size: $font-size-xs;
+  }
+}

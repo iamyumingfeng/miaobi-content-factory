@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+dist-ssr/
+*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+playwright-report/
+test-results/
+artifacts/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Documentation
+*.md
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+.DS_Store
+
+# Cache
+.cache/
+.temp/

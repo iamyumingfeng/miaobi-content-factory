@@ -1,0 +1,249 @@
+
+  // 仪表盘页面样式
+  @import '../../assets/styles/variables.scss';
+  @import '../../assets/styles/mixins.scss';
+
+  // 页面标题（统一）
+  .page-title {
+    @include page-title;
+  }
+
+  // 统计卡片 - 现代设计
+  .stat-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: $spacing-md;
+    margin-bottom: $spacing-lg;
+  }
+
+  .stat-card {
+    @include card-base;
+    @include card-hover;
+    padding: $spacing-lg;
+    display: flex;
+    align-items: center;
+    gap: $spacing-md;
+    border-radius: var(--radius-xl);
+  }
+
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+
+    &.stat-icon-primary {
+      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(22, 119, 255, 0.20);
+    }
+
+    &.stat-icon-success {
+      background: linear-gradient(135deg, var(--color-success) 0%, #23C343 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0, 180, 42, 0.20);
+    }
+
+    &.stat-icon-warning {
+      background: linear-gradient(135deg, var(--color-warning) 0%, #FF9A2E 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(255, 125, 0, 0.20);
+    }
+
+    &.stat-icon-info {
+      background: linear-gradient(135deg, var(--color-info) 0%, #9DA4AE 100%);
+      color: #fff;
+    }
+
+    &.stat-icon-danger {
+      background: linear-gradient(135deg, var(--color-error) 0%, #FF6B6B 100%);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(245, 63, 63, 0.20);
+    }
+  }
+
+  .stat-content {
+    flex: 1;
+  }
+
+  .stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: 2px;
+    font-weight: $font-weight-medium;
+  }
+
+  .stat-value {
+    font-family: var(--font-family-heading);
+    font-size: var(--font-size-2xl);
+    font-weight: $font-weight-bold;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+  }
+
+
+
+// 队列状态卡片
+.queue-status-card {
+  @include glass-card;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+}
+
+.queue-header {
+  @include flex-between;
+  margin-bottom: $spacing-lg;
+  padding-bottom: $spacing-md;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.queue-title {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+}
+
+.queue-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: $spacing-md;
+}
+
+.queue-stat {
+  padding: $spacing-md;
+  background: var(--color-bg-tertiary);
+  border-radius: $radius-md;
+  border: 1px solid var(--color-border-default);
+  text-align: center;
+}
+
+.queue-stat-label {
+  font-size: $font-size-xs;
+  color: var(--color-text-secondary);
+  margin-bottom: $spacing-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: $font-weight-medium;
+}
+
+.queue-stat-value {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-xl;
+  font-weight: $font-weight-bold;
+  color: var(--color-text-primary);
+}
+
+// 最近任务表格
+.recent-tasks-card {
+  @include glass-card;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+}
+
+.card-header {
+  @include flex-between;
+  margin-bottom: $spacing-lg;
+  padding-bottom: $spacing-md;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.card-title {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+}
+
+// 失败告警卡片
+.alerts-card {
+  @include glass-card;
+  padding: $spacing-lg;
+  border-left: 4px solid var(--color-error);
+}
+
+.alert-item {
+  padding: $spacing-md;
+  background: var(--color-error-bg);
+  border-radius: $radius-md;
+  margin-bottom: $spacing-sm;
+  border: 1px solid var(--color-error-bg);
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.alert-title {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-semibold;
+  color: var(--color-error);
+  margin-bottom: $spacing-xs;
+}
+
+.alert-message {
+  font-size: $font-size-sm;
+  color: var(--color-text-secondary);
+}
+
+// Element Plus 组件覆盖
+.el-button--primary {
+  @include button-primary;
+}
+
+.el-button--success {
+  @include button-success;
+}
+
+.el-button--warning {
+  @include button-warning;
+}
+
+.el-button--danger {
+  @include button-danger;
+}
+
+.el-tag {
+  border-radius: $radius-md;
+  font-weight: $font-weight-medium;
+  border: none;
+
+  &.el-tag--success {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+
+  &.el-tag--warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+  }
+
+  &.el-tag--danger {
+    background: var(--color-error-bg);
+    color: var(--color-error);
+  }
+
+  &.el-tag--info {
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+  }
+}
+
+// 响应式设计
+@include mobile {
+  .page-title {
+    font-size: $font-size-xl;
+  }
+
+  .stat-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .queue-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

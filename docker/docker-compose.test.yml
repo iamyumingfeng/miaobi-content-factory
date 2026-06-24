@@ -1,0 +1,159 @@
+# ========================================
+# 妙笔内容工场 - 测试环境Docker Compose配置
+# 专门用于E2E测试和集成测试
+# ========================================
+
+version: '3.8'
+
+services:
+  # ========================================
+  # 测试数据库 - MySQL 8.0 (使用tmpfs加速)
+  # ========================================
+  mysql-test:
+    image: mysql:8.0
+    container_name: aigc-platform-mysql-test
+    restart: no
+    environment:
+      MYSQL_ROOT_PASSWORD: test_root_password
+      MYSQL_DATABASE: aigc_platform_test
+      MYSQL_USER: test_user
+      MYSQL_PASSWORD: test_password
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --innodb_buffer_pool_size=256M
+      - --max_connections=100
+      - --skip-log-bin
+    tmpfs:
+      - /var/lib/mysql
+    networks:
+      - aigc-platform-test-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ptest_root_password"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # ========================================
+  # 测试缓存 - Redis
+  # ========================================
+  redis-test:
+    image: redis:7-alpine
+    container_name: aigc-platform-redis-test
+    restart: no
+    command:
+      - redis-server
+      - --appendonly no
+      - --save ""
+    tmpfs:
+      - /data
+    networks:
+      - aigc-platform-test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ========================================
+  # 测试后端API
+  # ========================================
+  api-test:
+    build:
+      context: ../../platform_api
+      dockerfile: Dockerfile
+      target: development
+    container_name: aigc-platform-api-test
+    restart: no
+    depends_on:
+      mysql-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    environment:
+      - APP_NAME=妙笔内容工场-测试
+      - APP_VERSION=1.0.0
+      - DEBUG=true
+      - TESTING=true
+      - API_PREFIX=/api/v1
+      - DATABASE_URL=mysql+aiomysql://test_user:test_password@mysql-test:3306/aigc_platform_test
+      - REDIS_URL=redis://redis-test:6379/0
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:8080","http://web-test:80"]
+      - SECRET_KEY=test-secret-key-for-e2e-testing-only
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=1
+      - TZ=Asia/Shanghai
+    ports:
+      - "8001:8000"
+    volumes:
+      - ../../platform_api:/app
+    networks:
+      - aigc-platform-test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ========================================
+  # 测试前端Web
+  # ========================================
+  web-test:
+    build:
+      context: ../../platform_web
+      dockerfile: Dockerfile
+      target: development
+    container_name: aigc-platform-web-test
+    restart: no
+    depends_on:
+      - api-test
+    environment:
+      - VITE_API_BASE_URL=http://api-test:8000/api/v1
+    ports:
+      - "3001:3000"
+    volumes:
+      - ../../platform_web:/app
+      - /app/node_modules
+    networks:
+      - aigc-platform-test-network
+
+  # ========================================
+  # Playwright E2E测试容器
+  # ========================================
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.40.0-jammy
+    container_name: aigc-platform-playwright
+    restart: no
+    depends_on:
+      web-test:
+        condition: service_started
+      api-test:
+        condition: service_healthy
+    working_dir: /workspace
+    environment:
+      - PLAYWRIGHT_BASE_URL=http://web-test:80
+      - PLAYWRIGHT_API_URL=http://api-test:8000
+      - CI=true
+    volumes:
+      - ../../platform_web:/workspace
+      - ../../platform_web/test-results:/workspace/test-results
+      - ../../platform_web/playwright-report:/workspace/playwright-report
+    networks:
+      - aigc-platform-test-network
+    ipc: host
+    entrypoint: ["npx", "playwright", "test"]
+    command: ["--browser=chromium"]
+
+# ========================================
+# 网络定义
+# ========================================
+networks:
+  aigc-platform-test-network:
+    driver: bridge
+    name: aigc-platform-test-network
