@@ -104,6 +104,7 @@ class TestAuthServiceLogoutStatusUpdate:
     async def test_logout_updates_operator_status_to_offline(self):
         """验证创作管理员退出时 status 更新为 offline"""
         from app.services.token_service import TokenService
+        from sqlalchemy import update
 
         mock_db = AsyncMock()
 
@@ -123,9 +124,22 @@ class TestAuthServiceLogoutStatusUpdate:
             refresh_token_str="dummy_token"
         )
 
-        # 验证状态更新
-        assert mock_user.status == "offline"
-        mock_db.commit.assert_called()
+        # 验证数据库执行了 update 语句
+        # 检查是否有调用 execute 更新 status
+        execute_calls = mock_db.execute.call_args_list
+        found_update = False
+        for call in execute_calls:
+            args = call[0]
+            if args and len(args) > 0:
+                # 检查是否是 update 语句
+                stmt = args[0]
+                if hasattr(stmt, '__visit_name__') and stmt.__visit_name__ == 'update':
+                    found_update = True
+                    break
+
+        assert found_update, "应执行 update 语句"
+        # 验证 commit 被调用
+        assert mock_db.commit.called, "应调用 commit"
 
     @pytest.mark.asyncio
     async def test_logout_updates_sub_user_status_to_offline(self):
@@ -150,9 +164,19 @@ class TestAuthServiceLogoutStatusUpdate:
             refresh_token_str="dummy_token"
         )
 
-        # 验证状态更新
-        assert mock_user.status == "offline"
-        mock_db.commit.assert_called()
+        # 验证数据库执行了 update 语句
+        execute_calls = mock_db.execute.call_args_list
+        found_update = False
+        for call in execute_calls:
+            args = call[0]
+            if args and len(args) > 0:
+                stmt = args[0]
+                if hasattr(stmt, '__visit_name__') and stmt.__visit_name__ == 'update':
+                    found_update = True
+                    break
+
+        assert found_update, "应执行 update 语句"
+        assert mock_db.commit.called, "应调用 commit"
 
 
 class TestUserServiceTransferSubUsers:

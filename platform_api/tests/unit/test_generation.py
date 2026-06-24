@@ -436,7 +436,6 @@ class TestGenerationService:
         assert result[0].task_id == 1
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
 class TestGenerationTaskModel:
     """GenerationTask 模型测试"""
@@ -473,7 +472,6 @@ class TestGenerationTaskModel:
         assert "id=1" in repr(task)
 
 
-@pytest.mark.asyncio
 @pytest.mark.unit
 class TestGenerationItemModel:
     """GenerationItem 模型测试"""

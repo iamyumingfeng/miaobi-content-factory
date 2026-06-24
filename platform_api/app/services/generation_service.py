@@ -23,8 +23,7 @@ from app.core.exceptions import (GenerationItemNotFoundError,
 from app.models import (GenerationItem, GenerationItemExecutionLog,
                         GenerationTask, GenerationTaskProgressLog,
                         GenerationTaskSubuser, GenerationTaskTemplate,
-                        Material, SubUser,
-                        Template)
+                        Material, SubUser, Template)
 from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
@@ -541,7 +540,7 @@ class GenerationService:
         """
         获取生成任务详情
         """
-        from app.models import (GenerationTaskTemplate)
+        from app.models import GenerationTaskTemplate
 
         query = (
             select(GenerationTask)

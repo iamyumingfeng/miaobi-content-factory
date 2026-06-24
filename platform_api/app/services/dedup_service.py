@@ -986,7 +986,6 @@ class DedupService:
         """
         from datetime import datetime, timezone
 
-
         from app.core.database import async_session_maker
 
         if not embeddings_data:

@@ -16,7 +16,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import List
 
-
 from app.core.database import async_session_maker
 from app.models import ContentEmbedding
 

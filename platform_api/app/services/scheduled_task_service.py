@@ -356,7 +356,7 @@ class ScheduledTaskService:
             select(ScheduledTask)
             .where(
                 and_(
-                    ScheduledTask.is_active == True,
+                    ScheduledTask.is_active.is_(True),
                     ScheduledTask.status == "active",
                     ScheduledTask.next_execution_at <= now,
                 )
