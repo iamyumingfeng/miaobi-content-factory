@@ -1,0 +1,88 @@
+name: Security Check
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: [ master, develop ]
+  schedule:
+    # 每周一早上 6 点运行
+    - cron: '0 6 * * 1'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety bandit pip-audit
+    
+    - name: Run Safety (check dependencies for vulnerabilities)
+      working-directory: ./platform_api
+      run: safety check -r requirements.txt || true
+    
+    - name: Run pip-audit
+      working-directory: ./platform_api
+      run: pip-audit -r requirements.txt || true
+    
+    - name: Run Bandit (static security analysis)
+      working-directory: ./platform_api
+      run: bandit -r app/ -f json -o bandit-report.json || true
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: |
+          ./platform_api/bandit-report.json
+
+  license-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install pip-licenses
+      run: pip install pip-licenses
+    
+    - name: Check licenses
+      working-directory: ./platform_api
+      run: |
+        pip install -r requirements.txt
+        pip-licenses --from meta --format json --output-file licenses.json
+        pip-licenses --from meta --format plain | grep -iE "GPL|AGPL" | grep -v "LGPL" && echo "❌ 发现GPL/AGPL依赖" && exit 1 || echo "✅ 许可证检查通过"
+    
+    - name: Upload license report
+      uses: actions/upload-artifact@v4
+      with:
+        name: license-report
+        path: ./platform_api/licenses.json
+
+  codeql-analysis:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v3
+      with:
+        languages: python, javascript
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3

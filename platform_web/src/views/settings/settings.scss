@@ -1,0 +1,422 @@
+// ============================================
+// 系统设置页面样式 - 高级感设计
+// ============================================
+// 设计原则：
+// 1. 左侧导航卡片精致化（微边框 + 轻阴影 + 圆角菜单项）
+// 2. 右侧内容区纯白浮起，内部用分组卡片形成层次
+// 3. 表单区域视觉分组清晰，标签精致
+// 4. 整体配色克制，通过阴影和间距营造层次
+// ============================================
+
+@import '../../assets/styles/variables.scss';
+@import '../../assets/styles/mixins.scss';
+
+// ============================================
+// 页面标题（统一）
+// ============================================
+
+.page-title {
+  @include page-title;
+}
+
+// ============================================
+// 主卡片容器 - 精致浮起效果
+// ============================================
+
+.card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-default);
+  border-radius: $radius-xl;
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.04),
+    0 4px 12px rgba(15, 23, 42, 0.03);
+  padding: $spacing-lg;
+  height: fit-content;
+}
+
+// ============================================
+// 左侧设置导航菜单 - 高级设计
+// ============================================
+
+.settings-menu {
+  background: transparent !important;
+  border: none !important;
+  border-radius: $radius-lg;
+  padding: $spacing-xs;
+
+  // 菜单项 - 精致圆角卡片风格
+  .el-menu-item {
+    font-family: var(--font-family-body);
+    font-size: $font-size-sm;
+    font-weight: $font-weight-medium;
+    color: var(--color-text-secondary);
+    border-radius: $radius-md !important;
+    margin-bottom: 4px;
+    height: 44px;
+    line-height: 44px;
+    transition: all $transition-normal $easing-standard;
+    position: relative;
+
+    &:hover {
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.06), rgba(59, 130, 246, 0.04)) !important;
+      color: var(--color-primary) !important;
+      transform: translateX(2px);
+    }
+
+    // 激活状态 - 苹果风格柔和紫
+    &.is-active {
+      background: var(--color-primary) !important;
+      color: #FFFFFF !important;
+      font-weight: $font-weight-semibold;
+      box-shadow: 0 2px 8px rgba(139, 124, 246, 0.35);
+
+      .el-icon {
+        color: rgba(255, 255, 255, 0.9) !important;
+      }
+    }
+
+    .el-icon {
+      color: var(--color-text-muted);
+      font-size: 16px;
+      margin-right: 8px;
+      transition: color $transition-normal $easing-standard;
+    }
+
+    &:hover .el-icon {
+      color: var(--color-primary) !important;
+    }
+  }
+}
+
+// ============================================
+// 右侧设置面板 - 分组卡片层次设计
+// ============================================
+
+.settings-panel {
+  // 去掉灰色背景，改为纯白，内容区自身分组
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  padding: $spacing-lg 0;
+}
+
+// ============================================
+// 面板内部分区标题
+// ============================================
+
+.section-title {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-lg;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+  margin-bottom: $spacing-lg;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  // 标题前装饰线
+  &::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(180deg, var(--color-primary), var(--color-primary-light));
+    border-radius: 2px;
+  }
+}
+
+// ============================================
+// 表单区域分组容器
+// ============================================
+
+.form-section {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-default);
+  border-radius: $radius-xl;
+  padding: $spacing-lg;
+  margin-bottom: $spacing-lg;
+  transition: all $transition-normal $easing-standard;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  &:hover {
+    border-color: var(--color-border-hover);
+    box-shadow: 0 1px 6px rgba(15, 23, 42, 0.05);
+  }
+}
+
+// ============================================
+// el-divider 优化
+// ============================================
+
+.el-divider {
+  --el-border-color: var(--color-border-default);
+  --el-text-color-primary: var(--color-text-muted);
+  --el-font-weight-semibold: $font-weight-medium;
+  margin: $spacing-md 0 $spacing-lg 0;
+  font-size: $font-size-sm;
+
+  .el-divider__text {
+    background-color: var(--color-bg-tertiary);
+    padding: 0 16px;
+    font-weight: $font-weight-medium;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.02em;
+  }
+}
+
+// ============================================
+// 设置操作按钮区域
+// ============================================
+
+.settings-actions {
+  margin-top: $spacing-lg;
+  padding-top: $spacing-lg;
+  display: flex;
+  gap: $spacing-sm;
+
+  // 用更柔和的分隔方式替代硬线条
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--color-border-default) 20%,
+    var(--color-border-default) 80%,
+    transparent
+  );
+  background-size: 100% 1px;
+  background-position: top;
+  background-repeat: no-repeat;
+  border-top: none;
+}
+
+// ============================================
+// 表单优化
+// ============================================
+
+.el-form {
+  --el-form-label-font-size: #{$font-size-sm};
+  --el-form-label-color: #{var(--color-text-secondary)};
+  --el-form-item-margin-bottom: #{$spacing-md};
+
+  :deep(.el-form-item__label) {
+    font-family: var(--font-family-body);
+    font-weight: $font-weight-medium;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.01em;
+  }
+
+  :deep(.el-input__wrapper),
+  :deep(.el-select__wrapper) {
+    border-radius: $radius-md;
+    transition: all $transition-normal $easing-standard;
+    box-shadow: 0 0 0 1px var(--color-border-default) inset;
+
+    &:hover {
+      box-shadow: 0 0 0 1px var(--color-border-hover) inset;
+    }
+  }
+}
+
+// ============================================
+// 操作按钮样式（优化配色）
+// ============================================
+
+.el-button.is-link {
+  &.el-button--primary { @include button-link-primary; }
+  &.el-button--success { @include button-link-success; }
+  &.el-button--warning { @include button-link-warning; }
+  &.el-button--danger { @include button-link-danger; }
+}
+
+// ============================================
+// Element Plus 组件覆盖 - 高级感
+// ============================================
+
+.el-button--primary {
+  @include button-primary;
+}
+.el-button--success { @include button-success; }
+.el-button--warning { @include button-warning; }
+.el-button--danger { @include button-danger; }
+.el-button--default { @include button-secondary; }
+
+// Tag 组件 - 更精致的圆角和配色
+.el-tag {
+  border-radius: $radius-md;
+  font-weight: $font-weight-medium;
+  border: none;
+  font-size: 12px;
+  padding: 0 8px;
+  height: 24px;
+  line-height: 24px;
+
+  &.el-tag--success {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+  &.el-tag--warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+  }
+  &.el-tag--danger {
+    background: var(--color-error-bg);
+    color: var(--color-error);
+  }
+  &.el-tag--info {
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+  }
+}
+
+// ============================================
+// Tabs 样式优化
+// ============================================
+
+.platform-tabs {
+  margin-top: $spacing-lg;
+
+  :deep(.el-tabs__header) {
+    margin-bottom: $spacing-md;
+  }
+
+  :deep(.el-tabs__nav-wrap::after) {
+    background-color: var(--color-border-default);
+  }
+
+  :deep(.el-tabs__item) {
+    font-family: var(--font-family-body);
+    font-weight: $font-weight-medium;
+    font-size: $font-size-sm;
+    color: var(--color-text-secondary);
+    transition: all $transition-normal $easing-standard;
+
+    &:hover {
+      color: var(--color-primary);
+    }
+
+    &.is-active {
+      color: var(--color-primary);
+      font-weight: $font-weight-semibold;
+    }
+  }
+
+  :deep(.el-tabs__active-bar) {
+    background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light));
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  :deep(.el-tabs__content) {
+    padding-top: 16px;
+  }
+}
+
+// ============================================
+// Collapse 折叠面板优化
+// ============================================
+
+.model-collapse {
+  :deep(.el-collapse-item__header) {
+    font-family: var(--font-family-body);
+    font-weight: $font-weight-medium;
+    color: var(--color-text-primary);
+    background: var(--color-bg-tertiary);
+    border-radius: $radius-md;
+    margin-bottom: $spacing-xs;
+    padding-right: 0;
+  }
+
+  :deep(.el-collapse-item__wrap) {
+    border-bottom: none;
+  }
+
+  :deep(.el-collapse-item__content) {
+    padding: $spacing-md 0;
+  }
+}
+
+.collapse-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 20px;
+}
+
+.collapse-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-count {
+  color: var(--color-text-muted);
+  font-size: $font-size-xs;
+}
+
+.platform-content {
+  min-height: 300px;
+}
+
+.model-list {
+  :deep(.el-table) {
+    font-size: 13px;
+    border-radius: $radius-lg;
+    overflow: hidden;
+  }
+
+  // 操作列强制不换行，确保编辑/禁用/删除按钮在同行显示
+  :deep(.el-table__body-wrapper .el-table__row td:last-child .cell) {
+    white-space: nowrap;
+  }
+}
+
+// ============================================
+// 提示文字
+// ============================================
+
+.form-tip {
+  font-size: $font-size-xs;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  margin-top: 6px;
+  padding-left: 2px;
+}
+
+// ============================================
+// Alert 提示框优化
+// ============================================
+
+.el-alert {
+  border-radius: $radius-md !important;
+  border: 1px solid var(--color-border-default) !important;
+}
+
+// ============================================
+// 响应式设计
+// ============================================
+
+@include mobile {
+  .page-title {
+    font-size: $font-size-xl;
+  }
+
+  .settings-panel {
+    padding: $spacing-md 0;
+  }
+
+  .section-title {
+    font-size: $font-size-md;
+  }
+
+  .card {
+    margin-bottom: $spacing-md;
+  }
+
+  .form-section {
+    padding: $spacing-md;
+  }
+}

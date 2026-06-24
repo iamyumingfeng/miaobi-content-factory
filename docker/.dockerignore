@@ -1,0 +1,44 @@
+# Git
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+.DS_Store
+Thumbs.db
+
+# Node modules (we'll build inside container)
+**/node_modules/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+
+# Build outputs
+**/dist/
+
+# Data directories
+data/
+tmp/
+temp/

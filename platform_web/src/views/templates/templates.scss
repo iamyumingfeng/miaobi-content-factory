@@ -1,0 +1,283 @@
+// 模板库页面样式
+@import '../../assets/styles/variables.scss';
+@import '../../assets/styles/mixins.scss';
+
+// 页面标题（统一）
+.page-title {
+  @include page-title;
+}
+
+// 主卡片容器
+.card {
+  @include glass-card;
+  padding: $spacing-xl;
+  border-radius: $radius-2xl;
+}
+
+// 工具栏 - 现代简洁设计（与 page-template.scss 统一）
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $spacing-sm;
+  padding: $spacing-sm 0;
+  margin-bottom: $spacing-md;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
+
+// 分类树
+.category-panel {
+  @include glass-card;
+  padding: $spacing-lg;
+  height: calc(100vh - 140px);
+  overflow-y: auto;
+  @include custom-scrollbar;
+}
+
+// ============================================
+// 分类列表样式（与 users.scss 统一）
+// ============================================
+
+.category-list {
+  .category-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    border-radius: $radius-md;
+    cursor: pointer;
+    margin-bottom: 4px;
+    transition: all $transition-fast $easing-standard;
+    font-size: $font-size-sm;
+    color: var(--color-text-secondary);
+
+    &:hover {
+      background-color: var(--color-bg-tertiary);
+      color: var(--color-text-primary);
+    }
+
+    &.active {
+      background-color: var(--color-primary-bg);
+      color: var(--color-primary);
+      font-weight: $font-weight-medium;
+    }
+
+    .category-name {
+      flex: 1;
+      @include text-ellipsis;
+      line-height: 1.4;
+    }
+
+    .category-count {
+      color: var(--color-text-muted);
+      font-size: $font-size-xs;
+      margin-left: 6px;
+      flex-shrink: 0;
+    }
+
+    &.active .category-count {
+      color: var(--color-primary-light);
+      opacity: 0.8;
+    }
+  }
+}
+
+.panel-header {
+  margin-bottom: $spacing-md;
+  padding-bottom: $spacing-sm;
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.panel-title {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+}
+
+// 模板卡片
+.template-card {
+  @include card-base;
+  padding: $spacing-lg;
+  border-radius: $radius-xl;
+  cursor: pointer;
+  transition: all $transition-normal $easing-standard;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-border-hover);
+  }
+}
+
+.template-header {
+  @include flex-between;
+  margin-bottom: $spacing-md;
+}
+
+.template-name {
+  font-family: var(--font-family-heading);
+  font-size: $font-size-md;
+  font-weight: $font-weight-semibold;
+  color: var(--color-text-primary);
+}
+
+.template-status {
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+}
+
+.template-content {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  line-height: $line-height-relaxed;
+  margin-bottom: $spacing-md;
+  @include text-clamp(3);
+}
+
+.template-footer {
+  @include flex-between;
+  padding-top: $spacing-sm;
+  border-top: 1px solid var(--color-border-default);
+}
+
+.template-meta {
+  display: flex;
+  gap: $spacing-sm;
+  font-size: $font-size-xs;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-secondary);
+}
+
+.template-actions {
+  display: flex;
+  gap: $spacing-xs;
+}
+
+// 分页 - 简洁透明
+.pagination {
+  padding: $spacing-sm 0;
+  background: transparent;
+  border-radius: 0;
+  border: none;
+  border-top: 1px solid var(--color-border-default);
+  margin-top: $spacing-sm;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+}
+
+.total-text {
+  font-size: $font-size-sm;
+  font-weight: $font-weight-medium;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+// 操作按钮样式（优化配色）
+.el-button.is-link {
+  &.el-button--primary {
+    @include button-link-primary;
+  }
+
+  &.el-button--success {
+    @include button-link-success;
+  }
+
+  &.el-button--warning {
+    @include button-link-warning;
+  }
+
+  &.el-button--danger {
+    @include button-link-danger;
+  }
+}
+
+// Element Plus 组件覆盖
+.el-button--primary {
+  @include button-primary;
+}
+
+.el-button--success {
+  @include button-success;
+}
+
+.el-button--warning {
+  @include button-warning;
+}
+
+.el-button--danger {
+  @include button-danger;
+}
+
+.el-button--default {
+  @include button-secondary;
+}
+
+.el-tag {
+  border-radius: $radius-md;
+  font-weight: $font-weight-medium;
+  border: none;
+
+  &.el-tag--success {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+  }
+
+  &.el-tag--warning {
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
+  }
+
+  &.el-tag--danger {
+    background: var(--color-error-bg);
+    color: var(--color-error);
+  }
+
+  &.el-tag--info {
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+  }
+}
+
+// 响应式设计
+@include mobile {
+  .page-title {
+    font-size: $font-size-xl;
+  }
+
+  .card {
+    padding: $spacing-md;
+    border-radius: $radius-xl;
+  }
+
+  .toolbar {
+    padding: $spacing-sm;
+    flex-direction: column;
+    gap: $spacing-sm;
+  }
+
+  .toolbar-left,
+  .toolbar-right {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .category-panel {
+    height: auto;
+    max-height: 300px;
+  }
+
+  .template-card {
+    padding: $spacing-md;
+  }
+}

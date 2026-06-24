@@ -1,0 +1,1326 @@
+super_admin:
+  userid: ${INITIAL_SUPER_ADMIN_USERID:-}
+  password: ${INITIAL_SUPER_ADMIN_PASSWORD:-}
+  nickname: ${INITIAL_SUPER_ADMIN_NICKNAME:-}
+  display_name: 系统管理员
+
+# 爆款类型配置（20种）
+viral_types:
+  - value: seeding
+    label: 种草安利型
+    description: 强调产品优点和使用体验，激发购买欲望
+    keywords: [推荐, 安利, 必入, 真香]
+  - value: review
+    label: 测评对比型
+    description: 多产品横向对比，提供选购建议
+    keywords: [测评, 对比, 横评, 选哪个]
+  - value: tutorial
+    label: 教程攻略型
+    description: 详细的使用教程和操作指南
+    keywords: [教程, 攻略, 怎么用, 新手必看]
+  - value: sharing
+    label: 好物分享型
+    description: 真实的使用感受分享，像朋友聊天
+    keywords: [分享, 用后感, 真实体验]
+  - value: pain_point
+    label: 痛点解决方案
+    description: 针对具体问题提供解决方案
+    keywords: [痛点, 解决, 救星, 必备]
+  - value: story
+    label: 故事叙述型
+    description: 通过故事串联产品使用场景
+    keywords: [故事, 经历, 从前, 后来]
+  - value: lifestyle
+    label: 生活场景型
+    description: 展示产品融入日常生活的方式
+    keywords: [日常, 生活, 习惯, 每天用]
+  - value: before_after
+    label: 前后对比型
+    description: 使用前后的效果对比展示
+    keywords: [对比, 使用前, 使用后, 变化]
+  - value: unboxing
+    label: 开箱体验型
+    description: 展示产品开箱和初次使用体验
+    keywords: [开箱, 到了, 第一眼, 拆箱]
+  - value: faq
+    label: 答疑解惑型
+    description: 解答用户常见疑问和顾虑
+    keywords: [疑问, 解答, 常见问题, 一次说清]
+  - value: daily
+    label: 日常记录型
+    description: 记录日常生活中的产品使用
+    keywords: [日常, 记录, vlog, 日常碎片]
+  - value: collection
+    label: 合集盘点型
+    description: 多款产品的合集推荐和盘点
+    keywords: [合集, 盘点, 清单, 一次说全]
+  - value: hidden_gem
+    label: 宝藏发现型
+    description: 分享被低估或小众的好物
+    keywords: [宝藏, 小众, 意外发现, 冷门]
+  - value: guide
+    label: 新手指南型
+    description: 面向新手的入门指南
+    keywords: [新手, 入门, 指南, 必看]
+  - value: transform
+    label: 改造焕新型
+    description: 展示改造前后的变化
+    keywords: [改造, 焕新, 变身, 翻新]
+  - value: hack
+    label: 小妙招型
+    description: 分享实用的使用技巧和妙招
+    keywords: [妙招, 技巧, 小窍门, 隐藏功能]
+  - value: wishlist
+    label: 许愿清单型
+    description: 分享想要购买的产品清单
+    keywords: [许愿, 清单, 想要]
+  - value: comparison
+    label: 横评选购型
+    description: 同类产品对比帮助用户选购
+    keywords: [选购, 横评, 对比, 哪个好]
+  - value: diary
+    label: 日记打卡型
+    description: 记录使用过程的打卡日记
+    keywords: [日记, 打卡, 记录, 坚持]
+  - value: trend
+    label: 热门趋势型
+    description: 分享当下热门流行产品
+    keywords: [热门, 趋势, 流行, 当下较火]
+
+model_configs:
+  - platform: bailian
+    model_id: qwen3.6-plus
+    model_name: qwen3.6-plus
+    model_type: llm
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 10
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: bailian
+    model_id: qwen3-max
+    model_name: qwen3-max
+    model_type: llm
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 10
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: bailian
+    model_id: wan2.7-image-pro
+    model_name: wan2.7-image-pro
+    model_type: image
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 2
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: bailian
+    model_id: wan2.7-image
+    model_name: wan2.7-image
+    model_type: image
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 300
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: bailian
+    model_id: qwen-image-2.0-pro
+    model_name: qwen-image-2.0-pro
+    model_type: image
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 2
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: bailian
+    model_id: qwen-image-2.0
+    model_name: qwen-image-2.0
+    model_type: image
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 120
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: bailian
+    model_id: tongyi-embedding-vision-plus-2026-03-06
+    model_name: tongyi-embedding-vision-plus
+    model_type: embedding
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 10
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: bailian
+    model_id: tongyi-embedding-vision-flash-2026-03-06
+    model_name: tongyi-embedding-vision-flash
+    model_type: embedding
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    max_concurrency: 10
+    is_default: true
+    status: active
+    config_json:
+      api_key: ${BAILIAN_API_KEY:-}
+  - platform: volcano
+    model_id: doubao-seed-2-0-pro-260215
+    model_name: doubao-Seed-2.0-pro
+    model_type: llm
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    max_concurrency: 30000
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${VOLCANO_API_KEY:-}
+  - platform: volcano
+    model_id: doubao-seed-2-0-lite-260215
+    model_name: doubao-Seed-2.0-lite
+    model_type: llm
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    max_concurrency: 30000
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${VOLCANO_API_KEY:-}
+  - platform: volcano
+    model_id: doubao-seed-2-0-mini-260215
+    model_name: doubao-Seed-2.0-mini
+    model_type: llm
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    max_concurrency: 30000
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${VOLCANO_API_KEY:-}
+  - platform: volcano
+    model_id: doubao-seedream-4-5-251128
+    model_name: doubao-seedream-4-5
+    model_type: image
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    max_concurrency: 500
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${VOLCANO_API_KEY:-}
+  - platform: volcano
+    model_id: doubao-seedream-5-0-260128
+    model_name: doubao-seedream-5-0
+    model_type: image
+    base_url: https://ark.cn-beijing.volces.com/api/v3
+    max_concurrency: 500
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${VOLCANO_API_KEY:-}
+  - platform: jimeng
+    model_id: jimeng_seedream46_cvtob
+    model_name: 即梦AI-图片生成4.6
+    model_type: image
+    base_url: https://visual.volcengineapi.com
+    max_concurrency: 2
+    is_default: false
+    status: active
+    config_json:
+      access_key_id: ${JIMENG_ACCESS_KEY:-}
+      access_key_secret: ${JIMENG_SECRET_KEY:-}
+  - platform: kling
+    model_id: kling-image-o1
+    model_name: kling-image-o1
+    model_type: image
+    base_url: https://api.klingai.com
+    max_concurrency: 9
+    is_default: false
+    status: active
+    config_json:
+      access_key_id: ${KLING_ACCESS_KEY:-}
+      access_key_secret: ${KLING_SECRET_KEY:-}
+  - platform: kling
+    model_id: kling-v2
+    model_name: kling-v2
+    model_type: image
+    base_url: https://api.klingai.com
+    max_concurrency: 9
+    is_default: false
+    status: active
+    config_json:
+      access_key_id: ${KLING_ACCESS_KEY:-}
+      access_key_secret: ${KLING_SECRET_KEY:-}
+  - platform: kling
+    model_id: kling-v3-omni
+    model_name: kling-v3-omni
+    model_type: image
+    base_url: https://api.klingai.com
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      access_key_id: ${KLING_ACCESS_KEY:-}
+      access_key_secret: ${KLING_SECRET_KEY:-}
+  - platform: deepseek
+    model_id: deepseek-v4-pro
+    model_name: deepseek-v4-pro
+    model_type: llm
+    base_url: https://api.deepseek.com/v1
+    max_concurrency: 10
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${DEEPSEEK_API_KEY:-}
+  - platform: deepseek
+    model_id: deepseek-v4-flash
+    model_name: deepseek-v4-flash
+    model_type: llm
+    base_url: https://api.deepseek.com/v1
+    max_concurrency: 10
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${DEEPSEEK_API_KEY:-}
+  - platform: moonshot
+    model_id: kimi-k2.6
+    model_name: kimi-k2.6
+    model_type: llm
+    base_url: https://api.moonshot.cn/v1
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${MOONSHOT_API_KEY:-}
+  - platform: zhipu
+    model_id: glm-5.1
+    model_name: glm-5.1
+    model_type: llm
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${ZHIPU_API_KEY:-}
+  - platform: zhipu
+    model_id: glm-4.7
+    model_name: glm-4.7
+    model_type: llm
+    base_url: https://open.bigmodel.cn/api/paas/v4
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${ZHIPU_API_KEY:-}
+  - platform: lingyaai
+    model_id: gemini-3.1-pro-preview
+    model_name: gemini-3.1-pro-preview
+    model_type: llm
+    base_url: https://api.lingyaai.cn/v1
+    max_concurrency: 10
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${LINGYAAI_API_KEY:-}
+  - platform: lingyaai
+    model_id: gpt-5.4
+    model_name: gpt-5.4
+    model_type: llm
+    base_url: https://api.lingyaai.cn/v1
+    max_concurrency: 10
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${LINGYAAI_API_KEY:-}
+  - platform: lingyaai
+    model_id: gpt-4o
+    model_name: gpt-4o
+    model_type: llm
+    base_url: https://api.lingyaai.cn/v1
+    max_concurrency: 10
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${LINGYAAI_API_KEY:-}
+  - platform: lingyaai
+    model_id: gpt-4o-mini
+    model_name: gpt-4o-mini
+    model_type: llm
+    base_url: https://api.lingyaai.cn/v1
+    max_concurrency: 20
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${LINGYAAI_API_KEY:-}
+  - platform: lingyaai
+    model_id: gpt-image-2
+    model_name: gpt-image-2
+    model_type: image
+    base_url: https://api.lingyaai.cn/v1
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${LINGYAAI_API_KEY:-}
+  - platform: lingyaai
+    model_id: nano-banana-pro
+    model_name: nano-banana-pro
+    model_type: image
+    base_url: https://api.lingyaai.cn/v1
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${LINGYAAI_API_KEY:-}
+  # 4sapi 平台配置（兼容 OpenAI 接口）
+  - platform: 4sapi
+    model_id: gpt-5.4
+    model_name: gpt-5.4
+    model_type: llm
+    base_url: https://4sapi.com/v1
+    max_concurrency: 10
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${4SAPI_API_KEY:-}
+  - platform: 4sapi
+    model_id: gpt-4o
+    model_name: gpt-4o
+    model_type: llm
+    base_url: https://4sapi.com/v1
+    max_concurrency: 10
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${4SAPI_API_KEY:-}
+  - platform: 4sapi
+    model_id: gpt-image-2
+    model_name: gpt-image-2
+    model_type: image
+    base_url: https://4sapi.com/v1
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${4SAPI_API_KEY:-}
+  - platform: 4sapi
+    model_id: gemini-3-pro-image-preview
+    model_name: gemini-3-pro-image-preview
+    model_type: image
+    base_url: https://4sapi.com/v1
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${4SAPI_API_KEY:-}
+  - platform: 4sapi
+    model_id: gemini-2.5-flash-image-preview
+    model_name: gemini-2.5-flash-image-preview
+    model_type: image
+    base_url: https://4sapi.com/v1
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${4SAPI_API_KEY:-}
+  - platform: 4sapi
+    model_id: gemini-3.1-flash-image-preview
+    model_name: gemini-3.1-flash-image-preview
+    model_type: image
+    base_url: https://4sapi.com/v1
+    max_concurrency: 5
+    is_default: false
+    status: active
+    config_json:
+      api_key: ${4SAPI_API_KEY:-}
+
+# 默认运营管理员 - 用于初始化业务数据
+# 注意：超级管理员负责系统级配置，运营管理员负责业务数据
+operator_admin:
+  - userid: ${INITIAL_OPERATOR_ADMIN_USERID:-}
+    password: ${INITIAL_OPERATOR_ADMIN_PASSWORD:-}
+    nickname: ${INITIAL_OPERATOR_ADMIN_NICKNAME:-}
+    display_name: 运营管理员
+    # 模板平台三层架构：Platform -> Category -> Tag
+    template_platforms:
+      - name: 小红书
+        description: 小红书种草内容
+        color: '#FE2C55'
+        platform_code: xhs
+        sort_order: 1
+        categories:
+          - name: 美妆护肤
+            description: 美妆护肤相关模板
+            color: '#F56C6C'
+            sort_order: 1
+            tags:
+              - name: 产品推广
+                description: 用于产品推广的内容模板
+                color: '#409EFF'
+                is_system: false
+              - name: 教程分享
+                description: 美妆教程类模板
+                color: '#67C23A'
+                is_system: false
+              - name: 使用心得
+                description: 使用心得类模板
+                color: '#E6A23C'
+                is_system: false
+          - name: 美食探店
+            description: 美食探店相关模板
+            color: '#E6A23C'
+            sort_order: 2
+            tags:
+              - name: 餐厅推荐
+                description: 餐厅推荐类模板
+                color: '#409EFF'
+                is_system: false
+              - name: 食谱分享
+                description: 食谱分享类模板
+                color: '#67C23A'
+                is_system: false
+              - name: 美食测评
+                description: 美食测评类模板
+                color: '#E6A23C'
+                is_system: false
+          - name: 旅行风景
+            description: 旅行风景相关模板
+            color: '#409EFF'
+            sort_order: 3
+            tags:
+              - name: 景点打卡
+                description: 景点打卡类模板
+                color: '#409EFF'
+                is_system: false
+              - name: 旅行攻略
+                description: 旅行攻略类模板
+                color: '#67C23A'
+                is_system: false
+              - name: 风景记录
+                description: 风景记录类模板
+                color: '#E6A23C'
+                is_system: false
+          - name: 日常穿搭
+            description: 日常穿搭相关模板
+            color: '#67C23A'
+            sort_order: 4
+            tags:
+              - name: 穿搭分享
+                description: 穿搭分享类模板
+                color: '#409EFF'
+                is_system: false
+              - name: 好物推荐
+                description: 好物推荐类模板
+                color: '#67C23A'
+                is_system: false
+              - name: 风格展示
+                description: 风格展示类模板
+                color: '#E6A23C'
+                is_system: false
+
+    # 素材平台三层架构：Platform -> Category -> Tag
+    material_platforms:
+      - name: 小红书
+        description: 小红书素材库
+        color: '#409EFF'
+        platform_code: xhs
+        sort_order: 1
+        categories:
+          - name: 美妆护肤
+            description: 美妆护肤相关素材
+            color: '#F56C6C'
+            sort_order: 1
+            tags:
+              - name: 高清
+                description: 高清画质素材
+                color: '#409EFF'
+                is_system: false
+              - name: 热门
+                description: 热门话题素材
+                color: '#F56C6C'
+                is_system: false
+              - name: 原创
+                description: 原创内容素材
+                color: '#67C23A'
+                is_system: false
+          - name: 美食探店
+            description: 美食探店相关素材
+            color: '#E6A23C'
+            sort_order: 2
+            tags:
+              - name: 高清
+                description: 高清画质素材
+                color: '#409EFF'
+                is_system: false
+              - name: 热门
+                description: 热门话题素材
+                color: '#F56C6C'
+                is_system: false
+              - name: 原创
+                description: 原创内容素材
+                color: '#67C23A'
+                is_system: false
+          - name: 旅行风景
+            description: 旅行风景相关素材
+            color: '#409EFF'
+            sort_order: 3
+            tags:
+              - name: 高清
+                description: 高清画质素材
+                color: '#409EFF'
+                is_system: false
+              - name: 热门
+                description: 热门话题素材
+                color: '#F56C6C'
+                is_system: false
+              - name: 原创
+                description: 原创内容素材
+                color: '#67C23A'
+                is_system: false
+          - name: 日常穿搭
+            description: 日常穿搭相关素材
+            color: '#67C23A'
+            sort_order: 4
+            tags:
+              - name: 高清
+                description: 高清画质素材
+                color: '#409EFF'
+                is_system: false
+              - name: 热门
+                description: 热门话题素材
+                color: '#F56C6C'
+                is_system: false
+              - name: 原创
+                description: 原创内容素材
+                color: '#67C23A'
+                is_system: false
+    # 用户标签
+    user_tags:
+      - name: 美妆达人
+        tag_type: subuser_tag
+        description: 美妆类内容创作者
+        color: '#F56C6C'
+      - name: 美食博主
+        tag_type: subuser_tag
+        description: 美食类内容创作者
+        color: '#E6A23C'
+      - name: 旅行博主
+        tag_type: subuser_tag
+        description: 旅行类内容创作者
+        color: '#409EFF'
+    # 创意种子库 - 系统预置种子
+    creative_seeds:
+      # 开头模式种子
+      - name: 反常识开头
+        seed_type: opening
+        template:
+          - "没想到这个xxx居然..."
+          - "谁能想到xxx竟然..."
+          - "完全没想到xxx会这样..."
+          - "这个xxx颠覆了我的认知..."
+        description: 用反直觉的事实或结果作为开头，制造好奇缺口
+        forbidden_patterns:
+          - "震惊！"
+          - "不敢相信！"
+        example_phrases:
+          - "没想到这个几十块的小东西居然这么好用"
+          - "没想到这么简单的方法居然没人说过"
+          - "谁能想到便宜货竟然比大牌还好用"
+          - "完全没想到这个会改变我的习惯"
+          - "这个用法颠覆了我的认知"
+          - "没想到看起来这么普通，用起来这么惊艳"
+          - "谁能想到这么小的东西能量这么大"
+        avoid_phrases:
+          - "震惊体"
+          - "夸张感叹"
+          - "标题党"
+          - "无脑吹捧"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 自嘲开头
+        seed_type: opening
+        template:
+          - "我承认我冲动了..."
+          - "我又没忍住xxx了..."
+          - "好吧，我承认xxx..."
+          - "说实话，我一开始是拒绝的..."
+        description: 以自嘲的口吻开场，拉近距离，显得真实可信
+        forbidden_patterns: []
+        example_phrases:
+          - "我承认我又冲动消费了"
+          - "我承认一开始是不信的"
+          - "我又没忍住下手了"
+          - "好吧，我承认被种草了"
+          - "说实话，我一开始是拒绝的，但后来..."
+          - "我又没忍住买了这个"
+          - "我承认我是个容易冲动的人"
+        avoid_phrases:
+          - "凡尔赛"
+          - "假自嘲"
+          - "炫耀式自嘲"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 悬念开头
+        seed_type: opening
+        template:
+          - "说出来你们可能不信..."
+          - "这件事说出来有点神奇..."
+          - "你们肯定想不到..."
+          - "有个秘密我憋了好久..."
+        description: 制造悬念，引发好奇心
+        forbidden_patterns: []
+        example_phrases:
+          - "说出来你们可能不信，我之前是完全不感冒的"
+          - "说出来可能没人信，但这是真实发生的"
+          - "这件事说出来有点神奇"
+          - "你们肯定想不到我发现了什么"
+          - "有个秘密我憋了好久，今天终于可以说"
+          - "说出来你们可能不信，这个改变了我"
+          - "这件事说出来有点不可思议"
+        avoid_phrases:
+          - "标题党"
+          - "虚假悬念"
+          - "无意义的悬念"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 痛点开头
+        seed_type: opening
+        template:
+          - "作为一个xxx，我真的受够了..."
+          - "每次xxx的时候，我就特别烦..."
+          - "xxx这个问题困扰我好久了..."
+          - "终于找到了解决xxx的办法..."
+        description: 从痛点切入，引发共鸣
+        forbidden_patterns: []
+        example_phrases:
+          - "作为一个熬夜党，我真的受够了第二天脸黄"
+          - "作为一个租房族，我真的受够了收纳问题"
+          - "每次洗完头吹头发，我就特别烦那个噪音"
+          - "皮肤干燥这个问题困扰我好久了"
+          - "终于找到了解决早上起不来床的办法"
+          - "作为一个通勤党，我真的受够了挤地铁"
+          - "每次找东西找不到的时候，我就特别烦"
+        avoid_phrases:
+          - "卖惨"
+          - "过度夸张痛点"
+          - "虚假痛点"
+          - "无病呻吟"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 好奇缺口开头
+        seed_type: opening
+        template:
+          - "你们有没有发现..."
+          - "最近发现一个有意思的事..."
+          - "有没有注意到..."
+          - "你们知道吗，最近..."
+        description: 用疑问句制造好奇缺口
+        forbidden_patterns: []
+        example_phrases:
+          - "你们有没有发现最近这个特别火"
+          - "你们有没有发现好多人都在用这个"
+          - "最近发现一个有意思的事"
+          - "有没有注意到最近大家都在讨论这个"
+          - "你们知道吗，最近这个特别流行"
+          - "你们有没有发现这个细节"
+          - "最近发现一个宝藏"
+        avoid_phrases:
+          - "无病呻吟"
+          - "虚假发现"
+          - "强行制造好奇"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 场景代入开头
+        seed_type: opening
+        template:
+          - "那天xxx的时候，我随手..."
+          - "就在xxx的时候，突然..."
+          - "记得xxx那天，我..."
+          - "周末xxx的时候，无意中..."
+        description: 用具体场景代入，增强真实感
+        forbidden_patterns: []
+        example_phrases:
+          - "那天加班到很晚，我随手刷到了这个"
+          - "那天朋友来家里，我随手拿出了这个"
+          - "就在刷手机的时候，突然看到了这个"
+          - "记得周末那天，我无意中发现了这个"
+          - "周末逛商场的时候，无意中看到了"
+          - "那天无聊刷手机，随手点开了这个"
+          - "就在准备睡觉的时候，突然想到了这个"
+        avoid_phrases:
+          - "虚构场景"
+          - "不真实的场景"
+          - "强行代入"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 对比反差开头
+        seed_type: opening
+        template:
+          - "以前xxx，现在xxx..."
+          - "一开始xxx，后来xxx..."
+          - "过去xxx，如今xxx..."
+          - "本来xxx，结果xxx..."
+        description: 用对比制造反差感
+        forbidden_patterns: []
+        example_phrases:
+          - "以前觉得这个智商税，现在真香了"
+          - "以前完全不理解，现在离不开了"
+          - "一开始是不信的，后来天天用"
+          - "过去觉得没必要，如今发现离不开"
+          - "本来是拒绝的，结果成了最爱"
+          - "以前觉得贵，现在觉得值"
+          - "一开始觉得普通，后来发现宝藏"
+        avoid_phrases:
+          - "生硬对比"
+          - "虚假对比"
+          - "无意义的反差"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 朋友推荐开头
+        seed_type: opening
+        template:
+          - "朋友/同事/闺蜜给我推荐了xxx..."
+          - "被xxx安利了这个..."
+          - "xxx一直在用这个，说特别好..."
+          - "听xxx说这个很不错..."
+        description: 借他人之口引入，增加可信度
+        forbidden_patterns: []
+        example_phrases:
+          - "闺蜜给我推荐了这个，说用了都说好"
+          - "同事看我皮肤状态不好，给我推荐了这个"
+          - "被朋友安利了这个"
+          - "室友一直在用这个，说特别好"
+          - "听同事说这个很不错，就试试了"
+          - "闺蜜强烈推荐，说不用后悔"
+          - "被同事种草了这个"
+        avoid_phrases:
+          - "虚假推荐"
+          - "虚构人物"
+          - "无中生有"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 错失恐惧开头
+        seed_type: opening
+        template:
+          - "差点就错过了这个xxx..."
+          - "还好没有错过xxx..."
+          - "差点以为是xxx，还好..."
+          - "幸亏xxx，不然就错过了..."
+        description: 表现差点错过好物的遗憾和庆幸
+        forbidden_patterns: []
+        example_phrases:
+          - "差点就错过了这个好东西，幸好还是入手了"
+          - "差点以为又是智商税，还好试了试"
+          - "还好没有错过这个宝藏"
+          - "差点以为又是营销，还好自己试了"
+          - "幸亏听了朋友的，不然就错过了"
+          - "差点就错过了，幸好最后还是买了"
+          - "还好没有错过这个机会"
+        avoid_phrases:
+          - "制造焦虑"
+          - "虚假错失"
+          - "夸大错失感"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 数据震撼开头
+        seed_type: opening
+        template:
+          - "用了xx天/xx周，发现xxx..."
+          - "坚持xxx了xx天，真的..."
+          - "连续xxx一个月后..."
+          - "用了xx次之后，发现..."
+        description: 用具体时间数据增强说服力
+        forbidden_patterns: []
+        example_phrases:
+          - "用了两周发现真的有效果"
+          - "坚持用了一个月，变化看得见"
+          - "连续打卡一个月后，真的不一样了"
+          - "用了三次之后，发现真的好用"
+          - "坚持了一周，效果明显"
+          - "用了21天，真的有变化"
+          - "连续用了一个月，真心推荐"
+        avoid_phrases:
+          - "夸大效果"
+          - "虚假数据"
+          - "无依据的时间"
+        category: 通用
+        status: enabled
+        is_system: true
+      # 情感基调种子
+      - name: 轻松吐槽
+        seed_type: emotion
+        template:
+          - "像朋友吐槽缺点，但最后还是说\"不过...\""
+          - "先说说不太满意的地方，再说好的..."
+          - "吐槽一下xxx，但其实..."
+          - "说实话xxx不太行，不过xxx还不错..."
+        description: 轻松幽默的吐槽风格，增加真实感
+        forbidden_patterns: []
+        example_phrases:
+          - "说实话有点小贵，不过效果确实可以"
+          - "包装有点简陋，不过东西是好东西"
+          - "先说说不太满意的地方，再说好的"
+          - "吐槽一下这个设计，但其实用起来还行"
+          - "说实话有点重，不过质量确实好"
+          - "吐槽一下这个颜色，不过整体还不错"
+          - "说实话有点麻烦，不过效果值得"
+        avoid_phrases:
+          - "恶意差评"
+          - "无脑吐槽"
+          - "虚假吐槽"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 真诚分享
+        seed_type: emotion
+        template:
+          - "像闺蜜安利好物，真诚且有细节"
+          - "用了一段时间，说说真实感受..."
+          - "不是广告，纯分享..."
+          - "真心觉得不错，给你们说说..."
+        description: 真诚分享使用感受，像朋友聊天
+        forbidden_patterns: []
+        example_phrases:
+          - "用了一段时间，感觉还不错，给你们说说真实感受"
+          - "不是广告，纯分享，觉得好才推荐的"
+          - "真心觉得不错，给你们说说我的体验"
+          - "用下来觉得挺好的，分享给你们"
+          - "不是广告哈，纯个人感受分享"
+          - "真心推荐，不是营销号"
+          - "用了一段时间，真心觉得好用"
+        avoid_phrases:
+          - "硬广"
+          - "营销号"
+          - "虚假分享"
+          - "广告式分享"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 犹豫观望
+        seed_type: emotion
+        template:
+          - "纠结要不要买，最后买了说说感受"
+          - "看了好久，最后还是..."
+          - "犹豫了半天，最终..."
+          - "纠结了很久，还是决定..."
+        description: 表现犹豫纠结的过程，显得真实
+        forbidden_patterns: []
+        example_phrases:
+          - "纠结了好久要不要买，最后还是下手了"
+          - "看了好多测评，还是拿不准，最后自己试了"
+          - "犹豫了半天，最终还是买了"
+          - "纠结了很久，还是决定试试"
+          - "看了很久的评论，最后还是下手了"
+          - "犹豫了好几天，终于还是买了"
+          - "纠结了半天，最后还是没忍住"
+        avoid_phrases:
+          - "假纠结"
+          - "无意义的犹豫"
+          - "虚假观望"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 惊喜发现
+        seed_type: emotion
+        template:
+          - "没抱太大希望，结果意外惊喜"
+          - "本来不抱期待，结果..."
+          - "以为是xxx，没想到..."
+          - "没想太多，结果发现..."
+        description: 表现意外惊喜的感觉
+        forbidden_patterns: []
+        example_phrases:
+          - "说实话没抱太大希望，结果用下来还挺惊喜的"
+          - "本来是凑单买的，没想到成了最爱用的"
+          - "本来不抱期待，结果意外好用"
+          - "以为会很普通，没想到这么惊艳"
+          - "没想太多，结果发现宝藏了"
+          - "本来只是试试，结果惊喜到了"
+          - "说实话没期待，结果超出预期"
+        avoid_phrases:
+          - "假惊喜"
+          - "虚假发现"
+          - "夸大惊喜"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 真香定律
+        seed_type: emotion
+        template:
+          - "一开始不看好，后来真香了"
+          - "本来觉得xxx，结果..."
+          - "一开始是拒绝的，后来..."
+          - "本来不信，结果..."
+        description: 表现态度转变的过程
+        forbidden_patterns: []
+        example_phrases:
+          - "一开始觉得智商税，用完直接真香"
+          - "本来是不信的，现在天天都在用"
+          - "一开始是拒绝的，后来停不下来"
+          - "本来觉得没必要，结果离不开了"
+          - "一开始觉得普通，后来发现宝藏"
+          - "本来不信这个，结果用完打脸了"
+          - "一开始觉得贵，后来觉得值"
+        avoid_phrases:
+          - "生硬反转"
+          - "虚假真香"
+          - "无意义的转变"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 谨慎推荐
+        seed_type: emotion
+        template:
+          - "说说优点也说说缺点，让你们自己判断"
+          - "客观说说优缺点，你们自己看..."
+          - "有好的地方也有不足..."
+          - "说说我觉得值得和不值得的地方..."
+        description: 客观分析优缺点，显得可信
+        forbidden_patterns: []
+        example_phrases:
+          - "说说我觉得好的地方，也有不足，你们自己看看"
+          - "有优点也有缺点，我客观说说你们自己判断"
+          - "说说我觉得值得和不值得的地方"
+          - "好的地方要说，不好的地方也要说"
+          - "客观说说，有优点也有缺点"
+          - "说说我觉得好的和不太好的"
+          - "有满意的地方，也有不太满意的"
+        avoid_phrases:
+          - "纯踩"
+          - "纯吹"
+          - "不客观的评价"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 实用主义
+        seed_type: emotion
+        template:
+          - "不整虚的，直接说好不好用"
+          - "简单直接，说说值不值..."
+          - "不废话，直接说重点..."
+          - "实话说，这个xxx..."
+        description: 务实直接的风格
+        forbidden_patterns: []
+        example_phrases:
+          - "不整那些虚的，直接说好不好用"
+          - "简单说下值不值，你们自己看着办"
+          - "不废话，直接说重点"
+          - "实话说，这个真的好用"
+          - "简单直接，说说我的感受"
+          - "不整那些花里胡哨的，就说实不实用"
+          - "直接说吧，这个值不值"
+        avoid_phrases:
+          - "敷衍"
+          - "过于简单"
+          - "无实质内容"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 亲测感受
+        seed_type: emotion
+        template:
+          - "自己亲测，说说真实感受"
+          - "用了xxx，说说我的真实体验..."
+          - "亲测了一段时间，真心觉得..."
+          - "自己试过，说说实际情况..."
+        description: 强调亲测体验，增强可信度
+        forbidden_patterns: []
+        example_phrases:
+          - "自己亲测了一段时间，说说真实感受"
+          - "不是道听途说，是我自己用了后的真实体验"
+          - "亲测了一段时间，真心觉得不错"
+          - "自己试过，说说实际情况"
+          - "亲测有效，不是随便说说的"
+          - "自己用了才知道，说说真实感受"
+          - "亲测下来，真心推荐"
+        avoid_phrases:
+          - "虚假亲测"
+          - "虚构体验"
+          - "无依据的亲测"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 后悔没早买
+        seed_type: emotion
+        template:
+          - "后悔没有早点xxx..."
+          - "早知道就xxx了..."
+          - "要是早点xxx就好了..."
+          - "真的后悔xxx..."
+        description: 表现后悔感，暗示产品价值
+        forbidden_patterns: []
+        example_phrases:
+          - "后悔没有早点入手，浪费了好多时间"
+          - "后悔没有早点知道这个，省了好多麻烦"
+          - "早知道就早点买了"
+          - "要是早点发现就好了"
+          - "真的后悔犹豫了那么久"
+          - "后悔没有早点试试"
+          - "早知道这么好用，早就买了"
+        avoid_phrases:
+          - "假后悔"
+          - "虚假后悔感"
+          - "无意义的后悔"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 小白视角
+        seed_type: emotion
+        template:
+          - "作为新手小白，我觉得xxx..."
+          - "小白第一次xxx，感觉..."
+          - "完全不懂的人，说说我的感受..."
+          - "新手的角度，说说xxx..."
+        description: 以新手视角分享，降低读者心理门槛
+        forbidden_patterns: []
+        example_phrases:
+          - "作为完全不懂的新手小白，我觉得这个真的很友好"
+          - "小白第一次用，感觉还挺简单的"
+          - "完全不懂的人，说说我的感受"
+          - "新手的角度，说说这个好不好上手"
+          - "小白视角，这个真的很简单"
+          - "作为新手，我觉得这个很容易上手"
+          - "小白第一次尝试，感觉还不错"
+        avoid_phrases:
+          - "假小白"
+          - "虚假新手视角"
+          - "假装不懂"
+        category: 通用
+        status: enabled
+        is_system: true
+      # 结尾模式种子
+      - name: 求建议结尾
+        seed_type: ending
+        template:
+          - "你们有啥好用的xxx推荐吗？"
+          - "有没有同款？求推荐..."
+          - "你们觉得xxx怎么样？"
+          - "有没有更好的选择？求支招..."
+        description: 以求建议的方式结尾，引发互动
+        forbidden_patterns: []
+        example_phrases:
+          - "你们有啥好用的推荐吗？评论区聊聊"
+          - "有没有同款？你们觉得咋样"
+          - "你们觉得这个值不值？评论区说说"
+          - "有没有更好的选择？求支招"
+          - "你们都用什么？评论区交流一下"
+          - "有没有类似推荐？求分享"
+          - "你们有啥好用的吗？求安利"
+        avoid_phrases:
+          - "无互动"
+          - "生硬求建议"
+          - "虚假求助"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 被讨论结尾
+        seed_type: ending
+        template:
+          - "你们觉得呢？评论区聊聊～"
+          - "你们会考虑吗？评论区说说..."
+          - "说说你们的看法？评论区见..."
+          - "你们怎么看？来聊聊..."
+        description: 邀请读者参与讨论
+        forbidden_patterns: []
+        example_phrases:
+          - "你们觉得这个值不值？评论区说说"
+          - "你们会买吗？来聊聊"
+          - "说说你们的看法？评论区见"
+          - "你们怎么看？评论区聊聊"
+          - "你们觉得呢？评论区交流一下"
+          - "你们会考虑吗？评论区说说"
+          - "你们觉得这个怎么样？评论区聊聊"
+        avoid_phrases:
+          - "无互动"
+          - "生硬邀请"
+          - "无意义的讨论"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 留悬念结尾
+        seed_type: ending
+        template:
+          - "用了一段时间又发现xxx，下次细说"
+          - "还有个发现，下次单独说..."
+          - "发现了新玩法，下次分享..."
+          - "还有个惊喜，下次再说..."
+        description: 留下悬念，引发期待
+        forbidden_patterns: []
+        example_phrases:
+          - "用了一段时间又发现新用法，下次细说"
+          - "还有个隐藏功能，下次单独说"
+          - "发现了新玩法，下次分享给你们"
+          - "还有个惊喜，下次再说"
+          - "用了一段时间又发现新惊喜，下次细说"
+          - "还有个发现，下次专门分享"
+          - "发现了新用法，下次详细说"
+        avoid_phrases:
+          - "无悬念"
+          - "虚假悬念"
+          - "无意义的悬念"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 共鸣式结尾
+        seed_type: ending
+        template:
+          - "有同感的举手！"
+          - "是不是都这样？..."
+          - "有同样感受的吗？..."
+          - "是不是有人跟我一样？..."
+        description: 寻求共鸣，引发互动
+        forbidden_patterns: []
+        example_phrases:
+          - "有同感的举手！评论区集合"
+          - "是不是都这样？评论区聊聊"
+          - "有同样感受的吗？评论区见"
+          - "是不是有人跟我一样？评论区聊聊"
+          - "有同感的举手！评论区集合"
+          - "是不是都这样？评论区交流一下"
+          - "有同样感受的评论区集合"
+        avoid_phrases:
+          - "无互动"
+          - "虚假共鸣"
+          - "强行共鸣"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 纠结求助结尾
+        seed_type: ending
+        template:
+          - "xx和xx纠结了好久，你们帮我选选？"
+          - "不知道选哪个，求支招..."
+          - "这两个选哪个好？求建议..."
+          - "纠结了好久，你们帮我看看..."
+        description: 表现纠结，请求帮助
+        forbidden_patterns: []
+        example_phrases:
+          - "这两个纠结了好久，你们帮我选选？"
+          - "不知道买哪个好，有经验的支支招"
+          - "这两个选哪个好？求建议"
+          - "纠结了好久，你们帮我看看选哪个"
+          - "不知道选哪个，评论区求支招"
+          - "这两个纠结了好久，求建议"
+          - "不知道买哪个，有经验的帮帮忙"
+        avoid_phrases:
+          - "无互动"
+          - "虚假纠结"
+          - "无意义的求助"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 避坑提醒结尾
+        seed_type: ending
+        template:
+          - "买的时候注意xxx，别踩我踩过的坑"
+          - "提醒一下，xxx要注意..."
+          - "给你们提个醒，xxx..."
+          - "注意这点，别踩坑..."
+        description: 以避坑提醒结尾，显得贴心
+        forbidden_patterns: []
+        example_phrases:
+          - "买的时候注意看清楚型号，别买错了"
+          - "记得先领券，能省一点是一点"
+          - "提醒一下，这个要注意看清楚再买"
+          - "给你们提个醒，别买错了"
+          - "注意这点，别踩我踩过的坑"
+          - "买的时候注意看清楚，别买错了"
+          - "提醒一下，记得先领券"
+        avoid_phrases:
+          - "无互动"
+          - "虚假提醒"
+          - "无意义的避坑"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 追问互动结尾
+        seed_type: ending
+        template:
+          - "你们xxx吗？评论区说说～"
+          - "你们平时都xxx吗？评论区聊聊..."
+          - "你们会xxx吗？评论区见..."
+          - "你们觉得xxx吗？评论区说说..."
+        description: 用追问引发评论区互动
+        forbidden_patterns: []
+        example_phrases:
+          - "你们平时都用什么？评论区说说"
+          - "你们会考虑入手吗？评论区聊聊"
+          - "你们平时都怎么做的？评论区交流一下"
+          - "你们会买吗？评论区说说"
+          - "你们觉得这个怎么样？评论区聊聊"
+          - "你们平时都用什么？评论区见"
+          - "你们会考虑吗？评论区说说"
+        avoid_phrases:
+          - "无互动"
+          - "生硬追问"
+          - "无意义的追问"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 用法延展结尾
+        seed_type: ending
+        template:
+          - "除了xxx，我还发现可以xxx..."
+          - "还发现了新用法，xxx..."
+          - "除了这个，还能xxx..."
+          - "意外发现还能xxx..."
+        description: 分享额外用法，增加价值感
+        forbidden_patterns: []
+        example_phrases:
+          - "除了这个用法，我还发现可以这样用"
+          - "还发现了新用法，下次分享给你们"
+          - "除了这个，还能这样用"
+          - "意外发现还能用在别的地方"
+          - "除了这个用途，还发现了新用法"
+          - "还发现了隐藏用法，下次细说"
+          - "除了这个，还能用在其他地方"
+        avoid_phrases:
+          - "无延展"
+          - "虚假用法"
+          - "无意义的延展"
+          - "除了正常用法，我还发现可以这么用，下次细说"
+          - "后面又发现了新用法，感兴趣的评论区问"
+        avoid_phrases:
+          - "无延展"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 关联推荐结尾
+        seed_type: ending
+        template:
+          - 如果喜欢这种风格，还可以看看xxx...
+          - 类似的还有xxx，下次可以说说对比
+        description: 关联推荐其他相关内容
+        forbidden_patterns: []
+        example_phrases:
+          - "如果喜欢这种风格的，还可以看看我之前的分享"
+          - "类似的还有xxx，下次可以说说对比"
+        avoid_phrases:
+          - "硬推其他产品"
+        category: 通用
+        status: enabled
+        is_system: true
+      - name: 催更互动结尾
+        seed_type: ending
+        template:
+          - 想看xxx的评论区告诉我，人多的话我继续出
+          - 想看对比的举手，人多的话我专门出一期
+        description: 用催更机制引发互动
+        forbidden_patterns: []
+        example_phrases:
+          - "想看详细测评的评论区告诉我，人多的话我继续出"
+          - "想看对比的举手，人多的话我专门出一期"
+        avoid_phrases:
+          - "无互动"
+        category: 通用
+        status: enabled
+        is_system: true

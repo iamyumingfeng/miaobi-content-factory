@@ -1,0 +1,346 @@
+# ========================================
+# 妙笔内容工场 - 生产环境 Docker Compose 配置
+# 针对 4G 内存优化
+# ========================================
+#
+# 生产环境优化：
+# 1. 资源限制（CPU、内存）- 针对 4G 内存优化
+# 2. 日志轮转（防止磁盘占满）
+# 3. 重启策略（always）
+# 4. 健康检查优化
+# 5. 移除代码挂载（避免代码泄露）
+# 6. 安全配置（只读文件系统）
+#
+# 内存分配总规划：
+# - MySQL: 1.1G
+# - Redis: 256M
+# - API: 800M
+# - Web: 512M
+# - Celery Worker: 1G
+# - Celery Beat: 256M
+# - 系统预留: ~128M
+#
+# 使用方法：
+# docker-compose up -d
+# ========================================
+
+version: '3.8'
+
+services:
+  # ========================================
+  # 数据库服务 - MySQL 8.0
+  # ========================================
+  mysql:
+    image: mysql:8.0
+    container_name: miaobi-aigc-factory-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-aigc_platform}
+      MYSQL_USER: ${MYSQL_USER:-aigc_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aigc_password123}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+      - --innodb_buffer_pool_size=768M
+      - --max_connections=150
+      - --innodb_flush_log_at_trx_commit=2
+      - --innodb_flush_method=O_DIRECT
+      - --slow_query_log=1
+      - --slow_query_log_file=/var/log/mysql/slow.log
+      - --long_query_time=2
+      - --innodb_buffer_pool_instances=1
+      - --performance_schema=OFF
+      - --table_open_cache=400
+      - --table_definition_cache=400
+      - --sort_buffer_size=512K
+      - --read_buffer_size=128K
+      - --join_buffer_size=128K
+      - --read_rnd_buffer_size=256K
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - ../data/mysql:/var/lib/mysql          # MySQL数据持久化
+      - ../data/logs/mysql:/var/log/mysql     # MySQL日志持久化
+    networks:
+      - miaobi-aigc-factory-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword123}"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    cpus: 0.7
+    mem_limit: 1.1G
+    mem_reservation: 600M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # ========================================
+  # 缓存服务 - Redis
+  # ========================================
+  redis:
+    image: redis:7-alpine
+    container_name: miaobi-aigc-factory-redis
+    restart: always
+    command:
+      - redis-server
+      - --appendonly yes
+      - --requirepass ${REDIS_PASSWORD:-redis_password123}
+      - --maxmemory 192mb
+      - --maxmemory-policy allkeys-lru
+      - --save 900 1
+      - --save 300 10
+      - --save 60 10000
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data                    # Redis使用命名卷
+      - ../data/logs/redis:/var/log/redis   # Redis日志持久化 
+    networks:
+      - miaobi-aigc-factory-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_password123}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    cpus: 0.4
+    mem_limit: 256M
+    mem_reservation: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ========================================
+  # 后端API服务 - FastAPI
+  # ========================================
+  api:
+    image: miaobi-aigc-factory-api:production
+    build:
+      context: ../platform_api
+      dockerfile: Dockerfile
+      target: production
+    container_name: miaobi-aigc-factory-api
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - APP_NAME=妙笔内容工场
+      - APP_VERSION=1.0.0
+      - DEBUG=false
+      - API_PREFIX=/api/v1
+      - DATABASE_URL=mysql+aiomysql://${MYSQL_USER:-aigc_user}:${MYSQL_PASSWORD:-aigc_password123}@mysql:3306/${MYSQL_DATABASE:-aigc_platform}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/0
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/2
+      - CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-2}
+      - TASK_QUEUE_MAX_CONCURRENT=${TASK_QUEUE_MAX_CONCURRENT:-4}
+      - CORS_ORIGINS=["http://localhost:3000","http://localhost:8080"]
+      - COS_BUCKET=${COS_BUCKET}
+      - COS_REGION=${COS_REGION}
+      - COS_MOUNT_PATH=${COS_MOUNT_PATH:-/app/cos}
+      - COS_PATH_PREFIX=${COS_PATH_PREFIX:-/miaobi_aigc_factory}
+      - STORAGE_URL_TYPE=${STORAGE_URL_TYPE:-auto}
+      - STORAGE_URL_PREFIX=${STORAGE_URL_PREFIX:-http://127.0.0.1:8000}
+      - SERVER_DOMAIN=${SERVER_DOMAIN:-127.0.0.1}
+      - IMAGE_PREFER_URL=${IMAGE_PREFER_URL:-false}
+      - SECRET_KEY=${SECRET_KEY:-2f1b1054c4d9ac3977211c17bbad57983516cd939ce6d7c1361abb7680e6f17b}
+      - JWT_ALGORITHM=HS256
+      - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      - JWT_REFRESH_TOKEN_EXPIRE_DAYS=${JWT_REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      - TZ=Asia/Shanghai
+      - INITIAL_SUPER_ADMIN_USERID=${INITIAL_SUPER_ADMIN_USERID:-admin}
+      - INITIAL_SUPER_ADMIN_PASSWORD=${INITIAL_SUPER_ADMIN_PASSWORD:-admin123}
+      - INITIAL_SUPER_ADMIN_NICKNAME=${INITIAL_SUPER_ADMIN_NICKNAME:-超级管理员}
+      - INITIAL_OPERATOR_ADMIN_USERID=${INITIAL_OPERATOR_ADMIN_USERID:-operator}
+      - INITIAL_OPERATOR_ADMIN_PASSWORD=${INITIAL_OPERATOR_ADMIN_PASSWORD:-operator123}
+      - INITIAL_OPERATOR_ADMIN_NICKNAME=${INITIAL_OPERATOR_ADMIN_NICKNAME:-默认运营管理员}
+      - PLATFORM_BAILIAN_TYPES=${PLATFORM_BAILIAN_TYPES:-llm,image,embedding}
+      - PLATFORM_VOLCANO_TYPES=${PLATFORM_VOLCANO_TYPES:-llm,image}
+      - PLATFORM_JIMENG_TYPES=${PLATFORM_JIMENG_TYPES:-image}
+      - PLATFORM_KLING_TYPES=${PLATFORM_KLING_TYPES:-image}
+      - PLATFORM_AUTOGLM_TYPES=${PLATFORM_AUTOGLM_TYPES:-llm}
+      - PLATFORM_MOONSHOT_TYPES=${PLATFORM_MOONSHOT_TYPES:-llm}
+      - PLATFORM_DEEPSEEK_TYPES=${PLATFORM_DEEPSEEK_TYPES:-llm}
+      - PLATFORM_LINGYAAI_TYPES=${PLATFORM_LINGYAAI_TYPES:-llm,image}
+      - PLATFORM_4SAPI_TYPES=${PLATFORM_4SAPI_TYPES:-llm,image}
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      # 生产环境只挂载数据目录，不挂载代码
+      - ../data/cos:/app/cos:cached
+      - ../data/logs/api:/app/logs
+      # 挂载时区文件，确保容器时间正确
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - miaobi-aigc-factory-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    cpus: 0.8
+    mem_limit: 800M
+    mem_reservation: 400M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
+
+  # ========================================
+  # 前端Web服务 - Nginx (生产模式)
+  # ========================================
+  web:
+    image: miaobi-aigc-factory-web:production
+    build:
+      context: ../platform_web
+      dockerfile: Dockerfile
+      target: production
+    container_name: miaobi-aigc-factory-web
+    restart: always
+    depends_on:
+      - api
+    # 生产环境端口：外部 80 -> 内部 80 (Nginx)
+    ports:
+      - "${WEB_PORT:-80}:80"
+    networks:
+      - miaobi-aigc-factory-network
+    environment:
+      - WEB_TARGET=production
+    # 生产环境不挂载代码
+    volumes:
+      - ../../logs/web:/var/log/nginx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    cpus: 0.5
+    mem_limit: 512M
+    mem_reservation: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+  # ========================================
+  # Celery Worker - 异步任务处理
+  # ========================================
+  celery-worker:
+    image: miaobi-aigc-factory-celery-worker:production
+    build:
+      context: ../platform_api
+      dockerfile: Dockerfile
+      target: production
+    container_name: miaobi-aigc-factory-celery-worker
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=mysql+aiomysql://${MYSQL_USER:-aigc_user}:${MYSQL_PASSWORD:-aigc_password123}@mysql:3306/${MYSQL_DATABASE:-aigc_platform}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-2f1b1054c4d9ac3977211c17bbad57983516cd939ce6d7c1361abb7680e6f17b}
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/2
+      - COS_MOUNT_PATH=/app/cos
+      - TZ=Asia/Shanghai
+    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=${CELERY_CONCURRENCY:-2} --max-tasks-per-child=1000
+    volumes:
+      # 生产环境只挂载数据目录
+      - ../data/cos:/app/cos:cached
+      - ../data/logs/celery:/app/logs
+      # 挂载时区文件，确保容器时间正确
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - miaobi-aigc-factory-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; r = redis.Redis(host='redis', port=6379, password='${REDIS_PASSWORD:-redis_password123}'); r.ping(); print('healthy')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    cpus: 0.9
+    mem_limit: 1G
+    mem_reservation: 600M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "200m"
+        max-file: "10"
+
+  # ========================================
+  # Celery Beat - 定时任务调度
+  # ========================================
+  celery-beat:
+    image: miaobi-aigc-factory-celery-beat:production
+    build:
+      context: ../platform_api
+      dockerfile: Dockerfile
+      target: production
+    container_name: miaobi-aigc-factory-celery-beat
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=mysql+aiomysql://${MYSQL_USER:-aigc_user}:${MYSQL_PASSWORD:-aigc_password123}@mysql:3306/${MYSQL_DATABASE:-aigc_platform}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/0
+      - SECRET_KEY=${SECRET_KEY:-2f1b1054c4d9ac3977211c17bbad57983516cd939ce6d7c1361abb7680e6f17b}
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/1
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD:-redis_password123}@redis:6379/2
+      - TZ=Asia/Shanghai
+    command: celery -A app.tasks.celery_app beat --loglevel=info --schedule=/tmp/celerybeat-schedule
+    volumes:
+      # 挂载时区文件，确保容器时间正确
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - miaobi-aigc-factory-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; r = redis.Redis(host='redis', port=6379, password='${REDIS_PASSWORD:-redis_password123}'); r.ping(); print('healthy')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    cpus: 0.3
+    mem_limit: 256M
+    mem_reservation: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+# ========================================
+# 网络定义
+# ========================================
+networks:
+  miaobi-aigc-factory-network:
+    driver: bridge
+    name: miaobi-aigc-factory-network
+
+# ========================================
+# 卷定义
+# ========================================
+volumes:
+  redis-data:
+    name: miaobi-aigc-factory-redis-data

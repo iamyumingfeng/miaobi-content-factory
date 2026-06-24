@@ -1,0 +1,116 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # 获取上一个 tag
+        PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+        
+        if [ -z "$PREV_TAG" ]; then
+          # 如果没有上一个 tag,获取所有提交
+          COMMITS=$(git log --pretty=format:"- %s (%h)" --reverse)
+        else
+          # 获取两个 tag 之间的提交
+          COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse)
+        fi
+        
+        # 保存到文件
+        echo "## 🚀 版本 ${{ steps.get_version.outputs.VERSION }}" > CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "### 📝 更新内容" >> CHANGELOG.md
+        echo "" >> CHANGELOG.md
+        echo "$COMMITS" >> CHANGELOG.md
+        
+        # 输出用于 GitHub Release
+        echo "changelog<<EOF" >> $GITHUB_OUTPUT
+        cat CHANGELOG.md >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        body: ${{ steps.changelog.outputs.changelog }}
+        draft: false
+        prerelease: false
+    
+    - name: Upload CHANGELOG
+      uses: actions/upload-artifact@v4
+      with:
+        name: changelog
+        path: CHANGELOG.md
+
+  build-and-release:
+    needs: create-release
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Build backend
+      working-directory: ./platform_api
+      run: |
+        pip install -r requirements.txt
+        python -m pytest || true
+    
+    - name: Build frontend
+      working-directory: ./platform_web
+      run: |
+        npm ci
+        npm run build
+    
+    - name: Create release archive
+      run: |
+        tar -czf miaobi-content-factory-${{ github.ref_name }}.tar.gz \
+          --exclude='*.pyc' \
+          --exclude='__pycache__' \
+          --exclude='node_modules' \
+          --exclude='.git' \
+          --exclude='data' \
+          --exclude='*.log' \
+          platform_api platform_web docs scripts docker README.md LICENSE DISCLAIMER.md
+    
+    - name: Upload release asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./miaobi-content-factory-${{ github.ref_name }}.tar.gz
+        asset_name: miaobi-content-factory-${{ github.ref_name }}.tar.gz
+        asset_content_type: application/gzip

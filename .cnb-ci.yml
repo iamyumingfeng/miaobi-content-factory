@@ -1,0 +1,99 @@
+# CNB CI/CD 配置
+# 适用于腾讯云 CNB (Cloud Native Base) 平台
+
+version: "1.0"
+
+stages:
+  - stage:
+      name: lint
+      jobs:
+        - job:
+            name: code-quality
+            steps:
+              - step: python@3.11
+                  with:
+                    script: |
+                      pip install flake8 black isort mypy
+                      cd platform_api
+                      black --check --diff app/
+                      isort --check-only --diff app/
+                      flake8 app/ --max-line-length=100 --exclude=app/alembic/
+
+  - stage:
+      name: test
+      jobs:
+        - job:
+            name: backend-test
+            services:
+              - mysql:8.0
+                  with:
+                    MYSQL_ROOT_PASSWORD: test_root_password
+                    MYSQL_DATABASE: aigc_platform_test
+                    MYSQL_USER: test_user
+                    MYSQL_PASSWORD: test_password
+              - redis:7-alpine
+            steps:
+              - step: python@3.11
+                  with:
+                    script: |
+                      cd platform_api
+                      pip install -r requirements.txt
+                      pip install pytest pytest-asyncio pytest-cov
+                      pytest --cov=app --cov-report=xml
+
+        - job:
+            name: frontend-test
+            steps:
+              - step: node@18
+                  with:
+                    script: |
+                      cd platform_web
+                      npm ci
+                      npm run test
+                      npm run build
+
+  - stage:
+      name: security
+      jobs:
+        - job:
+            name: security-scan
+            steps:
+              - step: python@3.11
+                  with:
+                    script: |
+                      pip install safety bandit pip-audit pip-licenses
+                      cd platform_api
+                      pip install -r requirements.txt
+                      safety check -r requirements.txt || true
+                      pip-audit -r requirements.txt || true
+                      bandit -r app/ || true
+                      pip-licenses --from meta --format json --output-file licenses.json
+                      pip-licenses --from meta --format plain | grep -iE "GPL|AGPL" | grep -v "LGPL" && echo "发现GPL/AGPL依赖" && exit 1 || echo "许可证检查通过"
+
+  - stage:
+      name: build
+      jobs:
+        - job:
+            name: docker-build
+            steps:
+              - step: docker@latest
+                  with:
+                    dockerfile: docker/Dockerfile
+                    context: .
+                    tags:
+                      - miaobi-content-factory:${CNB_COMMIT_SHA}
+                      - miaobi-content-factory:latest
+
+  - stage:
+      name: deploy
+      trigger: manual
+      jobs:
+        - job:
+            name: deploy-to-production
+            steps:
+              - step: kubectl@latest
+                  with:
+                    script: |
+                      # 部署到生产环境
+                      kubectl apply -f k8s/deployment.yaml
+                      kubectl rollout status deployment/miaobi-content-factory

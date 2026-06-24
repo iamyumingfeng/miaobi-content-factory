@@ -1,0 +1,175 @@
+
+  // ============================================
+  // 妙笔内容工场 - 全局样式
+  // ============================================
+  // 版本：6.0.0 · 现代企业级
+  // ============================================
+
+  @import '../assets/styles/variables.scss';
+  @import '../assets/styles/mixins.scss';
+
+  // ============================================
+  // 重置基础样式
+  // ============================================
+
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-base);
+    font-weight: $font-weight-normal;
+    color: var(--color-text-primary);
+    background: var(--color-bg-primary);
+    line-height: 1.5;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-family-heading);
+    line-height: 1.2;
+  }
+
+  // ============================================
+  // 分页 - 现代设计
+  // ============================================
+
+  .el-pagination {
+    --el-pagination-bg-color: transparent;
+    --el-pagination-button-bg-color: transparent;
+    --el-pagination-hover-color: var(--color-primary);
+    --el-pagination-text-color: var(--color-text-primary);
+    --el-pagination-button-disabled-bg-color: transparent;
+    --el-pagination-button-color: var(--color-text-secondary);
+    --el-pagination-button-hover-color: var(--color-primary);
+    --el-pagination-button-hover-bg-color: var(--color-primary-bg);
+
+    .el-pager li {
+      background: transparent;
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+      margin: 0 4px;
+      min-width: 32px;
+      height: 32px;
+      line-height: 30px;
+      color: var(--color-text-secondary);
+      font-weight: $font-weight-medium;
+      transition: all var(--transition-normal) var(--easing-standard);
+
+      &:hover {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+        background: var(--color-primary-bg);
+      }
+
+      &.is-active {
+        background: var(--color-primary);
+        border-color: var(--color-primary);
+        color: #FFFFFF;
+        font-weight: $font-weight-semibold;
+      }
+    }
+
+    .btn-prev, .btn-next {
+      background: transparent;
+      border: 1px solid var(--color-border-default);
+      border-radius: var(--radius-md);
+      margin: 0 4px;
+      min-width: 32px;
+      height: 32px;
+      color: var(--color-text-secondary);
+
+      &:hover:not(:disabled) {
+        color: var(--color-primary);
+        border-color: var(--color-primary);
+        background: var(--color-primary-bg);
+      }
+
+      &:disabled {
+        color: var(--color-text-placeholder);
+        border-color: var(--color-border-default);
+        background: transparent;
+      }
+    }
+
+    .el-pagination__sizes .el-select__wrapper {
+      border-radius: var(--radius-md);
+      box-shadow: 0 0 0 1px var(--color-border-default) inset;
+
+      &:hover { box-shadow: 0 0 0 1px var(--color-primary) inset; }
+    }
+
+    .el-pagination__jump { color: var(--color-text-secondary); }
+    .el-pagination__editor.el-input .el-input__wrapper {
+      border-radius: var(--radius-md);
+      box-shadow: 0 0 0 1px var(--color-border-default) inset;
+      &:hover { box-shadow: 0 0 0 1px var(--color-primary) inset; }
+    }
+
+    .el-pagination__total {
+      color: var(--color-text-secondary);
+      margin-right: 12px;
+    }
+  }
+
+  // ============================================
+  // Element Plus 按钮覆盖
+  // ============================================
+
+  .el-button--primary { @include button-primary; }
+  .el-button--success { @include button-success; }
+  .el-button--warning { @include button-warning; }
+  .el-button--danger { @include button-danger; }
+  .el-button--default { @include button-secondary; }
+
+  .el-button {
+    border-radius: var(--radius-md);
+    font-weight: $font-weight-medium;
+  }
+
+  // ============================================
+  // Element Plus 标签覆盖
+  // ============================================
+
+  .el-tag {
+    border-radius: var(--radius-xs);
+    font-weight: $font-weight-medium;
+    border: none;
+
+    &.el-tag--success {
+      background: var(--color-success-bg);
+      color: var(--color-success);
+    }
+
+    &.el-tag--warning {
+      background: var(--color-warning-bg);
+      color: var(--color-warning);
+    }
+
+    &.el-tag--danger {
+      background: var(--color-error-bg);
+      color: var(--color-error);
+    }
+
+    &.el-tag--info {
+      background: var(--color-info-bg);
+      color: var(--color-info);
+    }
+
+    &.el-tag--primary {
+      background: var(--color-primary-bg);
+      color: var(--color-primary);
+    }
+  }
+

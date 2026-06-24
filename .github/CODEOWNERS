@@ -1,0 +1,30 @@
+# CODEOWNERS - 代码所有权定义
+# 用于自动分配 PR 审查者和通知相关人员
+
+# 默认所有者
+* @iamyumingfeng
+
+# 后端代码
+/platform_api/ @iamyumingfeng
+
+# 前端代码
+/platform_web/ @iamyumingfeng
+
+# 文档
+/docs/ @iamyumingfeng
+/README.md @iamyumingfeng
+/DISCLAIMER.md @iamyumingfeng
+/LEGAL_RISK_ANALYSIS.md @iamyumingfeng
+/THIRD_PARTY_LICENSES.md @iamyumingfeng
+
+# CI/CD 配置
+/.github/workflows/ @iamyumingfeng
+/.cnb-ci.yml @iamyumingfeng
+/cnb.yml @iamyumingfeng
+
+# Docker 配置
+/docker/ @iamyumingfeng
+
+# 安全相关
+/SECURITY.md @iamyumingfeng
+/LICENSE @iamyumingfeng
