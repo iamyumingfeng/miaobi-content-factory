@@ -8,29 +8,20 @@ Date: 2025
 """
 
 import logging
-from typing import List, Optional, Dict, Any
 from datetime import datetime
-from sqlalchemy import select, and_, or_, func, delete
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
-from app.core.exceptions import (
-    NotFoundError,
-    MaterialNotFoundError,
-    PermissionDeniedError,
-    SystemResourceError,
-)
-from app.models import (
-    Material,
-    MaterialCategory,
-    MaterialTag,
-    MaterialTagRel,
-    MaterialAttachment,
-    MaterialFavorite,
-    GenerationTask,
-)
+from app.core.exceptions import (MaterialNotFoundError, NotFoundError,
+                                 SystemResourceError)
+from app.models import (GenerationTask, Material, MaterialAttachment,
+                        MaterialCategory, MaterialFavorite, MaterialTag,
+                        MaterialTagRel)
 
 
 class MaterialService:
@@ -119,7 +110,7 @@ class MaterialService:
         db: AsyncSession,
         category_id: int,
         owner_operator_id: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ) -> MaterialCategory:
         """更新素材分类"""
         category = await MaterialService.get_material_category(
@@ -134,8 +125,10 @@ class MaterialService:
                 select(MaterialCategory).where(
                     and_(
                         MaterialCategory.name == kwargs["name"],
-                        MaterialCategory.material_platform_id == category.material_platform_id,
-                        MaterialCategory.owner_operator_id == category.owner_operator_id,
+                        MaterialCategory.material_platform_id
+                        == category.material_platform_id,
+                        MaterialCategory.owner_operator_id
+                        == category.owner_operator_id,
                         MaterialCategory.id != category_id,
                     )
                 )
@@ -172,7 +165,9 @@ class MaterialService:
         )
 
         if material_count and material_count > 0:
-            raise ValueError(f"该分类下有 {material_count} 个素材关联，请先迁移或删除标签")
+            raise ValueError(
+                f"该分类下有 {material_count} 个素材关联，请先迁移或删除标签"
+            )
 
         await db.delete(category)
         await db.commit()
@@ -258,8 +253,7 @@ class MaterialService:
             query = query.where(MaterialTag.category_id == category_id)
 
         query = query.order_by(
-            MaterialTag.is_system.desc(),
-            MaterialTag.created_at.desc()
+            MaterialTag.is_system.desc(), MaterialTag.created_at.desc()
         )
 
         result = await db.execute(query)
@@ -355,8 +349,10 @@ class MaterialService:
         """
         统计标签下的素材数量
         """
-        query = select(func.count()).select_from(MaterialTagRel).where(
-            MaterialTagRel.tag_id == tag_id
+        query = (
+            select(func.count())
+            .select_from(MaterialTagRel)
+            .where(MaterialTagRel.tag_id == tag_id)
         )
         result = await db.execute(query)
         return result.scalar() or 0
@@ -378,9 +374,9 @@ class MaterialService:
         """
         # 统计分类下的标签数量
         tag_count_result = await db.execute(
-            select(func.count()).select_from(MaterialTag).where(
-                MaterialTag.category_id == category_id
-            )
+            select(func.count())
+            .select_from(MaterialTag)
+            .where(MaterialTag.category_id == category_id)
         )
         tag_count = tag_count_result.scalar() or 0
 
@@ -416,32 +412,34 @@ class MaterialService:
         # 1. 获取素材总数
         total_query = select(func.count()).select_from(Material)
         if owner_operator_id is not None:
-            total_query = total_query.where(Material.owner_operator_id == owner_operator_id)
+            total_query = total_query.where(
+                Material.owner_operator_id == owner_operator_id
+            )
         total_result = await db.execute(total_query)
         total = total_result.scalar() or 0
 
         # 2. 获取无标签素材数量
-        no_tag_query = select(func.count()).select_from(Material).where(
-            Material.id.not_in(
-                select(MaterialTagRel.material_id).distinct()
-            )
+        no_tag_query = (
+            select(func.count())
+            .select_from(Material)
+            .where(Material.id.not_in(select(MaterialTagRel.material_id).distinct()))
         )
         if owner_operator_id is not None:
-            no_tag_query = no_tag_query.where(Material.owner_operator_id == owner_operator_id)
+            no_tag_query = no_tag_query.where(
+                Material.owner_operator_id == owner_operator_id
+            )
         no_tag_result = await db.execute(no_tag_query)
         no_tag_count = no_tag_result.scalar() or 0
 
         # 3. 获取各标签素材数量
         tag_count_query = select(
-            MaterialTagRel.tag_id,
-            func.count().label("count")
+            MaterialTagRel.tag_id, func.count().label("count")
         ).group_by(MaterialTagRel.tag_id)
 
         # 如果需要按管理员过滤，需要 join Material 表
         if owner_operator_id is not None:
             tag_count_query = tag_count_query.join(
-                Material,
-                Material.id == MaterialTagRel.material_id
+                Material, Material.id == MaterialTagRel.material_id
             ).where(Material.owner_operator_id == owner_operator_id)
 
         tag_count_result = await db.execute(tag_count_query)
@@ -475,7 +473,7 @@ class MaterialService:
     ) -> int:
         """
         将源标签下的所有素材迁移到目标标签
-        
+
         Returns:
             迁移的素材数量
         """
@@ -517,12 +515,12 @@ class MaterialService:
     ) -> int:
         """
         批量迁移素材到目标标签
-        
+
         Args:
             material_ids: 要迁移的素材ID列表
             target_tag_id: 目标标签ID
             source_tag_id: 源标签ID（可选，如提供则只迁移该标签的关联）
-        
+
         Returns:
             成功迁移的素材数量
         """
@@ -643,9 +641,7 @@ class MaterialService:
             category_id: 分类ID，用于筛选特定分类下的素材
             platform_id: 平台ID，用于筛选特定平台下的素材
         """
-        query = select(Material).options(
-            selectinload(Material.attachments)
-        )
+        query = select(Material).options(selectinload(Material.attachments))
         if owner_operator_id is not None:
             query = query.where(Material.owner_operator_id == owner_operator_id)
 
@@ -672,34 +668,24 @@ class MaterialService:
                 and_(
                     MaterialTagRel.material_id == Material.id,
                     MaterialTagRel.tag_id == tag_id,
-                )
+                ),
             )
 
         if category_id is not None:
             # 按分类筛选：通过标签关联找到该分类下的素材
-            query = query.join(
-                MaterialTagRel,
-                MaterialTagRel.material_id == Material.id
-            ).join(
-                MaterialTag,
-                MaterialTagRel.tag_id == MaterialTag.id
-            ).where(
-                MaterialTag.category_id == category_id
+            query = (
+                query.join(MaterialTagRel, MaterialTagRel.material_id == Material.id)
+                .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
+                .where(MaterialTag.category_id == category_id)
             )
 
         if platform_id is not None:
             # 按平台筛选：通过分类->标签关联找到该平台下的素材
-            query = query.join(
-                MaterialTagRel,
-                MaterialTagRel.material_id == Material.id
-            ).join(
-                MaterialTag,
-                MaterialTagRel.tag_id == MaterialTag.id
-            ).join(
-                MaterialCategory,
-                MaterialTag.category_id == MaterialCategory.id
-            ).where(
-                MaterialCategory.material_platform_id == platform_id
+            query = (
+                query.join(MaterialTagRel, MaterialTagRel.material_id == Material.id)
+                .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
+                .join(MaterialCategory, MaterialTag.category_id == MaterialCategory.id)
+                .where(MaterialCategory.material_platform_id == platform_id)
             )
 
         if no_tag:
@@ -728,7 +714,7 @@ class MaterialService:
                     and_(
                         MaterialFavorite.material_id == Material.id,
                         MaterialFavorite.user_id == favorite_user_id,
-                    )
+                    ),
                 )
             else:
                 # 只查询未收藏的素材
@@ -752,12 +738,15 @@ class MaterialService:
 
         # 动态转换 URL（旧数据可能存的是本地路径）
         from app.services.storage_service import get_storage_service
+
         storage = get_storage_service()
         for item in items:
             for attachment in item.attachments:
                 attachment.file_url = storage.convert_url(attachment.file_url)
                 if attachment.thumbnail_url:
-                    attachment.thumbnail_url = storage.convert_url(attachment.thumbnail_url)
+                    attachment.thumbnail_url = storage.convert_url(
+                        attachment.thumbnail_url
+                    )
 
         return items, total
 
@@ -810,20 +799,32 @@ class MaterialService:
 
         # 更新字段
         allowed_fields = [
-            "title", "content", "topic", "text_content", "source_url",
-            "source_type", "content_type", "status", "library_type"
+            "title",
+            "content",
+            "topic",
+            "text_content",
+            "source_url",
+            "source_type",
+            "content_type",
+            "status",
+            "library_type",
         ]
         for field, value in kwargs.items():
             if field in allowed_fields and value is not None:
                 setattr(material, field, value)
 
         # 处理转移操作（特殊字段，用于超级管理员转移素材所有权）
-        if "owner_operator_id_new" in kwargs and kwargs["owner_operator_id_new"] is not None:
+        if (
+            "owner_operator_id_new" in kwargs
+            and kwargs["owner_operator_id_new"] is not None
+        ):
             material.owner_operator_id = kwargs["owner_operator_id_new"]
 
         # 处理标签关联更新
         if "tag_ids" in kwargs:
-            await MaterialService.update_material_tags(db, material_id, kwargs["tag_ids"])
+            await MaterialService.update_material_tags(
+                db, material_id, kwargs["tag_ids"]
+            )
 
         material.updated_at = datetime.utcnow()
 
@@ -881,8 +882,10 @@ class MaterialService:
         Args:
             owner_operator_id: 创作管理员ID，None表示超级管理员（可删除所有素材）
         """
-        from app.models import MaterialAttachment, MaterialTagRel, MaterialFavorite
-        from app.services.storage_service import get_storage_service, ResourceType
+        from app.models import (MaterialAttachment, MaterialFavorite,
+                                MaterialTagRel)
+        from app.services.storage_service import (ResourceType,
+                                                  get_storage_service)
 
         query = select(Material).where(Material.id == material_id)
         if owner_operator_id is not None:
@@ -898,7 +901,9 @@ class MaterialService:
         if not material:
             raise MaterialNotFoundError()
 
-        logger.info(f"[MaterialService] Deleting material: id={material_id}, owner_operator_id={owner_operator_id}")
+        logger.info(
+            f"[MaterialService] Deleting material: id={material_id}, owner_operator_id={owner_operator_id}"
+        )
 
         # 0. 删除磁盘上的物理文件（原图 + 缩略图）
         try:
@@ -908,29 +913,45 @@ class MaterialService:
                 resource_type=ResourceType.IMAGE,
                 resource_id=material_id,
             )
-            logger.info(f"[MaterialService] Deleted physical files for material_id={material_id}")
+            logger.info(
+                f"[MaterialService] Deleted physical files for material_id={material_id}"
+            )
         except Exception as e:
             logger.warning(f"[MaterialService] Failed to delete physical files: {e}")
 
         # 1. 删除关联的附件记录
-        delete_attachments_query = delete(MaterialAttachment).where(MaterialAttachment.material_id == material_id)
+        delete_attachments_query = delete(MaterialAttachment).where(
+            MaterialAttachment.material_id == material_id
+        )
         attachments_result = await db.execute(delete_attachments_query)
-        logger.info(f"[MaterialService] Deleted attachments: count={attachments_result.rowcount}")
+        logger.info(
+            f"[MaterialService] Deleted attachments: count={attachments_result.rowcount}"
+        )
 
         # 2. 删除标签关联
-        delete_tag_rels_query = delete(MaterialTagRel).where(MaterialTagRel.material_id == material_id)
+        delete_tag_rels_query = delete(MaterialTagRel).where(
+            MaterialTagRel.material_id == material_id
+        )
         tag_rels_result = await db.execute(delete_tag_rels_query)
-        logger.info(f"[MaterialService] Deleted tag relations: count={tag_rels_result.rowcount}")
+        logger.info(
+            f"[MaterialService] Deleted tag relations: count={tag_rels_result.rowcount}"
+        )
 
         # 3. 删除收藏记录
-        delete_favorites_query = delete(MaterialFavorite).where(MaterialFavorite.material_id == material_id)
+        delete_favorites_query = delete(MaterialFavorite).where(
+            MaterialFavorite.material_id == material_id
+        )
         favorites_result = await db.execute(delete_favorites_query)
-        logger.info(f"[MaterialService] Deleted favorites: count={favorites_result.rowcount}")
+        logger.info(
+            f"[MaterialService] Deleted favorites: count={favorites_result.rowcount}"
+        )
 
         # 4. 最后删除素材
         await db.delete(material)
         await db.commit()
-        logger.info(f"[MaterialService] Material deleted successfully: id={material_id}")
+        logger.info(
+            f"[MaterialService] Material deleted successfully: id={material_id}"
+        )
         return True
 
     @staticmethod
@@ -975,7 +996,9 @@ class MaterialService:
             # 使用指定的标签列表（包括空列表表示无标签）
             for tag_id in tag_ids:
                 # 验证标签存在且属于目标管理员
-                tag = await MaterialService.get_material_tag(db, tag_id, owner_operator_id)
+                tag = await MaterialService.get_material_tag(
+                    db, tag_id, owner_operator_id
+                )
                 if tag:
                     new_tag_rel = MaterialTagRel(
                         material_id=material.id,
@@ -996,7 +1019,9 @@ class MaterialService:
 
         # 复制附件
         original_attachments = await db.execute(
-            select(MaterialAttachment).where(MaterialAttachment.material_id == original.id)
+            select(MaterialAttachment).where(
+                MaterialAttachment.material_id == original.id
+            )
         )
         for attachment in original_attachments.scalars().all():
             new_attachment = MaterialAttachment(
@@ -1093,7 +1118,9 @@ class MaterialService:
 
                 # 复制附件
                 original_attachments = await db.execute(
-                    select(MaterialAttachment).where(MaterialAttachment.material_id == original.id)
+                    select(MaterialAttachment).where(
+                        MaterialAttachment.material_id == original.id
+                    )
                 )
                 for attachment in original_attachments.scalars().all():
                     new_attachment = MaterialAttachment(
@@ -1113,24 +1140,32 @@ class MaterialService:
                 # 删除原素材前：处理关联表（避免外键约束报错）
                 # 1. 将生成任务指向新素材
                 generation_tasks = await db.execute(
-                    select(GenerationTask).where(GenerationTask.material_id == original.id)
+                    select(GenerationTask).where(
+                        GenerationTask.material_id == original.id
+                    )
                 )
                 for task in generation_tasks.scalars().all():
                     task.material_id = new_material.id
 
                 # 2. 删除原素材的标签关联
                 await db.execute(
-                    delete(MaterialTagRel).where(MaterialTagRel.material_id == original.id)
+                    delete(MaterialTagRel).where(
+                        MaterialTagRel.material_id == original.id
+                    )
                 )
 
                 # 3. 删除原素材的收藏记录
                 await db.execute(
-                    delete(MaterialFavorite).where(MaterialFavorite.material_id == original.id)
+                    delete(MaterialFavorite).where(
+                        MaterialFavorite.material_id == original.id
+                    )
                 )
 
                 # 4. 删除原素材的附件（数据库外键无CASCADE，需手动删除）
                 await db.execute(
-                    delete(MaterialAttachment).where(MaterialAttachment.material_id == original.id)
+                    delete(MaterialAttachment).where(
+                        MaterialAttachment.material_id == original.id
+                    )
                 )
 
                 # 5. 删除原素材
@@ -1176,15 +1211,21 @@ class MaterialService:
         """
         添加素材附件
         """
-        logger.info(f"[MaterialService] Adding attachment: material_id={material_id}, "
-                   f"owner_operator_id={owner_operator_id}, file_type={file_type}, "
-                   f"file_url={file_url}, file_name={file_name}, file_size={file_size}, "
-                   f"thumbnail_url={thumbnail_url}")
+        logger.info(
+            f"[MaterialService] Adding attachment: material_id={material_id}, "
+            f"owner_operator_id={owner_operator_id}, file_type={file_type}, "
+            f"file_url={file_url}, file_name={file_name}, file_size={file_size}, "
+            f"thumbnail_url={thumbnail_url}"
+        )
 
         # 验证素材所有权
-        material = await MaterialService.get_material(db, material_id, owner_operator_id)
+        material = await MaterialService.get_material(
+            db, material_id, owner_operator_id
+        )
         if not material:
-            logger.error(f"[MaterialService] Material not found: material_id={material_id}, owner_operator_id={owner_operator_id}")
+            logger.error(
+                f"[MaterialService] Material not found: material_id={material_id}, owner_operator_id={owner_operator_id}"
+            )
             raise MaterialNotFoundError()
 
         attachment = MaterialAttachment(
@@ -1212,8 +1253,10 @@ class MaterialService:
         await db.commit()
         await db.refresh(attachment)
 
-        logger.info(f"[MaterialService] Attachment saved: id={attachment.id}, material_id={material_id}, "
-                   f"file_url={attachment.file_url}, thumbnail_url={attachment.thumbnail_url}")
+        logger.info(
+            f"[MaterialService] Attachment saved: id={attachment.id}, material_id={material_id}, "
+            f"file_url={attachment.file_url}, thumbnail_url={attachment.thumbnail_url}"
+        )
         return attachment
 
     @staticmethod
@@ -1225,32 +1268,45 @@ class MaterialService:
         """
         获取素材附件列表
         """
-        logger.debug(f"[MaterialService] Querying attachments: material_id={material_id}, owner_operator_id={owner_operator_id}")
+        logger.debug(
+            f"[MaterialService] Querying attachments: material_id={material_id}, owner_operator_id={owner_operator_id}"
+        )
 
         # 验证素材所有权
         if owner_operator_id:
-            material = await MaterialService.get_material(db, material_id, owner_operator_id)
+            material = await MaterialService.get_material(
+                db, material_id, owner_operator_id
+            )
             if not material:
-                logger.warning(f"[MaterialService] Material not found for attachment query: "
-                              f"material_id={material_id}, owner_operator_id={owner_operator_id}")
+                logger.warning(
+                    f"[MaterialService] Material not found for attachment query: "
+                    f"material_id={material_id}, owner_operator_id={owner_operator_id}"
+                )
                 raise MaterialNotFoundError()
 
-        query = select(MaterialAttachment).where(MaterialAttachment.material_id == material_id)
-        query = query.order_by(MaterialAttachment.sort_order.asc(), MaterialAttachment.created_at.asc())
+        query = select(MaterialAttachment).where(
+            MaterialAttachment.material_id == material_id
+        )
+        query = query.order_by(
+            MaterialAttachment.sort_order.asc(), MaterialAttachment.created_at.asc()
+        )
 
         result = await db.execute(query)
         attachments = result.scalars().all()
 
         # 动态转换 URL（旧数据可能存的是本地路径）
         from app.services.storage_service import get_storage_service
+
         storage = get_storage_service()
         for attachment in attachments:
             attachment.file_url = storage.convert_url(attachment.file_url)
             if attachment.thumbnail_url:
                 attachment.thumbnail_url = storage.convert_url(attachment.thumbnail_url)
 
-        logger.debug(f"[MaterialService] Found attachments: material_id={material_id}, count={len(attachments)}, "
-                    f"urls={[a.file_url for a in attachments]}")
+        logger.debug(
+            f"[MaterialService] Found attachments: material_id={material_id}, count={len(attachments)}, "
+            f"urls={[a.file_url for a in attachments]}"
+        )
         return attachments
 
     @staticmethod
@@ -1262,22 +1318,30 @@ class MaterialService:
         """
         删除素材附件
         """
-        logger.info(f"[MaterialService] Deleting attachment: attachment_id={attachment_id}, owner_operator_id={owner_operator_id}")
+        logger.info(
+            f"[MaterialService] Deleting attachment: attachment_id={attachment_id}, owner_operator_id={owner_operator_id}"
+        )
 
         query = select(MaterialAttachment).where(MaterialAttachment.id == attachment_id)
         result = await db.execute(query)
         attachment = result.scalar_one_or_none()
 
         if not attachment:
-            logger.warning(f"[MaterialService] Attachment not found: attachment_id={attachment_id}")
+            logger.warning(
+                f"[MaterialService] Attachment not found: attachment_id={attachment_id}"
+            )
             raise NotFoundError(message="附件不存在")
 
         # 验证素材所有权
         if owner_operator_id:
-            material = await MaterialService.get_material(db, attachment.material_id, owner_operator_id)
+            material = await MaterialService.get_material(
+                db, attachment.material_id, owner_operator_id
+            )
             if not material:
-                logger.warning(f"[MaterialService] Material not found for attachment deletion: "
-                              f"material_id={attachment.material_id}, owner_operator_id={owner_operator_id}")
+                logger.warning(
+                    f"[MaterialService] Material not found for attachment deletion: "
+                    f"material_id={attachment.material_id}, owner_operator_id={owner_operator_id}"
+                )
                 raise MaterialNotFoundError()
 
         # 获取素材并更新计数
@@ -1292,7 +1356,9 @@ class MaterialService:
         await db.delete(attachment)
         await db.commit()
 
-        logger.info(f"[MaterialService] Attachment deleted: attachment_id={attachment_id}")
+        logger.info(
+            f"[MaterialService] Attachment deleted: attachment_id={attachment_id}"
+        )
         return True
 
     # ============================================
@@ -1328,18 +1394,27 @@ class MaterialService:
         """
         # 验证素材所有权
         if owner_operator_id:
-            material = await MaterialService.get_material(db, material_id, owner_operator_id)
+            material = await MaterialService.get_material(
+                db, material_id, owner_operator_id
+            )
             if not material:
                 raise MaterialNotFoundError()
 
         from sqlalchemy.orm import selectinload
-        query = select(MaterialTag).options(
-            selectinload(MaterialTag.category).selectinload(MaterialCategory.platform)
-        ).join(
-            MaterialTagRel,
-            and_(
-                MaterialTagRel.tag_id == MaterialTag.id,
-                MaterialTagRel.material_id == material_id,
+
+        query = (
+            select(MaterialTag)
+            .options(
+                selectinload(MaterialTag.category).selectinload(
+                    MaterialCategory.platform
+                )
+            )
+            .join(
+                MaterialTagRel,
+                and_(
+                    MaterialTagRel.tag_id == MaterialTag.id,
+                    MaterialTagRel.material_id == material_id,
+                ),
             )
         )
         query = query.order_by(MaterialTag.created_at.desc())
@@ -1358,7 +1433,9 @@ class MaterialService:
         切换素材收藏状态
         """
         # 验证素材所有权
-        material = await MaterialService.get_material(db, material_id, owner_operator_id)
+        material = await MaterialService.get_material(
+            db, material_id, owner_operator_id
+        )
         if not material:
             raise MaterialNotFoundError()
 

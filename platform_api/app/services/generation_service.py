@@ -9,33 +9,24 @@ Date: 2025
 
 import logging
 import re
-from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
-from sqlalchemy import select, and_, or_, func, update as sa_update, case, Integer
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import Integer, and_, func, or_, select
+from sqlalchemy import update as sa_update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 logger = logging.getLogger(__name__)
 
 from app.core.config import get_settings
-from app.core.exceptions import (
-    GenerationTaskNotFoundError,
-    GenerationItemNotFoundError,
-    PermissionDeniedError,
-)
-from app.models import (
-    GenerationTask,
-    GenerationTaskTemplate,
-    GenerationTaskSubuser,
-    GenerationTaskProgressLog,
-    GenerationItem,
-    GenerationItemExecutionLog,
-    SubUser,
-    Template,
-    Operator,
-    Material,
-    MaterialAttachment,
-)
+from app.core.exceptions import (GenerationItemNotFoundError,
+                                 GenerationTaskNotFoundError)
+from app.models import (GenerationItem, GenerationItemExecutionLog,
+                        GenerationTask, GenerationTaskProgressLog,
+                        GenerationTaskSubuser, GenerationTaskTemplate,
+                        Material, SubUser,
+                        Template)
 from app.services.storage_service import StorageService
 
 
@@ -124,7 +115,7 @@ def _convert_url_to_local(url: str) -> str:
         return url
     # 匹配公网 URL 格式：https://{bucket}.cos.{region}.myqcloud.com/{path}
     # 或者无效格式：https://.cos.{region}.myqcloud.com/{path}
-    pattern = r'^https?://[^/]*\.cos\.[^/]+\.myqcloud\.com/(.+)$'
+    pattern = r"^https?://[^/]*\.cos\.[^/]+\.myqcloud\.com/(.+)$"
     match = re.match(pattern, url)
     if match:
         return f"/cos/{match.group(1)}"
@@ -171,7 +162,8 @@ def _convert_generation_item_urls(item: GenerationItem) -> GenerationItem:
     # 转换生成的图片缩略图 URL 列表
     if item.generated_image_thumbnails_json:
         item.generated_image_thumbnails_json = [
-            storage_service.convert_url(url) for url in item.generated_image_thumbnails_json
+            storage_service.convert_url(url)
+            for url in item.generated_image_thumbnails_json
         ]
 
     # 转换生成的视频 URL
@@ -232,8 +224,14 @@ class GenerationService:
         """
         创建生成任务
         """
-        logger.debug("[Service] create_generation_task | owner=%s | name=%s | material=%s | templates=%s | sub_users=%s",
-                     owner_operator_id, name, material_id, template_ids, sub_user_ids)
+        logger.debug(
+            "[Service] create_generation_task | owner=%s | name=%s | material=%s | templates=%s | sub_users=%s",
+            owner_operator_id,
+            name,
+            material_id,
+            template_ids,
+            sub_user_ids,
+        )
 
         # 创建任务
         task = GenerationTask(
@@ -285,13 +283,21 @@ class GenerationService:
                     sort_order=idx,
                 )
                 db.add(task_template)
-                logger.debug("[Service] 任务模板关联已创建 | task_id=%s | template_id=%s | order=%s",
-                             task.id, template_id, idx)
+                logger.debug(
+                    "[Service] 任务模板关联已创建 | task_id=%s | template_id=%s | order=%s",
+                    task.id,
+                    template_id,
+                    idx,
+                )
 
             # 添加创作者关联并创建子任务
             if sub_user_ids:
-                logger.debug("[Service] 开始创建子任务 | task_id=%s | template_count=%s | subuser_count=%s",
-                             task.id, len(template_ids), len(sub_user_ids))
+                logger.debug(
+                    "[Service] 开始创建子任务 | task_id=%s | template_count=%s | subuser_count=%s",
+                    task.id,
+                    len(template_ids),
+                    len(sub_user_ids),
+                )
 
                 # 预先加载所有模板和创作者信息（避免循环查询）
                 templates_query = select(Template).where(Template.id.in_(template_ids))
@@ -305,8 +311,10 @@ class GenerationService:
                 # 加载对标素材信息（如果有）
                 benchmark_material = None
                 if benchmark_material_id:
-                    bm_query = select(Material).where(Material.id == benchmark_material_id).options(
-                        selectinload(Material.attachments)
+                    bm_query = (
+                        select(Material)
+                        .where(Material.id == benchmark_material_id)
+                        .options(selectinload(Material.attachments))
                     )
                     bm_result = await db.execute(bm_query)
                     benchmark_material = bm_result.scalar_one_or_none()
@@ -315,8 +323,9 @@ class GenerationService:
                 benchmark_image_urls = []
                 if benchmark_material and benchmark_material.attachments:
                     benchmark_image_urls = [
-                        att.file_url for att in benchmark_material.attachments
-                        if att.file_type == 'image'
+                        att.file_url
+                        for att in benchmark_material.attachments
+                        if att.file_type == "image"
                     ]
 
                 for sub_user_id in sub_user_ids:
@@ -328,9 +337,15 @@ class GenerationService:
 
                     # 获取创作者快照信息
                     sub_user = sub_users_map.get(sub_user_id)
-                    sub_user_name = sub_user.nickname or sub_user.display_name or str(sub_user_id) if sub_user else str(sub_user_id)
+                    sub_user_name = (
+                        sub_user.nickname or sub_user.display_name or str(sub_user_id)
+                        if sub_user
+                        else str(sub_user_id)
+                    )
                     sub_user_profile = sub_user.fan_profile if sub_user else None
-                    sub_user_positioning = sub_user.user_positioning if sub_user else None
+                    sub_user_positioning = (
+                        sub_user.user_positioning if sub_user else None
+                    )
                     sub_user_style = sub_user.content_style if sub_user else None
 
                     # 为每个 (创作者, 模板) 组合创建子任务
@@ -338,56 +353,76 @@ class GenerationService:
                         template = templates_map.get(template_id)
 
                         # 构建模板快照信息
-                        input_prompt_creativity = template.description if template else None
-                        input_prompt_instruction = template.prompt_template if template else None
-                        input_image_size_ratio = template.image_size_ratio if template else None
-                        input_watermark = int(template.add_watermark) if template and template.add_watermark is not None else None
+                        input_prompt_creativity = (
+                            template.description if template else None
+                        )
+                        input_prompt_instruction = (
+                            template.prompt_template if template else None
+                        )
+                        input_image_size_ratio = (
+                            template.image_size_ratio if template else None
+                        )
+                        input_watermark = (
+                            int(template.add_watermark)
+                            if template and template.add_watermark is not None
+                            else None
+                        )
 
                         # 构建 GenerationItem 的基准参数
                         item_kwargs = {
-                            'task_id': task.id,
-                            'sub_user_id': sub_user_id,
-                            'template_id': template_id,
-                            'status': 'queued',
-                            'distribution_status': 'draft',
-                            'owner_operator_id': owner_operator_id,
-                            'queued_at': datetime.now(),
+                            "task_id": task.id,
+                            "sub_user_id": sub_user_id,
+                            "template_id": template_id,
+                            "status": "queued",
+                            "distribution_status": "draft",
+                            "owner_operator_id": owner_operator_id,
+                            "queued_at": datetime.now(),
                             # 创作者快照
-                            'sub_user_name': sub_user_name,
-                            'input_sub_user_profile': sub_user_profile,
-                            'input_sub_user_positioning': sub_user_positioning,
-                            'input_sub_user_style': sub_user_style,
+                            "sub_user_name": sub_user_name,
+                            "input_sub_user_profile": sub_user_profile,
+                            "input_sub_user_positioning": sub_user_positioning,
+                            "input_sub_user_style": sub_user_style,
                             # 模板快照
-                            'input_prompt_creativity': input_prompt_creativity,
-                            'input_prompt_instruction': input_prompt_instruction,
-                            'input_image_size_ratio': input_image_size_ratio,
-                            'input_watermark': input_watermark,
+                            "input_prompt_creativity": input_prompt_creativity,
+                            "input_prompt_instruction": input_prompt_instruction,
+                            "input_image_size_ratio": input_image_size_ratio,
+                            "input_watermark": input_watermark,
                             # 模型配置（使用任务指定的模型）
-                            'model_platform': model_platform,
-                            'model_id': model_id,
-                            'image_model_platform': image_model_platform,
-                            'image_model_id': image_model_id,
+                            "model_platform": model_platform,
+                            "model_id": model_id,
+                            "image_model_platform": image_model_platform,
+                            "image_model_id": image_model_id,
                         }
 
                         # 如果有对标素材，添加对标信息
                         if benchmark_material_id and benchmark_material:
-                            item_kwargs.update({
-                                'input_benchmark_title': benchmark_material.title,
-                                'input_benchmark_content': benchmark_material.content,
-                                'input_benchmark_topic': benchmark_material.topic,
-                                'input_benchmark_images_json': benchmark_image_urls if benchmark_image_urls else None,
-                                'input_benchmark_text_enabled': benchmark_text_enabled,
-                                'input_benchmark_image_enabled': benchmark_image_enabled,
-                                'input_benchmark_image_reference_options': benchmark_image_reference_options,
-                                # V3.0: 图片角色配置
-                                'input_benchmark_image_roles_json': benchmark_image_roles,
-                                'input_template_product_mapping_json': template_product_mapping,
-                            })
+                            item_kwargs.update(
+                                {
+                                    "input_benchmark_title": benchmark_material.title,
+                                    "input_benchmark_content": benchmark_material.content,
+                                    "input_benchmark_topic": benchmark_material.topic,
+                                    "input_benchmark_images_json": (
+                                        benchmark_image_urls
+                                        if benchmark_image_urls
+                                        else None
+                                    ),
+                                    "input_benchmark_text_enabled": benchmark_text_enabled,
+                                    "input_benchmark_image_enabled": benchmark_image_enabled,
+                                    "input_benchmark_image_reference_options": benchmark_image_reference_options,
+                                    # V3.0: 图片角色配置
+                                    "input_benchmark_image_roles_json": benchmark_image_roles,
+                                    "input_template_product_mapping_json": template_product_mapping,
+                                }
+                            )
 
                         generation_item = GenerationItem(**item_kwargs)
                         db.add(generation_item)
                         total_items += 1
-                logger.debug("[Service] 子任务创建完成 | task_id=%s | total_items=%s", task.id, total_items)
+                logger.debug(
+                    "[Service] 子任务创建完成 | task_id=%s | total_items=%s",
+                    task.id,
+                    total_items,
+                )
 
         # 更新任务统计
         task.total_count = total_items
@@ -407,8 +442,12 @@ class GenerationService:
 
         await db.commit()
         await db.refresh(task)
-        logger.info("[Service] 任务创建成功 | task_id=%s | total_items=%s | queued=%s",
-                    task.id, task.total_count, task.queued_count)
+        logger.info(
+            "[Service] 任务创建成功 | task_id=%s | total_items=%s | queued=%s",
+            task.id,
+            task.total_count,
+            task.queued_count,
+        )
         return task
 
     @staticmethod
@@ -487,7 +526,9 @@ class GenerationService:
             if task.material and task.material.attachments:
                 for attachment in task.material.attachments:
                     if attachment.file_url:
-                        attachment.file_url = storage_service.convert_url(attachment.file_url)
+                        attachment.file_url = storage_service.convert_url(
+                            attachment.file_url
+                        )
 
         return items, total
 
@@ -500,14 +541,22 @@ class GenerationService:
         """
         获取生成任务详情
         """
-        from app.models import Template, TemplateAttachment, GenerationTaskTemplate  # 延迟导入避免循环引用
+        from app.models import (GenerationTaskTemplate)
 
-        query = select(GenerationTask).where(GenerationTask.id == task_id).options(
-            selectinload(GenerationTask.material).selectinload(Material.attachments),
-            selectinload(GenerationTask.benchmark_material).selectinload(Material.attachments),
-            selectinload(GenerationTask.task_templates).selectinload(
-                GenerationTaskTemplate.template  # 通过 task_templates 加载关联的 template
-            ),
+        query = (
+            select(GenerationTask)
+            .where(GenerationTask.id == task_id)
+            .options(
+                selectinload(GenerationTask.material).selectinload(
+                    Material.attachments
+                ),
+                selectinload(GenerationTask.benchmark_material).selectinload(
+                    Material.attachments
+                ),
+                selectinload(GenerationTask.task_templates).selectinload(
+                    GenerationTaskTemplate.template  # 通过 task_templates 加载关联的 template
+                ),
+            )
         )
 
         if owner_operator_id:
@@ -521,14 +570,18 @@ class GenerationService:
             storage_service = StorageService()
             for attachment in task.material.attachments:
                 if attachment.file_url:
-                    attachment.file_url = storage_service.convert_url(attachment.file_url)
+                    attachment.file_url = storage_service.convert_url(
+                        attachment.file_url
+                    )
 
         # 转换 benchmark_material 的附件 URL
         if task and task.benchmark_material and task.benchmark_material.attachments:
             storage_service = StorageService()
             for attachment in task.benchmark_material.attachments:
                 if attachment.file_url:
-                    attachment.file_url = storage_service.convert_url(attachment.file_url)
+                    attachment.file_url = storage_service.convert_url(
+                        attachment.file_url
+                    )
 
         return task
 
@@ -543,8 +596,12 @@ class GenerationService:
         """
         更新任务状态
         """
-        logger.debug("[Service] update_generation_task_status | task_id=%s | status=%s | message=%s",
-                     task_id, status, progress_message)
+        logger.debug(
+            "[Service] update_generation_task_status | task_id=%s | status=%s | message=%s",
+            task_id,
+            status,
+            progress_message,
+        )
 
         result = await db.execute(
             select(GenerationTask).where(
@@ -566,13 +623,22 @@ class GenerationService:
             "pending": ["processing", "cancelled"],
             "processing": ["completed", "failed", "cancelled"],
             "completed": [],  # 终态：不可转换
-            "failed": ["processing"],  # 允许重新运行（由 update_generation_item_status 自动触发）
+            "failed": [
+                "processing"
+            ],  # 允许重新运行（由 update_generation_item_status 自动触发）
             "cancelled": [],  # 终态：不可转换
         }
         if old_status == status:
-            logger.debug("[Service] 任务状态未变化 | task_id=%s | status=%s", task_id, status)
+            logger.debug(
+                "[Service] 任务状态未变化 | task_id=%s | status=%s", task_id, status
+            )
         elif status not in VALID_TASK_TRANSITIONS.get(old_status, []):
-            logger.warning("[Service] 不允许的任务状态转换 | task_id=%s | %s -> %s", task_id, old_status, status)
+            logger.warning(
+                "[Service] 不允许的任务状态转换 | task_id=%s | %s -> %s",
+                task_id,
+                old_status,
+                status,
+            )
             # 不阻止，仅记录日志（因为某些状态由 update_generation_item_status 自动判定）
 
         task.status = status
@@ -581,12 +647,20 @@ class GenerationService:
         # 设置任务开始时间：当任务从 pending 变为 processing 时
         if old_status == "pending" and status == "processing":
             task.started_at = datetime.now()
-            logger.info("[Service] 任务开始时间已记录 | task_id=%s | started_at=%s", task_id, task.started_at)
+            logger.info(
+                "[Service] 任务开始时间已记录 | task_id=%s | started_at=%s",
+                task_id,
+                task.started_at,
+            )
 
         # 设置任务完成时间：当任务变为最终状态时
         if status in ("completed", "failed", "cancelled"):
             task.completed_at = datetime.now()
-            logger.info("[Service] 任务完成时间已记录 | task_id=%s | completed_at=%s", task_id, task.completed_at)
+            logger.info(
+                "[Service] 任务完成时间已记录 | task_id=%s | completed_at=%s",
+                task_id,
+                task.completed_at,
+            )
 
         # 创建进度日志
         progress_log = GenerationTaskProgressLog(
@@ -602,9 +676,16 @@ class GenerationService:
 
         await db.commit()
         await db.refresh(task)
-        logger.info("[Service] 任务状态更新 | task_id=%s | %s -> %s | queued=%s | generating=%s | completed=%s | failed=%s",
-                    task_id, old_status, status, task.queued_count, task.generating_count,
-                    task.completed_count, task.failed_count)
+        logger.info(
+            "[Service] 任务状态更新 | task_id=%s | %s -> %s | queued=%s | generating=%s | completed=%s | failed=%s",
+            task_id,
+            old_status,
+            status,
+            task.queued_count,
+            task.generating_count,
+            task.completed_count,
+            task.failed_count,
+        )
         return task
 
     @staticmethod
@@ -690,15 +771,21 @@ class GenerationService:
             if not task:
                 raise GenerationTaskNotFoundError()
 
-        query = select(GenerationItem).options(
-            selectinload(GenerationItem.sub_user),
-        ).where(GenerationItem.task_id == task_id)
+        query = (
+            select(GenerationItem)
+            .options(
+                selectinload(GenerationItem.sub_user),
+            )
+            .where(GenerationItem.task_id == task_id)
+        )
 
         if status:
             query = query.where(GenerationItem.status == status)
 
         if distribution_status:
-            query = query.where(GenerationItem.distribution_status == distribution_status)
+            query = query.where(
+                GenerationItem.distribution_status == distribution_status
+            )
 
         if sub_user_id:
             query = query.where(GenerationItem.sub_user_id == sub_user_id)
@@ -731,7 +818,11 @@ class GenerationService:
         """
         获取生成子任务详情（包含 task 关系）
         """
-        query = select(GenerationItem).where(GenerationItem.id == item_id).options(selectinload(GenerationItem.task))
+        query = (
+            select(GenerationItem)
+            .where(GenerationItem.id == item_id)
+            .options(selectinload(GenerationItem.task))
+        )
 
         if owner_operator_id:
             query = query.where(GenerationItem.owner_operator_id == owner_operator_id)
@@ -767,25 +858,33 @@ class GenerationService:
                                  防止并发场景下同一 item 被多个 worker 同时拾取。
                                  返回 None 表示状态已被其他 worker 改变。
         """
-        logger.debug("[Service] update_generation_item_status | item_id=%s | new_status=%s | error=%s | expected_old=%s",
-                     item_id, status, error_message[:100] if error_message else None, expected_old_status)
+        logger.debug(
+            "[Service] update_generation_item_status | item_id=%s | new_status=%s | error=%s | expected_old=%s",
+            item_id,
+            status,
+            error_message[:100] if error_message else None,
+            expected_old_status,
+        )
 
         # 构建查询条件：超级管理员不限制 owner_operator_id
         query_conditions = [GenerationItem.id == item_id]
         if owner_operator_id is not None:
-            query_conditions.append(GenerationItem.owner_operator_id == owner_operator_id)
+            query_conditions.append(
+                GenerationItem.owner_operator_id == owner_operator_id
+            )
         if expected_old_status is not None:
             query_conditions.append(GenerationItem.status == expected_old_status)
 
-        result = await db.execute(
-            select(GenerationItem).where(and_(*query_conditions))
-        )
+        result = await db.execute(select(GenerationItem).where(and_(*query_conditions)))
         item = result.scalar_one_or_none()
         if not item:
             if expected_old_status is not None:
                 # CAS 条件不满足：item 存在但状态已被其他 worker 改变
-                logger.info("[Service] CAS 守卫失败，子任务状态已变更 | item_id=%s | expected=%s",
-                            item_id, expected_old_status)
+                logger.info(
+                    "[Service] CAS 守卫失败，子任务状态已变更 | item_id=%s | expected=%s",
+                    item_id,
+                    expected_old_status,
+                )
                 return None
             # item 确实不存在
             logger.warning("[Service] 子任务不存在 | item_id=%s", item_id)
@@ -837,8 +936,12 @@ class GenerationService:
         await db.execute(stmt)
         await db.flush()
 
-        logger.debug("[Service] 任务计数原子更新 | task_id=%s | old_status=%s -> new_status=%s",
-                     task_id, old_status, status)
+        logger.debug(
+            "[Service] 任务计数原子更新 | task_id=%s | old_status=%s -> new_status=%s",
+            task_id,
+            old_status,
+            status,
+        )
 
         # 更新子任务字段
         item.status = status
@@ -861,7 +964,7 @@ class GenerationService:
                 .where(GenerationTask.id == task_id)
                 .values(
                     pending_publish_count=GenerationTask.pending_publish_count + 1,
-                    updated_at=datetime.now(timezone.utc)
+                    updated_at=datetime.now(timezone.utc),
                 )
             )
             await db.execute(stmt)
@@ -879,16 +982,28 @@ class GenerationService:
         )
         task = task_result.scalar_one_or_none()
         if not task:
-            logger.warning("[Service] 关联任务不存在 | item_id=%s | task_id=%s", item_id, task_id)
+            logger.warning(
+                "[Service] 关联任务不存在 | item_id=%s | task_id=%s", item_id, task_id
+            )
             raise GenerationTaskNotFoundError()
 
-        logger.debug("[Service] 任务统计快照 | task_id=%s | "
-                     "queued=%s | generating=%s | completed=%s | failed=%s | paused=%s",
-                     task.id, task.queued_count, task.generating_count,
-                     task.completed_count, task.failed_count, task.paused_count)
+        logger.debug(
+            "[Service] 任务统计快照 | task_id=%s | "
+            "queued=%s | generating=%s | completed=%s | failed=%s | paused=%s",
+            task.id,
+            task.queued_count,
+            task.generating_count,
+            task.completed_count,
+            task.failed_count,
+            task.paused_count,
+        )
 
         # 检查任务是否完成 - 当没有正在运行或等待的子任务时
-        if task.queued_count == 0 and task.generating_count == 0 and task.paused_count == 0:
+        if (
+            task.queued_count == 0
+            and task.generating_count == 0
+            and task.paused_count == 0
+        ):
             # 所有子任务都结束了
             now = datetime.now()
             final_status = None
@@ -897,35 +1012,63 @@ class GenerationService:
                 task.status = "failed"
                 task.completed_at = now
                 final_status = "failed"
-                logger.info("[Service] 任务已失败（有子任务失败）| task_id=%s | failed_count=%s | completed_count=%s",
-                            task.id, task.failed_count, task.completed_count)
+                logger.info(
+                    "[Service] 任务已失败（有子任务失败）| task_id=%s | failed_count=%s | completed_count=%s",
+                    task.id,
+                    task.failed_count,
+                    task.completed_count,
+                )
             elif task.completed_count > 0:
                 # 全部成功
                 task.status = "completed"
                 task.completed_at = now
                 final_status = "completed"
-                logger.info("[Service] 任务全部完成 | task_id=%s | completed=%s", task.id, task.completed_count)
+                logger.info(
+                    "[Service] 任务全部完成 | task_id=%s | completed=%s",
+                    task.id,
+                    task.completed_count,
+                )
             else:
                 # 全部暂停（无完成无失败），保持 processing 状态
-                logger.info("[Service] 任务无完成项（全部暂停） | task_id=%s | paused=%s", task.id, task.paused_count)
-            
+                logger.info(
+                    "[Service] 任务无完成项（全部暂停） | task_id=%s | paused=%s",
+                    task.id,
+                    task.paused_count,
+                )
+
             # 同步更新定时任务执行记录
             if final_status:
-                await _sync_scheduled_task_execution(db, task.id, final_status, task.total_count, task.completed_count, task.failed_count, now)
+                await _sync_scheduled_task_execution(
+                    db,
+                    task.id,
+                    final_status,
+                    task.total_count,
+                    task.completed_count,
+                    task.failed_count,
+                    now,
+                )
         else:
             # 还有子任务在运行或等待 - 确保任务状态是 processing
             if task.status != "processing":
                 old_task_status = task.status
                 task.status = "processing"
-                logger.info("[Service] 任务恢复运行状态 | task_id=%s | %s -> processing", task.id, old_task_status)
+                logger.info(
+                    "[Service] 任务恢复运行状态 | task_id=%s | %s -> processing",
+                    task.id,
+                    old_task_status,
+                )
 
         # 如果 item 从 completed/failed 重新变为 queued/generating，
         # 不管任务之前是什么状态，都确保任务状态是 processing
         if status in ("queued", "generating") and old_status in ("completed", "failed"):
             if task.status != "processing":
                 task.status = "processing"
-                logger.info("[Service] 任务重新运行 | task_id=%s | item_id=%s | %s -> processing",
-                            task.id, item_id, old_status)
+                logger.info(
+                    "[Service] 任务重新运行 | task_id=%s | item_id=%s | %s -> processing",
+                    task.id,
+                    item_id,
+                    old_status,
+                )
 
         # 创建进度日志
         progress_log = GenerationTaskProgressLog(
@@ -942,8 +1085,14 @@ class GenerationService:
 
         await db.commit()
         # commit 后 item 已持久化，直接返回（不需要 refresh，减少数据库连接）
-        logger.info("[Service] 子任务状态更新 | item_id=%s | task_id=%s | %s -> %s | retry_count=%s",
-                    item_id, task.id, old_status, status, item.retry_count)
+        logger.info(
+            "[Service] 子任务状态更新 | item_id=%s | task_id=%s | %s -> %s | retry_count=%s",
+            item_id,
+            task.id,
+            old_status,
+            status,
+            item.retry_count,
+        )
         return item
 
     @staticmethod
@@ -965,9 +1114,15 @@ class GenerationService:
         Returns:
             更新后的任务对象
         """
-        logger.info("[Service] recalculate_task_counts | task_id=%s | owner=%s", task_id, owner_operator_id)
+        logger.info(
+            "[Service] recalculate_task_counts | task_id=%s | owner=%s",
+            task_id,
+            owner_operator_id,
+        )
 
-        task = await GenerationService.get_generation_task(db, task_id, owner_operator_id)
+        task = await GenerationService.get_generation_task(
+            db, task_id, owner_operator_id
+        )
         if not task:
             logger.warning("[Service] 任务不存在 | task_id=%s", task_id)
             return None
@@ -992,17 +1147,44 @@ class GenerationService:
         paused_count = sum(1 for item in all_items if item.status == "paused")
 
         # 重新统计分发状态
-        distributed_count = sum(1 for item in all_items if item.distribution_status == "distributed")
-        pending_publish_count = sum(1 for item in all_items if item.distribution_status in ("distributed", "pending_publish"))
-        published_count = sum(1 for item in all_items if item.distribution_status == "published")
+        distributed_count = sum(
+            1 for item in all_items if item.distribution_status == "distributed"
+        )
+        pending_publish_count = sum(
+            1
+            for item in all_items
+            if item.distribution_status in ("distributed", "pending_publish")
+        )
+        published_count = sum(
+            1 for item in all_items if item.distribution_status == "published"
+        )
 
-        old_counts = (task.queued_count, task.generating_count, task.completed_count, task.failed_count,
-                     task.paused_count, task.pending_publish_count, task.published_count)
-        new_counts = (queued_count, generating_count, completed_count, failed_count,
-                     paused_count, pending_publish_count, published_count)
+        old_counts = (
+            task.queued_count,
+            task.generating_count,
+            task.completed_count,
+            task.failed_count,
+            task.paused_count,
+            task.pending_publish_count,
+            task.published_count,
+        )
+        new_counts = (
+            queued_count,
+            generating_count,
+            completed_count,
+            failed_count,
+            paused_count,
+            pending_publish_count,
+            published_count,
+        )
 
-        logger.info("[Service] 重新计算计数 | task_id=%s | old=%s | new=%s | total_items=%s",
-                    task_id, old_counts, new_counts, len(all_items))
+        logger.info(
+            "[Service] 重新计算计数 | task_id=%s | old=%s | new=%s | total_items=%s",
+            task_id,
+            old_counts,
+            new_counts,
+            len(all_items),
+        )
 
         # 更新生成状态计数
         task.queued_count = queued_count
@@ -1040,8 +1222,12 @@ class GenerationService:
         task.updated_at = datetime.now()
         await db.commit()
 
-        logger.info("[Service] 计数修复完成 | task_id=%s | status=%s | %s",
-                    task_id, task.status, new_counts)
+        logger.info(
+            "[Service] 计数修复完成 | task_id=%s | status=%s | %s",
+            task_id,
+            task.status,
+            new_counts,
+        )
         return task
 
     @staticmethod
@@ -1062,13 +1248,34 @@ class GenerationService:
             select(
                 GenerationItem.task_id,
                 func.count().label("total"),
-                func.sum(func.cast(GenerationItem.status == "queued", Integer)).label("queued"),
-                func.sum(func.cast(GenerationItem.status == "generating", Integer)).label("generating"),
-                func.sum(func.cast(GenerationItem.status == "completed", Integer)).label("completed"),
-                func.sum(func.cast(GenerationItem.status == "failed", Integer)).label("failed"),
-                func.sum(func.cast(GenerationItem.status == "paused", Integer)).label("paused"),
-                func.sum(func.cast(GenerationItem.distribution_status.in_(["distributed", "pending_publish"]), Integer)).label("pending_publish"),
-                func.sum(func.cast(GenerationItem.distribution_status == "published", Integer)).label("published"),
+                func.sum(func.cast(GenerationItem.status == "queued", Integer)).label(
+                    "queued"
+                ),
+                func.sum(
+                    func.cast(GenerationItem.status == "generating", Integer)
+                ).label("generating"),
+                func.sum(
+                    func.cast(GenerationItem.status == "completed", Integer)
+                ).label("completed"),
+                func.sum(func.cast(GenerationItem.status == "failed", Integer)).label(
+                    "failed"
+                ),
+                func.sum(func.cast(GenerationItem.status == "paused", Integer)).label(
+                    "paused"
+                ),
+                func.sum(
+                    func.cast(
+                        GenerationItem.distribution_status.in_(
+                            ["distributed", "pending_publish"]
+                        ),
+                        Integer,
+                    )
+                ).label("pending_publish"),
+                func.sum(
+                    func.cast(
+                        GenerationItem.distribution_status == "published", Integer
+                    )
+                ).label("published"),
             )
             .where(GenerationItem.task_id.in_(task_ids))
             .group_by(GenerationItem.task_id)
@@ -1077,9 +1284,14 @@ class GenerationService:
         count_map = {row.task_id: row for row in count_result.all()}
 
         default_counts = {
-            "total_count": 0, "queued_count": 0, "generating_count": 0,
-            "completed_count": 0, "failed_count": 0, "paused_count": 0,
-            "pending_publish_count": 0, "published_count": 0,
+            "total_count": 0,
+            "queued_count": 0,
+            "generating_count": 0,
+            "completed_count": 0,
+            "failed_count": 0,
+            "paused_count": 0,
+            "pending_publish_count": 0,
+            "published_count": 0,
         }
 
         for task in tasks:
@@ -1139,26 +1351,30 @@ class GenerationService:
         Returns:
             bool: 是否成功删除
         """
-        logger.warning("[Service] delete_orphaned_item: 删除孤儿子任务 | item_id=%s", item_id)
+        logger.warning(
+            "[Service] delete_orphaned_item: 删除孤儿子任务 | item_id=%s", item_id
+        )
 
         conditions = [GenerationItem.id == item_id]
         if owner_operator_id is not None:
             conditions.append(GenerationItem.owner_operator_id == owner_operator_id)
 
-        result = await db.execute(
-            select(GenerationItem).where(and_(*conditions))
-        )
+        result = await db.execute(select(GenerationItem).where(and_(*conditions)))
         item = result.scalar_one_or_none()
 
         if not item:
-            logger.warning("[Service] delete_orphaned_item: 子任务不存在 | item_id=%s", item_id)
+            logger.warning(
+                "[Service] delete_orphaned_item: 子任务不存在 | item_id=%s", item_id
+            )
             return False
 
         # 删除子任务
         await db.delete(item)
         await db.commit()
 
-        logger.info("[Service] delete_orphaned_item: 孤儿子任务已删除 | item_id=%s", item_id)
+        logger.info(
+            "[Service] delete_orphaned_item: 孤儿子任务已删除 | item_id=%s", item_id
+        )
         return True
 
     @staticmethod
@@ -1177,38 +1393,60 @@ class GenerationService:
             - failed: 重试失败任务
             - completed + pending_publish: 重新生成已完成的待发布任务
         """
-        logger.debug("[Service] reset_item_for_regeneration | item_id=%s | owner=%s", item_id, owner_operator_id)
+        logger.debug(
+            "[Service] reset_item_for_regeneration | item_id=%s | owner=%s",
+            item_id,
+            owner_operator_id,
+        )
 
         # 构建查询条件：超级管理员不限制 owner_operator_id
         conditions = [GenerationItem.id == item_id]
         if owner_operator_id is not None:
             conditions.append(GenerationItem.owner_operator_id == owner_operator_id)
 
-        result = await db.execute(
-            select(GenerationItem).where(and_(*conditions))
-        )
+        result = await db.execute(select(GenerationItem).where(and_(*conditions)))
         item = result.scalar_one_or_none()
         if not item:
-            logger.warning("[Service] reset_item_for_regeneration: 子任务不存在 | item_id=%s", item_id)
+            logger.warning(
+                "[Service] reset_item_for_regeneration: 子任务不存在 | item_id=%s",
+                item_id,
+            )
             raise GenerationItemNotFoundError()
 
         # 检查允许的状态
         allowed = False
         if item.status == "failed":
             allowed = True
-            logger.info("[Service] reset_item_for_regeneration: 重试失败任务 | item_id=%s", item_id)
-        elif item.status == "completed" and item.distribution_status == "pending_publish":
+            logger.info(
+                "[Service] reset_item_for_regeneration: 重试失败任务 | item_id=%s",
+                item_id,
+            )
+        elif (
+            item.status == "completed" and item.distribution_status == "pending_publish"
+        ):
             allowed = True
-            logger.info("[Service] reset_item_for_regeneration: 重新生成已完成任务 | item_id=%s", item_id)
+            logger.info(
+                "[Service] reset_item_for_regeneration: 重新生成已完成任务 | item_id=%s",
+                item_id,
+            )
         elif item.status == "queued":
             # 已经是待处理状态，直接返回
-            logger.info("[Service] reset_item_for_regeneration: 子任务已是待处理状态 | item_id=%s", item_id)
+            logger.info(
+                "[Service] reset_item_for_regeneration: 子任务已是待处理状态 | item_id=%s",
+                item_id,
+            )
             return item
 
         if not allowed:
-            logger.warning("[Service] reset_item_for_regeneration: 状态不允许重置 | item_id=%s | status=%s | distribution_status=%s",
-                          item_id, item.status, item.distribution_status)
-            raise ValueError(f"无法重置该子任务：状态为 {item.status}，分发状态为 {item.distribution_status}")
+            logger.warning(
+                "[Service] reset_item_for_regeneration: 状态不允许重置 | item_id=%s | status=%s | distribution_status=%s",
+                item_id,
+                item.status,
+                item.distribution_status,
+            )
+            raise ValueError(
+                f"无法重置该子任务：状态为 {item.status}，分发状态为 {item.distribution_status}"
+            )
 
         # 清除之前的生成结果（如果有）
         item.generated_title = None
@@ -1238,7 +1476,11 @@ class GenerationService:
         task_id = item.task_id
         await GenerationService.recalculate_task_counts(db, task_id)
 
-        logger.info("[Service] reset_item_for_regeneration: 子任务已重置 | item_id=%s | new_status=%s", item_id, item.status)
+        logger.info(
+            "[Service] reset_item_for_regeneration: 子任务已重置 | item_id=%s | new_status=%s",
+            item_id,
+            item.status,
+        )
         return item
 
     # 兼容旧方法的别名
@@ -1249,7 +1491,9 @@ class GenerationService:
         owner_operator_id: Optional[int] = None,
     ) -> Optional[GenerationItem]:
         """重试失败的子任务（兼容旧接口）"""
-        return await GenerationService.reset_item_for_regeneration(db, item_id, owner_operator_id)
+        return await GenerationService.reset_item_for_regeneration(
+            db, item_id, owner_operator_id
+        )
 
     @staticmethod
     async def regenerate_completed_item(
@@ -1258,7 +1502,9 @@ class GenerationService:
         owner_operator_id: Optional[int] = None,
     ) -> Optional[GenerationItem]:
         """重新生成已完成的子任务（兼容旧接口）"""
-        return await GenerationService.reset_item_for_regeneration(db, item_id, owner_operator_id)
+        return await GenerationService.reset_item_for_regeneration(
+            db, item_id, owner_operator_id
+        )
 
     @staticmethod
     async def toggle_pause_item(
@@ -1274,7 +1520,12 @@ class GenerationService:
             owner_operator_id: 创作管理员ID，None 表示超级管理员（可操作所有记录）
         """
         action = "暂停" if pause else "继续"
-        logger.info("[Service] toggle_pause_item: %s子任务 | item_id=%s | owner=%s", action, item_id, owner_operator_id)
+        logger.info(
+            "[Service] toggle_pause_item: %s子任务 | item_id=%s | owner=%s",
+            action,
+            item_id,
+            owner_operator_id,
+        )
 
         # 构建查询条件：超级管理员不限制 owner_operator_id
         conditions = [GenerationItem.id == item_id]
@@ -1282,12 +1533,12 @@ class GenerationService:
             conditions.append(GenerationItem.owner_operator_id == owner_operator_id)
 
         # 先查询获取 item 和 task_id
-        result = await db.execute(
-            select(GenerationItem).where(and_(*conditions))
-        )
+        result = await db.execute(select(GenerationItem).where(and_(*conditions)))
         item = result.scalar_one_or_none()
         if not item:
-            logger.warning("[Service] toggle_pause_item: 子任务不存在 | item_id=%s", item_id)
+            logger.warning(
+                "[Service] toggle_pause_item: 子任务不存在 | item_id=%s", item_id
+            )
             raise GenerationItemNotFoundError()
 
         old_status = item.status
@@ -1296,27 +1547,37 @@ class GenerationService:
         # 验证状态转换
         if pause:
             if old_status not in ["queued", "generating"]:
-                logger.warning("[Service] toggle_pause_item: 状态不允许暂停 | item_id=%s | status=%s", item_id, old_status)
+                logger.warning(
+                    "[Service] toggle_pause_item: 状态不允许暂停 | item_id=%s | status=%s",
+                    item_id,
+                    old_status,
+                )
                 raise ValueError("只能暂停队列中或生成中的子任务")
             new_status = "paused"
         else:
             if old_status != "paused":
-                logger.warning("[Service] toggle_pause_item: 状态不允许继续 | item_id=%s | status=%s", item_id, old_status)
+                logger.warning(
+                    "[Service] toggle_pause_item: 状态不允许继续 | item_id=%s | status=%s",
+                    item_id,
+                    old_status,
+                )
                 raise ValueError("只能继续已暂停的子任务")
             new_status = "queued"  # 恢复后重新排队，由 Celery task 处理
 
-        logger.info("[Service] toggle_pause_item: 状态变更 | item_id=%s | task_id=%s | %s -> %s",
-                    item_id, task_id, old_status, new_status)
+        logger.info(
+            "[Service] toggle_pause_item: 状态变更 | item_id=%s | task_id=%s | %s -> %s",
+            item_id,
+            task_id,
+            old_status,
+            new_status,
+        )
 
         # 使用直接的 SQL 更新，减少锁持有时间
         # 1. 先更新 generation_item
         update_item_stmt = (
             sa_update(GenerationItem)
             .where(GenerationItem.id == item_id)
-            .values(
-                status=new_status,
-                updated_at=datetime.now(timezone.utc)
-            )
+            .values(status=new_status, updated_at=datetime.now(timezone.utc))
         )
         await db.execute(update_item_stmt)
 
@@ -1361,8 +1622,12 @@ class GenerationService:
         )
         updated_item = result.scalar_one_or_none()
 
-        logger.info("[Service] toggle_pause_item: 完成 | item_id=%s | old=%s -> new=%s",
-                    item_id, old_status, new_status)
+        logger.info(
+            "[Service] toggle_pause_item: 完成 | item_id=%s | old=%s -> new=%s",
+            item_id,
+            old_status,
+            new_status,
+        )
         return updated_item
 
     @staticmethod
@@ -1381,8 +1646,12 @@ class GenerationService:
             task_id: 任务ID（当 item_ids 为空时，重试该任务下所有失败项）
             owner_operator_id: 创作管理员ID，None 表示超级管理员（可操作所有记录）
         """
-        logger.debug("[Service] batch_retry_items | item_ids=%s | task_id=%s | owner=%s",
-                     item_ids, task_id, owner_operator_id)
+        logger.debug(
+            "[Service] batch_retry_items | item_ids=%s | task_id=%s | owner=%s",
+            item_ids,
+            task_id,
+            owner_operator_id,
+        )
 
         if not item_ids and not task_id:
             raise ValueError("必须提供 item_ids 或 task_id")
@@ -1414,7 +1683,11 @@ class GenerationService:
         # 重试每个失败的子任务
         retried_items = []
         for item in items:
-            logger.debug("[Service] 重试子任务 | item_id=%s | current_status=%s", item.id, item.status)
+            logger.debug(
+                "[Service] 重试子任务 | item_id=%s | current_status=%s",
+                item.id,
+                item.status,
+            )
             retried_item = await GenerationService.update_generation_item_status(
                 db, item.id, owner_operator_id, "queued"
             )
@@ -1422,7 +1695,9 @@ class GenerationService:
                 retried_items.append(retried_item)
 
         await db.commit()
-        logger.info("[Service] batch_retry_items: 成功重试 %s 个子任务", len(retried_items))
+        logger.info(
+            "[Service] batch_retry_items: 成功重试 %s 个子任务", len(retried_items)
+        )
         return retried_items
 
     @staticmethod
@@ -1442,8 +1717,13 @@ class GenerationService:
             owner_operator_id: 创作管理员ID，None 表示超级管理员（可操作所有记录）
         """
         action = "暂停" if pause else "继续"
-        logger.info("[Service] batch_pause_items | item_ids=%s | action=%s | owner=%s | count=%s",
-                    item_ids, action, owner_operator_id, len(item_ids))
+        logger.info(
+            "[Service] batch_pause_items | item_ids=%s | action=%s | owner=%s | count=%s",
+            item_ids,
+            action,
+            owner_operator_id,
+            len(item_ids),
+        )
 
         if not item_ids:
             raise ValueError("必须提供 item_ids")
@@ -1454,13 +1734,15 @@ class GenerationService:
         # 构建查询条件：超级管理员不限制 owner_operator_id
         conditions = [
             GenerationItem.id.in_(item_ids),
-            GenerationItem.status.in_(allowed_old_statuses)
+            GenerationItem.status.in_(allowed_old_statuses),
         ]
         if owner_operator_id is not None:
             conditions.append(GenerationItem.owner_operator_id == owner_operator_id)
 
         # 先查询符合条件的子任务及其 task_id
-        query = select(GenerationItem.id, GenerationItem.task_id, GenerationItem.status).where(and_(*conditions))
+        query = select(
+            GenerationItem.id, GenerationItem.task_id, GenerationItem.status
+        ).where(and_(*conditions))
         result = await db.execute(query)
         rows = result.all()
 
@@ -1468,11 +1750,16 @@ class GenerationService:
             logger.info("[Service] batch_pause_items: 没有符合条件的子任务")
             return []
 
-        logger.info("[Service] batch_pause_items: 找到 %s 个符合条件的子任务", len(rows))
+        logger.info(
+            "[Service] batch_pause_items: 找到 %s 个符合条件的子任务", len(rows)
+        )
 
         # 按 task_id 分组，统计每个状态的变化
         from collections import defaultdict
-        task_updates = defaultdict(lambda: defaultdict(int))  # task_id -> {old_status: count}
+
+        task_updates = defaultdict(
+            lambda: defaultdict(int)
+        )  # task_id -> {old_status: count}
         item_ids_to_update = []
 
         for row in rows:
@@ -1484,10 +1771,7 @@ class GenerationService:
         update_item_stmt = (
             sa_update(GenerationItem)
             .where(GenerationItem.id.in_(item_ids_to_update))
-            .values(
-                status=new_status,
-                updated_at=datetime.now(timezone.utc)
-            )
+            .values(status=new_status, updated_at=datetime.now(timezone.utc))
         )
         await db.execute(update_item_stmt)
 
@@ -1535,7 +1819,9 @@ class GenerationService:
         )
         updated_items = result.scalars().all()
 
-        logger.info("[Service] batch_pause_items: 完成 | 处理了 %s 个子任务", len(updated_items))
+        logger.info(
+            "[Service] batch_pause_items: 完成 | 处理了 %s 个子任务", len(updated_items)
+        )
         return updated_items
 
     # ============================================
@@ -1553,7 +1839,6 @@ class GenerationService:
 
         仅更新请求中非 None 的字段。
         """
-        from app.schemas.generation import GenerationTaskUpdate
 
         # 查询任务
         query = select(GenerationTask).where(GenerationTask.id == task_id)
@@ -1575,8 +1860,11 @@ class GenerationService:
         await db.commit()
         await db.refresh(task)
 
-        logger.info("[Service] 任务字段更新 | task_id=%s | fields=%s",
-                   task_id, list(update_dict.keys()))
+        logger.info(
+            "[Service] 任务字段更新 | task_id=%s | fields=%s",
+            task_id,
+            list(update_dict.keys()),
+        )
 
         return task
 
@@ -1658,7 +1946,9 @@ class GenerationService:
         更新执行日志
         """
         result = await db.execute(
-            select(GenerationItemExecutionLog).where(GenerationItemExecutionLog.id == log_id)
+            select(GenerationItemExecutionLog).where(
+                GenerationItemExecutionLog.id == log_id
+            )
         )
         log = result.scalar_one_or_none()
         if not log:
@@ -1689,7 +1979,9 @@ class GenerationService:
         """
         # 验证子任务所有权
         if owner_operator_id:
-            item = await GenerationService.get_generation_item(db, item_id, owner_operator_id)
+            item = await GenerationService.get_generation_item(
+                db, item_id, owner_operator_id
+            )
             if not item:
                 raise GenerationItemNotFoundError()
 
@@ -1723,8 +2015,12 @@ class GenerationService:
         Returns:
             更新后的子任务
         """
-        logger.debug("[GenerationService] publish_item | item_id=%s | owner=%s | sub_user=%s",
-                     item_id, owner_operator_id, sub_user_id)
+        logger.debug(
+            "[GenerationService] publish_item | item_id=%s | owner=%s | sub_user=%s",
+            item_id,
+            owner_operator_id,
+            sub_user_id,
+        )
 
         # 获取子任务 - 根据调用者角色使用不同的查询逻辑
         if sub_user_id is not None:
@@ -1741,7 +2037,9 @@ class GenerationService:
                 raise ValueError("生成子任务不存在或无权操作")
         else:
             # 创作管理员或超级管理员，按 owner_operator_id 查询
-            item = await GenerationService.get_generation_item(db, item_id, owner_operator_id)
+            item = await GenerationService.get_generation_item(
+                db, item_id, owner_operator_id
+            )
             if not item:
                 raise ValueError("生成子任务不存在")
 
@@ -1759,9 +2057,11 @@ class GenerationService:
             sa_update(GenerationTask)
             .where(GenerationTask.id == task_id)
             .values(
-                pending_publish_count=func.greatest(GenerationTask.pending_publish_count - 1, 0),
+                pending_publish_count=func.greatest(
+                    GenerationTask.pending_publish_count - 1, 0
+                ),
                 published_count=GenerationTask.published_count + 1,
-                updated_at=datetime.now(timezone.utc)
+                updated_at=datetime.now(timezone.utc),
             )
         )
         await db.execute(stmt)
@@ -1769,8 +2069,11 @@ class GenerationService:
         await db.commit()
         await db.refresh(item)
 
-        logger.info("[GenerationService] publish_item 成功 | item_id=%s | new_status=%s",
-                    item_id, item.distribution_status)
+        logger.info(
+            "[GenerationService] publish_item 成功 | item_id=%s | new_status=%s",
+            item_id,
+            item.distribution_status,
+        )
 
         return item
 
@@ -1799,13 +2102,22 @@ class GenerationService:
         Returns:
             包含 items, total, page, limit 的字典
         """
-        logger.debug("[GenerationService] get_sub_user_items | sub_user=%s | page=%s | limit=%s | distribution_status=%s",
-                     sub_user_id, page, limit, distribution_status)
+        logger.debug(
+            "[GenerationService] get_sub_user_items | sub_user=%s | page=%s | limit=%s | distribution_status=%s",
+            sub_user_id,
+            page,
+            limit,
+            distribution_status,
+        )
 
         # 查询创作者的所有内容项，同时关联任务获取任务名称
-        query = select(GenerationItem).options(
-            selectinload(GenerationItem.task),
-        ).where(GenerationItem.sub_user_id == sub_user_id)
+        query = (
+            select(GenerationItem)
+            .options(
+                selectinload(GenerationItem.task),
+            )
+            .where(GenerationItem.sub_user_id == sub_user_id)
+        )
 
         # 日期筛选
         if start_date:
@@ -1817,7 +2129,9 @@ class GenerationService:
 
         # 分发状态筛选
         if distribution_status:
-            query = query.where(GenerationItem.distribution_status == distribution_status)
+            query = query.where(
+                GenerationItem.distribution_status == distribution_status
+            )
 
         # 获取总数
         count_query = select(func.count()).select_from(query.subquery())
@@ -1849,9 +2163,17 @@ class GenerationService:
                 "image_model_id": item.image_model_id,
                 "generated_title": item.generated_title,
                 "generated_text": item.generated_text,
-                "generated_image_urls_json": _process_urls(item.generated_image_urls_json, prefer_url),
-                "generated_image_thumbnails_json": _process_urls(item.generated_image_thumbnails_json, prefer_url),
-                "generated_video_url": _process_url(item.generated_video_url, prefer_url) if item.generated_video_url else None,
+                "generated_image_urls_json": _process_urls(
+                    item.generated_image_urls_json, prefer_url
+                ),
+                "generated_image_thumbnails_json": _process_urls(
+                    item.generated_image_thumbnails_json, prefer_url
+                ),
+                "generated_video_url": (
+                    _process_url(item.generated_video_url, prefer_url)
+                    if item.generated_video_url
+                    else None
+                ),
                 "output_topics": item.output_topics,
                 "status": item.status,
                 "distribution_status": item.distribution_status,
@@ -1871,8 +2193,12 @@ class GenerationService:
             }
             response_items.append(item_dict)
 
-        logger.info("[GenerationService] get_sub_user_items 成功 | sub_user=%s | count=%s | total=%s",
-                    sub_user_id, len(response_items), total)
+        logger.info(
+            "[GenerationService] get_sub_user_items 成功 | sub_user=%s | count=%s | total=%s",
+            sub_user_id,
+            len(response_items),
+            total,
+        )
 
         return {
             "items": response_items,
@@ -1883,18 +2209,25 @@ class GenerationService:
 
 
 async def _sync_scheduled_task_execution(
-    db, generation_task_id: int, final_status: str,
-    total_items: int, success_items: int, failed_items: int, completed_at
+    db,
+    generation_task_id: int,
+    final_status: str,
+    total_items: int,
+    success_items: int,
+    failed_items: int,
+    completed_at,
 ):
     """
     同步定时任务执行记录：当 generation_task 完成时更新对应的 scheduled_task_execution 记录
     """
     import logging
+
     _logger = logging.getLogger(__name__)
 
     from sqlalchemy import select
-    from app.models.scheduled_task_execution import ScheduledTaskExecution
+
     from app.models.scheduled_task import ScheduledTask
+    from app.models.scheduled_task_execution import ScheduledTaskExecution
 
     try:
         # 查找关联的执行记录
@@ -1915,7 +2248,9 @@ async def _sync_scheduled_task_execution(
 
             # 同步更新定时任务的成功/失败计数
             if execution.scheduled_task_id:
-                stmt = select(ScheduledTask).where(ScheduledTask.id == execution.scheduled_task_id)
+                stmt = select(ScheduledTask).where(
+                    ScheduledTask.id == execution.scheduled_task_id
+                )
                 st_result = await db.execute(stmt)
                 scheduled_task = st_result.scalar_one_or_none()
                 if scheduled_task:
@@ -1931,4 +2266,6 @@ async def _sync_scheduled_task_execution(
                 f"status={final_status} | total={total_items} | success={success_items} | failed={failed_items}"
             )
     except Exception as e:
-        _logger.error(f"[Synchook] 同步执行记录失败 | generation_task_id={generation_task_id} | error={str(e)}")
+        _logger.error(
+            f"[Synchook] 同步执行记录失败 | generation_task_id={generation_task_id} | error={str(e)}"
+        )

@@ -6,32 +6,22 @@ Date: 2025
 """
 
 import logging
+from contextlib import asynccontextmanager
 from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from contextlib import asynccontextmanager
 
+from app.api.v1 import (auth, creative_seeds, dashboard, distribution,
+                        generation, materials, operation_logs, scheduled_tasks)
+from app.api.v1 import settings as settings_api
+from app.api.v1 import task_queue, templates, trend_analysis, users
 from app.core.config import get_settings
 from app.core.database import check_database_connection
 from app.core.exceptions import AppException
 from app.core.init_db import initialize_database
-from app.api.v1 import (
-    auth,
-    users,
-    templates,
-    materials,
-    generation,
-    distribution,
-    settings as settings_api,
-    dashboard,
-    operation_logs,
-    trend_analysis,
-    creative_seeds,
-    scheduled_tasks,
-    task_queue,
-)
 
 # 配置日志
 logging.basicConfig(
@@ -100,6 +90,7 @@ app.add_middleware(
 # 挂载静态文件服务（用于本地开发时访问存储文件）
 # 存储路径下的文件可以通过 /cos/ 前缀访问
 from app.services.storage_service import get_storage_service
+
 storage_service = get_storage_service()
 storage_path = storage_service.local_storage_path
 
@@ -128,15 +119,12 @@ async def general_exception_handler(request: Request, exc: Exception):
     处理所有未捕获的异常
     """
     import traceback
+
     error_detail = traceback.format_exc()
     logger.error(f"未捕获的异常: {exc}\n{error_detail}")
     return JSONResponse(
         status_code=500,
-        content={
-            "success": False,
-            "error": str(exc),
-            "detail": error_detail
-        },
+        content={"success": False, "error": str(exc), "detail": error_detail},
     )
 
 
@@ -160,7 +148,6 @@ async def get_version():
 
     返回后端版本号，每次请求都动态读取 VERSION 文件
     """
-    from pathlib import Path
 
     def get_dynamic_version(version_file_path):
         """动态读取 VERSION 文件"""
@@ -208,17 +195,37 @@ api_prefix = settings.api_prefix
 app.include_router(auth.router, prefix=f"{api_prefix}/auth", tags=["认证"])
 app.include_router(users.router, prefix=f"{api_prefix}/users", tags=["用户管理"])
 # 平台分类已拆分到 materials/platforms 和 templates/platforms
-app.include_router(templates.router, prefix=f"{api_prefix}/templates", tags=["模板管理"])
-app.include_router(materials.router, prefix=f"{api_prefix}/materials", tags=["素材管理"])
-app.include_router(generation.router, prefix=f"{api_prefix}/generation", tags=["内容生成"])
-app.include_router(distribution.router, prefix=f"{api_prefix}/distribution", tags=["内容分发"])
-app.include_router(settings_api.router, prefix=f"{api_prefix}/settings", tags=["系统设置"])
+app.include_router(
+    templates.router, prefix=f"{api_prefix}/templates", tags=["模板管理"]
+)
+app.include_router(
+    materials.router, prefix=f"{api_prefix}/materials", tags=["素材管理"]
+)
+app.include_router(
+    generation.router, prefix=f"{api_prefix}/generation", tags=["内容生成"]
+)
+app.include_router(
+    distribution.router, prefix=f"{api_prefix}/distribution", tags=["内容分发"]
+)
+app.include_router(
+    settings_api.router, prefix=f"{api_prefix}/settings", tags=["系统设置"]
+)
 app.include_router(dashboard.router, prefix=f"{api_prefix}/dashboard", tags=["仪表盘"])
-app.include_router(operation_logs.router, prefix=f"{api_prefix}/operation-logs", tags=["操作日志"])
-app.include_router(trend_analysis.router, prefix=f"{api_prefix}/trend-analysis", tags=["趋势分析"])
-app.include_router(creative_seeds.router, prefix=f"{api_prefix}/creative-seeds", tags=["创意种子库"])
-app.include_router(scheduled_tasks.router, prefix=f"{api_prefix}/scheduled-tasks", tags=["定时任务"])
-app.include_router(task_queue.router, prefix=f"{api_prefix}/task-queue", tags=["任务队列管理"])
+app.include_router(
+    operation_logs.router, prefix=f"{api_prefix}/operation-logs", tags=["操作日志"]
+)
+app.include_router(
+    trend_analysis.router, prefix=f"{api_prefix}/trend-analysis", tags=["趋势分析"]
+)
+app.include_router(
+    creative_seeds.router, prefix=f"{api_prefix}/creative-seeds", tags=["创意种子库"]
+)
+app.include_router(
+    scheduled_tasks.router, prefix=f"{api_prefix}/scheduled-tasks", tags=["定时任务"]
+)
+app.include_router(
+    task_queue.router, prefix=f"{api_prefix}/task-queue", tags=["任务队列管理"]
+)
 
 
 if __name__ == "__main__":

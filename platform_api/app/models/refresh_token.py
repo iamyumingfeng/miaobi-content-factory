@@ -8,8 +8,9 @@ Date: 2025
 """
 
 from datetime import datetime
-from sqlalchemy import Column, BigInteger, String, DateTime, ForeignKey, Enum, Boolean, Index
-from sqlalchemy.orm import relationship
+
+from sqlalchemy import (BigInteger, Boolean, Column, DateTime, Enum,
+                        Index, String)
 
 from app.core.database import Base
 
@@ -23,13 +24,22 @@ class RefreshToken(Base):
     2. 用户在线状态追踪
     3. 强制用户下线
     """
+
     __tablename__ = "refresh_token"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, comment="主键")
 
     # Token 本身
-    token = Column(String(512), unique=True, nullable=False, index=True, comment="Refresh Token")
-    jti = Column(String(128), unique=True, nullable=False, index=True, comment="JWT ID（用于标识唯一令牌）")
+    token = Column(
+        String(512), unique=True, nullable=False, index=True, comment="Refresh Token"
+    )
+    jti = Column(
+        String(128),
+        unique=True,
+        nullable=False,
+        index=True,
+        comment="JWT ID（用于标识唯一令牌）",
+    )
 
     # 用户信息
     user_id = Column(BigInteger, nullable=False, index=True, comment="用户ID")
@@ -37,26 +47,40 @@ class RefreshToken(Base):
         Enum("super_admin", "operator", "sub_user", name="user_type_enum"),
         nullable=False,
         index=True,
-        comment="用户类型：super_admin / operator / sub_user"
+        comment="用户类型：super_admin / operator / sub_user",
     )
 
     # 时间相关
-    issued_at = Column(DateTime, nullable=False, default=datetime.now, comment="签发时间")
+    issued_at = Column(
+        DateTime, nullable=False, default=datetime.now, comment="签发时间"
+    )
     expires_at = Column(DateTime, nullable=False, index=True, comment="过期时间")
     last_used_at = Column(DateTime, nullable=True, comment="最后使用时间")
 
     # 状态管理
-    is_revoked = Column(Boolean, nullable=False, default=False, index=True, comment="是否已撤销")
+    is_revoked = Column(
+        Boolean, nullable=False, default=False, index=True, comment="是否已撤销"
+    )
     revoked_at = Column(DateTime, nullable=True, comment="撤销时间")
     revoke_reason = Column(String(255), nullable=True, comment="撤销原因")
 
     # 设备信息（可选）
-    device_info = Column(String(500), nullable=True, comment="设备信息（浏览器/客户端）")
+    device_info = Column(
+        String(500), nullable=True, comment="设备信息（浏览器/客户端）"
+    )
     ip_address = Column(String(50), nullable=True, comment="IP地址")
 
     # 时间戳
-    created_at = Column(DateTime, nullable=False, default=datetime.now, comment="创建时间")
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    created_at = Column(
+        DateTime, nullable=False, default=datetime.now, comment="创建时间"
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+        onupdate=datetime.now,
+        comment="更新时间",
+    )
 
     # 索引
     __table_args__ = (

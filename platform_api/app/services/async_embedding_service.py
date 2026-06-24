@@ -10,17 +10,15 @@ Author: Claude Code
 Date: 2026-05-10
 """
 
-import logging
 import asyncio
-from datetime import datetime, timezone
-from typing import Optional, List
+import logging
 from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import List
 
-from sqlalchemy import select, and_, update
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ContentEmbedding
 from app.core.database import async_session_maker
+from app.models import ContentEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +26,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class EmbeddingSaveRequest:
     """Embedding 保存请求"""
+
     item_id: int
     owner_operator_id: int
     task_id: int
@@ -74,7 +73,11 @@ class AsyncEmbeddingService:
         for retry in range(request.max_retries):
             try:
                 async with async_session_maker() as db:
-                    content_preview = request.content[:500] if len(request.content) > 500 else request.content
+                    content_preview = (
+                        request.content[:500]
+                        if len(request.content) > 500
+                        else request.content
+                    )
 
                     record = ContentEmbedding(
                         owner_operator_id=request.owner_operator_id,
@@ -92,23 +95,36 @@ class AsyncEmbeddingService:
                     db.add(record)
                     await db.commit()
 
-                    logger.debug("[AsyncEmbedding] 保存成功 | item_id=%s | type=%s",
-                               request.item_id, request.content_type)
+                    logger.debug(
+                        "[AsyncEmbedding] 保存成功 | item_id=%s | type=%s",
+                        request.item_id,
+                        request.content_type,
+                    )
                     return True
 
             except Exception as e:
                 error_str = str(e)
-                is_lock_timeout = "Lock wait timeout" in error_str or "1205" in error_str
+                is_lock_timeout = (
+                    "Lock wait timeout" in error_str or "1205" in error_str
+                )
 
                 if is_lock_timeout and retry < request.max_retries - 1:
                     # 指数退避重试
-                    delay = min(cls.BASE_RETRY_DELAY * (2 ** retry), cls.MAX_RETRY_DELAY)
-                    logger.warning("[AsyncEmbedding] 锁超时，%s秒后重试 (%s/%s) | item_id=%s",
-                                 delay, retry + 1, request.max_retries, request.item_id)
+                    delay = min(cls.BASE_RETRY_DELAY * (2**retry), cls.MAX_RETRY_DELAY)
+                    logger.warning(
+                        "[AsyncEmbedding] 锁超时，%s秒后重试 (%s/%s) | item_id=%s",
+                        delay,
+                        retry + 1,
+                        request.max_retries,
+                        request.item_id,
+                    )
                     await asyncio.sleep(delay)
                 else:
-                    logger.error("[AsyncEmbedding] 保存失败 | item_id=%s | error=%s",
-                                request.item_id, error_str[:200])
+                    logger.error(
+                        "[AsyncEmbedding] 保存失败 | item_id=%s | error=%s",
+                        request.item_id,
+                        error_str[:200],
+                    )
                     return False
 
         return False

@@ -10,24 +10,19 @@ Date: 2026
 import json
 import logging
 import random
-from typing import Optional, List, Dict, Any
 from datetime import datetime
+from typing import List, Optional
 
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, or_, func
-from sqlalchemy.orm import selectinload
 
-from app.models import CreativeSeed, Operator
-from app.schemas.creative_seed import (
-    CreativeSeedCreate,
-    CreativeSeedUpdate,
-    CreativeSeedResponse,
-    CreativeSeedListResponse,
-    CreativeSeedSelectResponse,
-    CreativeSeedGroupResponse,
-    CreativeSeedTypeEnum,
-    CreativeSeedStatusEnum,
-)
+from app.models import CreativeSeed
+from app.schemas.creative_seed import (CreativeSeedCreate,
+                                       CreativeSeedGroupResponse,
+                                       CreativeSeedListResponse,
+                                       CreativeSeedResponse,
+                                       CreativeSeedSelectResponse,
+                                       CreativeSeedUpdate)
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +53,19 @@ class CreativeSeedService:
             seed_type=seed_data.seed_type.value,
             template=seed_data.template,
             description=seed_data.description,
-            forbidden_patterns=json.dumps(seed_data.forbidden_patterns) if seed_data.forbidden_patterns else None,
-            example_phrases=json.dumps(seed_data.example_phrases) if seed_data.example_phrases else None,
-            avoid_phrases=json.dumps(seed_data.avoid_phrases) if seed_data.avoid_phrases else None,
+            forbidden_patterns=(
+                json.dumps(seed_data.forbidden_patterns)
+                if seed_data.forbidden_patterns
+                else None
+            ),
+            example_phrases=(
+                json.dumps(seed_data.example_phrases)
+                if seed_data.example_phrases
+                else None
+            ),
+            avoid_phrases=(
+                json.dumps(seed_data.avoid_phrases) if seed_data.avoid_phrases else None
+            ),
             category=seed_data.category,
             status=seed_data.status.value,
             is_system=False,
@@ -71,13 +76,20 @@ class CreativeSeedService:
         await db.commit()
         await db.refresh(seed)
 
-        logger.info("[CreativeSeed] 创建种子成功 | id=%s | name=%s | type=%s | owner=%s",
-                   seed.id, seed.name, seed.seed_type, owner_operator_id)
+        logger.info(
+            "[CreativeSeed] 创建种子成功 | id=%s | name=%s | type=%s | owner=%s",
+            seed.id,
+            seed.name,
+            seed.seed_type,
+            owner_operator_id,
+        )
 
         return seed
 
     @classmethod
-    async def get_seed(cls, db: AsyncSession, seed_id: int, owner_operator_id: int) -> Optional[CreativeSeed]:
+    async def get_seed(
+        cls, db: AsyncSession, seed_id: int, owner_operator_id: int
+    ) -> Optional[CreativeSeed]:
         """
         获取单个创意种子
 
@@ -95,7 +107,7 @@ class CreativeSeedService:
                 or_(
                     CreativeSeed.owner_operator_id == owner_operator_id,
                     CreativeSeed.is_system == True,  # 系统种子所有人可见
-                )
+                ),
             )
         )
         result = await db.execute(query)
@@ -153,7 +165,9 @@ class CreativeSeedService:
             )
 
         # 查询总数
-        count_query = select(func.count()).select_from(CreativeSeed).where(and_(*conditions))
+        count_query = (
+            select(func.count()).select_from(CreativeSeed).where(and_(*conditions))
+        )
         count_result = await db.execute(count_query)
         total = count_result.scalar() or 0
 
@@ -300,7 +314,7 @@ class CreativeSeedService:
             or_(
                 CreativeSeed.owner_operator_id == owner_operator_id,
                 CreativeSeed.is_system == True,
-            )
+            ),
         ]
 
         if category and category != "通用":
@@ -348,8 +362,12 @@ class CreativeSeedService:
         Returns:
             CreativeSeedGroupResponse: 分组种子列表
         """
-        opening = await cls.get_seeds_by_type(db, owner_operator_id, "opening", category)
-        emotion = await cls.get_seeds_by_type(db, owner_operator_id, "emotion", category)
+        opening = await cls.get_seeds_by_type(
+            db, owner_operator_id, "opening", category
+        )
+        emotion = await cls.get_seeds_by_type(
+            db, owner_operator_id, "emotion", category
+        )
         ending = await cls.get_seeds_by_type(db, owner_operator_id, "ending", category)
 
         return CreativeSeedGroupResponse(
@@ -386,7 +404,7 @@ class CreativeSeedService:
             or_(
                 CreativeSeed.owner_operator_id == owner_operator_id,
                 CreativeSeed.is_system == True,
-            )
+            ),
         ]
 
         if category and category != "通用":

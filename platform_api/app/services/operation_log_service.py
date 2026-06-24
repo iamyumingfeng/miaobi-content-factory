@@ -7,12 +7,13 @@ Author: Claude Code
 Date: 2026
 """
 
-from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime
-from sqlalchemy import select, and_, or_, desc
+from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy import and_, desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import OperationLog, SuperAdmin, Operator, SubUser
+from app.models import OperationLog
 
 # 操作日志模块常量
 MODULE_USERS = "users"
@@ -69,10 +70,17 @@ class OperationLogService:
         if isinstance(data, str):
             if len(data) > max_length:
                 half = max_length // 2
-                return data[:half] + f"\n\n... [截断，原始长度 {len(data)} 字符] ...\n\n" + data[-half:]
+                return (
+                    data[:half]
+                    + f"\n\n... [截断，原始长度 {len(data)} 字符] ...\n\n"
+                    + data[-half:]
+                )
             return data
         if isinstance(data, dict):
-            return {k: OperationLogService._truncate_data(v, max_length) for k, v in data.items()}
+            return {
+                k: OperationLogService._truncate_data(v, max_length)
+                for k, v in data.items()
+            }
         if isinstance(data, list):
             return [OperationLogService._truncate_data(v, max_length) for v in data]
         return data
@@ -145,8 +153,8 @@ class OperationLogService:
             创建的 OperationLog 对象
         """
         # 获取用户身份
-        super_admin_id, operator_id, sub_user_id = OperationLogService._get_user_identity(
-            db, user_id, user_type
+        super_admin_id, operator_id, sub_user_id = (
+            OperationLogService._get_user_identity(db, user_id, user_type)
         )
 
         # 截断数据
@@ -246,6 +254,7 @@ class OperationLogService:
 
         # 获取总数
         from sqlalchemy import func
+
         count_query = select(func.count()).select_from(OperationLog)
         if conditions:
             count_query = count_query.where(and_(*conditions))
@@ -273,7 +282,5 @@ class OperationLogService:
         Returns:
             OperationLog 对象或 None
         """
-        result = await db.execute(
-            select(OperationLog).where(OperationLog.id == log_id)
-        )
+        result = await db.execute(select(OperationLog).where(OperationLog.id == log_id))
         return result.scalar_one_or_none()

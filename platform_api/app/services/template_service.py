@@ -8,26 +8,17 @@ Date: 2025
 """
 
 import logging
-from typing import List, Optional
 from datetime import datetime
-from sqlalchemy import select, and_, or_, func, delete
+from typing import List, Optional
+
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
-from app.core.exceptions import (
-    NotFoundError,
-    TemplateNotFoundError,
-    PermissionDeniedError,
-)
-from app.models import (
-    TemplatePlatform,
-    TemplateCategory,
-    Template,
-    TemplateTag,
-    TemplateTagRel,
-    TemplateAttachment,
-)
+from app.core.exceptions import (NotFoundError, TemplateNotFoundError)
+from app.models import (Template, TemplateAttachment, TemplateCategory,
+                        TemplatePlatform, TemplateTag, TemplateTagRel)
 
 
 class TemplateService:
@@ -116,7 +107,7 @@ class TemplateService:
         db: AsyncSession,
         category_id: int,
         owner_operator_id: Optional[int] = None,
-        **kwargs
+        **kwargs,
     ) -> TemplateCategory:
         """更新模板分类"""
         category = await TemplateService.get_template_category(
@@ -131,8 +122,10 @@ class TemplateService:
                 select(TemplateCategory).where(
                     and_(
                         TemplateCategory.name == kwargs["name"],
-                        TemplateCategory.template_platform_id == category.template_platform_id,
-                        TemplateCategory.owner_operator_id == category.owner_operator_id,
+                        TemplateCategory.template_platform_id
+                        == category.template_platform_id,
+                        TemplateCategory.owner_operator_id
+                        == category.owner_operator_id,
                         TemplateCategory.id != category_id,
                     )
                 )
@@ -169,7 +162,9 @@ class TemplateService:
         )
 
         if template_count and template_count > 0:
-            raise ValueError(f"该分类下有 {template_count} 个模板关联，请先迁移或删除标签")
+            raise ValueError(
+                f"该分类下有 {template_count} 个模板关联，请先迁移或删除标签"
+            )
 
         await db.delete(category)
         await db.commit()
@@ -231,8 +226,10 @@ class TemplateService:
         创建模板
         """
         # DEBUG: 记录创建模板参数
-        logger.debug(f"[TemplateService.create_template] name={name}, content_type={content_type}, "
-                     f"platform_id={platform_id}, tag_ids={tag_ids}, owner_operator_id={owner_operator_id}")
+        logger.debug(
+            f"[TemplateService.create_template] name={name}, content_type={content_type}, "
+            f"platform_id={platform_id}, tag_ids={tag_ids}, owner_operator_id={owner_operator_id}"
+        )
 
         template = Template(
             name=name,
@@ -260,26 +257,34 @@ class TemplateService:
         await db.flush()
 
         # DEBUG: 记录 flush 后的 template.id
-        logger.debug(f"[TemplateService.create_template] after flush: template.id={template.id}")
+        logger.debug(
+            f"[TemplateService.create_template] after flush: template.id={template.id}"
+        )
 
         # 处理标签关联
         if tag_ids:
-            logger.debug(f"[TemplateService.create_template] processing {len(tag_ids)} tag_ids")
+            logger.debug(
+                f"[TemplateService.create_template] processing {len(tag_ids)} tag_ids"
+            )
             for tag_id in tag_ids:
-                logger.debug(f"[TemplateService.create_template] creating tag_rel: template_id={template.id}, tag_id={tag_id}")
+                logger.debug(
+                    f"[TemplateService.create_template] creating tag_rel: template_id={template.id}, tag_id={tag_id}"
+                )
                 tag_rel = TemplateTagRel(
                     template_id=template.id,
                     tag_id=tag_id,
                 )
                 db.add(tag_rel)
         else:
-            logger.debug(f"[TemplateService.create_template] no tag_ids provided")
+            logger.debug("[TemplateService.create_template] no tag_ids provided")
 
         await db.commit()
         await db.refresh(template)
 
         # DEBUG: 记录最终创建的 template
-        logger.debug(f"[TemplateService.create_template] final template: id={template.id}, platform_id={template.platform_id}")
+        logger.debug(
+            f"[TemplateService.create_template] final template: id={template.id}, platform_id={template.platform_id}"
+        )
 
         return template
 
@@ -303,7 +308,9 @@ class TemplateService:
         Args:
             owner_operator_id: 创作管理员ID，None表示查询所有（仅超级管理员可用）
         """
-        logger.info(f"[list_templates] called with: owner_operator_id={owner_operator_id}, platform_id={platform_id}, category_id={category_id}, tag_id={tag_id}")
+        logger.info(
+            f"[list_templates] called with: owner_operator_id={owner_operator_id}, platform_id={platform_id}, category_id={category_id}, tag_id={tag_id}"
+        )
 
         query = select(Template)
         if owner_operator_id is not None:
@@ -325,12 +332,12 @@ class TemplateService:
                 .where(TemplateCategory.template_platform_id == platform_id)
             )
             query = query.where(Template.id.in_(indirect_subq))
-            logger.info(f"[list_templates] platform_id={platform_id} filter applied: indirect via category")
+            logger.info(
+                f"[list_templates] platform_id={platform_id} filter applied: indirect via category"
+            )
 
         if keyword:
-            query = query.where(
-                Template.name.contains(keyword)
-            )
+            query = query.where(Template.name.contains(keyword))
 
         if tag_id:
             # 直接通过 tag_id 筛选（使用 alias 避免重复 join）
@@ -339,7 +346,7 @@ class TemplateService:
                 and_(
                     TemplateTagRel.template_id == Template.id,
                     TemplateTagRel.tag_id == tag_id,
-                )
+                ),
             )
             # 如果同时指定了 category_id，验证该 tag 是否属于该 category
             if category_id:
@@ -351,13 +358,15 @@ class TemplateService:
                 query = query.where(tag_category_subq == category_id)
         elif category_id:
             # 仅 category_id 筛选：通过标签关联的分类来筛选
-            tag_ids_subq = select(TemplateTag.id).where(TemplateTag.category_id == category_id)
+            tag_ids_subq = select(TemplateTag.id).where(
+                TemplateTag.category_id == category_id
+            )
             query = query.join(
                 TemplateTagRel,
                 and_(
                     TemplateTagRel.template_id == Template.id,
                     TemplateTagRel.tag_id.in_(tag_ids_subq),
-                )
+                ),
             )
 
         if no_tag:
@@ -425,14 +434,25 @@ class TemplateService:
 
         # 更新字段
         allowed_fields = [
-            "name", "description", "content_type",
-            "prompt_template", "variables_json",
-            "style_reference", "platform_rules_json",
-            "platform_id", "status",
-            "image_count", "video_count",
-            "image_size_ratio", "add_watermark",
-            "viral_type", "product_name", "product_selling_points",
-            "opening_seed_id", "emotion_seed_id", "ending_seed_id",
+            "name",
+            "description",
+            "content_type",
+            "prompt_template",
+            "variables_json",
+            "style_reference",
+            "platform_rules_json",
+            "platform_id",
+            "status",
+            "image_count",
+            "video_count",
+            "image_size_ratio",
+            "add_watermark",
+            "viral_type",
+            "product_name",
+            "product_selling_points",
+            "opening_seed_id",
+            "emotion_seed_id",
+            "ending_seed_id",
         ]
         for field, value in kwargs.items():
             if field in allowed_fields and value is not None:
@@ -442,7 +462,9 @@ class TemplateService:
         if "tag_ids" in kwargs:
             tag_ids = kwargs["tag_ids"]
             if tag_ids is not None:
-                await TemplateService._update_template_tag_rels(db, template_id, tag_ids)
+                await TemplateService._update_template_tag_rels(
+                    db, template_id, tag_ids
+                )
 
         template.updated_at = datetime.utcnow()
 
@@ -462,7 +484,7 @@ class TemplateService:
         Args:
             owner_operator_id: 创作管理员ID，None表示超级管理员（可删除所有模板）
         """
-        from app.models import GenerationTaskTemplate, GenerationItem
+        from app.models import GenerationItem, GenerationTaskTemplate
 
         query = select(Template).where(Template.id == template_id)
         if owner_operator_id is not None:
@@ -473,19 +495,27 @@ class TemplateService:
         if not template:
             raise TemplateNotFoundError()
 
-        logger.info(f"[TemplateService] Deleting template: id={template_id}, owner_operator_id={owner_operator_id}")
+        logger.info(
+            f"[TemplateService] Deleting template: id={template_id}, owner_operator_id={owner_operator_id}"
+        )
 
         # 1. 删除标签关联
-        delete_tag_rels = delete(TemplateTagRel).where(TemplateTagRel.template_id == template_id)
+        delete_tag_rels = delete(TemplateTagRel).where(
+            TemplateTagRel.template_id == template_id
+        )
         tag_rels_result = await db.execute(delete_tag_rels)
-        logger.info(f"[TemplateService] Deleted tag relations: count={tag_rels_result.rowcount}")
+        logger.info(
+            f"[TemplateService] Deleted tag relations: count={tag_rels_result.rowcount}"
+        )
 
         # 2. 删除生成任务-模板关联
         delete_task_rels = delete(GenerationTaskTemplate).where(
             GenerationTaskTemplate.template_id == template_id
         )
         task_rels_result = await db.execute(delete_task_rels)
-        logger.info(f"[TemplateService] Deleted generation_task_template rels: count={task_rels_result.rowcount}")
+        logger.info(
+            f"[TemplateService] Deleted generation_task_template rels: count={task_rels_result.rowcount}"
+        )
 
         # 3. 清理 generation_item 中的 template_id 引用（置空，不删除子任务）
         update_items = (
@@ -494,7 +524,7 @@ class TemplateService:
             .values(template_id=None)
         )
         await db.execute(update_items)
-        logger.info(f"[TemplateService] Cleared template_id from generation_items")
+        logger.info("[TemplateService] Cleared template_id from generation_items")
 
         # 4. 清理自引用外键：将引用该模板的 original_template_id 置空
         update_clones = (
@@ -503,19 +533,23 @@ class TemplateService:
             .values(original_template_id=None)
         )
         await db.execute(update_clones)
-        logger.info(f"[TemplateService] Cleared original_template_id references")
+        logger.info("[TemplateService] Cleared original_template_id references")
 
         # 5. 删除模板附件（TemplateAttachment）记录
         delete_attachments = delete(TemplateAttachment).where(
             TemplateAttachment.template_id == template_id
         )
         attachments_result = await db.execute(delete_attachments)
-        logger.info(f"[TemplateService] Deleted template attachments: count={attachments_result.rowcount}")
+        logger.info(
+            f"[TemplateService] Deleted template attachments: count={attachments_result.rowcount}"
+        )
 
         # 6. 删除模板
         await db.delete(template)
         await db.commit()
-        logger.info(f"[TemplateService] Template deleted successfully: id={template_id}")
+        logger.info(
+            f"[TemplateService] Template deleted successfully: id={template_id}"
+        )
         return True
 
     @staticmethod
@@ -543,7 +577,9 @@ class TemplateService:
             raise TemplateNotFoundError()
 
         # 确定使用的平台ID：如果指定了目标平台ID则使用，否则使用原模板的平台ID
-        final_platform_id = target_platform_id if target_platform_id else original.platform_id
+        final_platform_id = (
+            target_platform_id if target_platform_id else original.platform_id
+        )
 
         template = Template(
             name=new_name or f"{original.name} (副本)",
@@ -572,7 +608,9 @@ class TemplateService:
         else:
             # 复制原模板的标签
             original_tag_ids_result = await db.execute(
-                select(TemplateTagRel.tag_id).where(TemplateTagRel.template_id == original.id)
+                select(TemplateTagRel.tag_id).where(
+                    TemplateTagRel.template_id == original.id
+                )
             )
             original_tag_ids = [row[0] for row in original_tag_ids_result.fetchall()]
             if original_tag_ids:
@@ -581,7 +619,9 @@ class TemplateService:
 
         # 复制原模板的附件
         original_attachments_result = await db.execute(
-            select(TemplateAttachment).where(TemplateAttachment.template_id == original.id)
+            select(TemplateAttachment).where(
+                TemplateAttachment.template_id == original.id
+            )
         )
         original_attachments = original_attachments_result.scalars().all()
 
@@ -603,9 +643,9 @@ class TemplateService:
             )
             db.add(new_attachment)
 
-            if attachment.file_type == 'image':
+            if attachment.file_type == "image":
                 image_count += 1
-            elif attachment.file_type == 'video':
+            elif attachment.file_type == "video":
                 video_count += 1
 
         # 更新模板的附件计数
@@ -679,6 +719,7 @@ class TemplateService:
         if owner_operator_id is not None:
             # 通过 category -> platform -> owner_operator_id 筛选
             from app.models import TemplateCategory
+
             category_subquery = select(TemplateCategory.id).where(
                 TemplateCategory.owner_operator_id == owner_operator_id
             )
@@ -686,12 +727,12 @@ class TemplateService:
                 or_(
                     and_(
                         TemplateTag.category_id.is_not(None),
-                        TemplateTag.category_id.in_(category_subquery)
+                        TemplateTag.category_id.in_(category_subquery),
                     ),
                     and_(
                         TemplateTag.category_id.is_(None),
-                        TemplateTag.created_by == owner_operator_id
-                    )
+                        TemplateTag.created_by == owner_operator_id,
+                    ),
                 )
             )
 
@@ -699,8 +740,7 @@ class TemplateService:
             query = query.where(TemplateTag.category_id == category_id)
 
         query = query.order_by(
-            TemplateTag.is_system.desc(),
-            TemplateTag.created_at.desc()
+            TemplateTag.is_system.desc(), TemplateTag.created_at.desc()
         )
 
         result = await db.execute(query)
@@ -785,6 +825,7 @@ class TemplateService:
         # 检查是否为系统默认标签
         if tag.is_system:
             from app.core.exceptions import SystemResourceError
+
             raise SystemResourceError("系统默认标签不可删除")
 
         await db.delete(tag)
@@ -799,19 +840,28 @@ class TemplateService:
         获取模板关联的标签列表
         """
         from sqlalchemy.orm import selectinload
-        from app.models import TemplateTagRel, TemplateCategory
+
+        from app.models import TemplateCategory, TemplateTagRel
 
         # DEBUG: 记录查询开始
-        logger.debug(f"[TemplateService.get_template_tags_by_template_id] template_id={template_id}")
+        logger.debug(
+            f"[TemplateService.get_template_tags_by_template_id] template_id={template_id}"
+        )
 
         # 预加载 category 和 category.platform
-        query = select(TemplateTag).options(
-            selectinload(TemplateTag.category).selectinload(TemplateCategory.platform)
-        ).join(
-            TemplateTagRel,
-            and_(
-                TemplateTagRel.tag_id == TemplateTag.id,
-                TemplateTagRel.template_id == template_id,
+        query = (
+            select(TemplateTag)
+            .options(
+                selectinload(TemplateTag.category).selectinload(
+                    TemplateCategory.platform
+                )
+            )
+            .join(
+                TemplateTagRel,
+                and_(
+                    TemplateTagRel.tag_id == TemplateTag.id,
+                    TemplateTagRel.template_id == template_id,
+                ),
             )
         )
         query = query.order_by(TemplateTag.created_at.desc())
@@ -832,7 +882,9 @@ class TemplateService:
     ):
         """差异更新模板标签关联（仅增删变化部分）"""
         existing_result = await db.execute(
-            select(TemplateTagRel.tag_id).where(TemplateTagRel.template_id == template_id)
+            select(TemplateTagRel.tag_id).where(
+                TemplateTagRel.template_id == template_id
+            )
         )
         existing_tag_ids = set(row[0] for row in existing_result.fetchall())
         new_tag_ids_set = set(new_tag_ids)
@@ -902,9 +954,13 @@ class TemplateService:
                         db.add(TemplateTagRel(template_id=tid, tag_id=tag_id))
 
                 success_count += 1
-                logger.info(f"[TemplateService] Transferred template {tid} from owner {old_owner} to {target_operator_id}")
+                logger.info(
+                    f"[TemplateService] Transferred template {tid} from owner {old_owner} to {target_operator_id}"
+                )
             except Exception as e:
-                logger.error(f"[TemplateService] Failed to transfer template {tid}: {e}")
+                logger.error(
+                    f"[TemplateService] Failed to transfer template {tid}: {e}"
+                )
                 failed_ids.append(tid)
 
         await db.commit()
@@ -928,7 +984,9 @@ class TemplateService:
         """
         # 查找源标签下关联的模板
         source_rels = await db.execute(
-            select(TemplateTagRel.template_id).where(TemplateTagRel.tag_id == source_tag_id)
+            select(TemplateTagRel.template_id).where(
+                TemplateTagRel.tag_id == source_tag_id
+            )
         )
         template_ids = [row[0] for row in source_rels.fetchall()]
 
@@ -1024,7 +1082,9 @@ class TemplateService:
         """
         base_query = select(Template)
         if owner_operator_id is not None:
-            base_query = base_query.where(Template.owner_operator_id == owner_operator_id)
+            base_query = base_query.where(
+                Template.owner_operator_id == owner_operator_id
+            )
 
         # 总模板数
         total_result = await db.scalar(
@@ -1036,7 +1096,9 @@ class TemplateService:
         tagged_subq = select(TemplateTagRel.template_id).distinct()
         tagged_base = select(Template)
         if owner_operator_id is not None:
-            tagged_base = tagged_base.where(Template.owner_operator_id == owner_operator_id)
+            tagged_base = tagged_base.where(
+                Template.owner_operator_id == owner_operator_id
+            )
         tagged_count_result = await db.scalar(
             select(func.count()).select_from(
                 tagged_base.where(Template.id.in_(tagged_subq)).subquery()
@@ -1052,24 +1114,32 @@ class TemplateService:
                 TemplateTag.id,
                 TemplateTag.name,
                 TemplateTag.category_id,
-                func.count(func.distinct(TemplateTagRel.template_id)).label("template_count"),
+                func.count(func.distinct(TemplateTagRel.template_id)).label(
+                    "template_count"
+                ),
             )
             .join(TemplateTagRel, TemplateTagRel.tag_id == TemplateTag.id)
             .join(Template, TemplateTagRel.template_id == Template.id)
         )
         if owner_operator_id is not None:
-            tag_counts_query = tag_counts_query.where(Template.owner_operator_id == owner_operator_id)
-        tag_counts_query = tag_counts_query.group_by(TemplateTag.id, TemplateTag.name, TemplateTag.category_id)
+            tag_counts_query = tag_counts_query.where(
+                Template.owner_operator_id == owner_operator_id
+            )
+        tag_counts_query = tag_counts_query.group_by(
+            TemplateTag.id, TemplateTag.name, TemplateTag.category_id
+        )
 
         tag_counts_result = await db.execute(tag_counts_query)
         tag_counts = []
         for row in tag_counts_result.fetchall():
-            tag_counts.append({
-                "tag_id": row[0],
-                "tag_name": row[1],
-                "category_id": row[2],
-                "template_count": row[3],
-            })
+            tag_counts.append(
+                {
+                    "tag_id": row[0],
+                    "tag_name": row[1],
+                    "category_id": row[2],
+                    "template_count": row[3],
+                }
+            )
 
         return {
             "total": total,
@@ -1084,14 +1154,11 @@ class TemplateService:
         owner_operator_id: Optional[int] = None,
     ) -> List[dict]:
         """获取分类级别统计"""
-        query = (
-            select(
-                TemplateCategory.id,
-                TemplateCategory.name,
-                func.count(func.distinct(TemplateTag.id)).label("tag_count"),
-            )
-            .outerjoin(TemplateTag, TemplateTag.category_id == TemplateCategory.id)
-        )
+        query = select(
+            TemplateCategory.id,
+            TemplateCategory.name,
+            func.count(func.distinct(TemplateTag.id)).label("tag_count"),
+        ).outerjoin(TemplateTag, TemplateTag.category_id == TemplateCategory.id)
         if owner_operator_id is not None:
             query = query.where(TemplateCategory.owner_operator_id == owner_operator_id)
         query = query.group_by(TemplateCategory.id, TemplateCategory.name)
@@ -1125,15 +1192,21 @@ class TemplateService:
         """
         from app.models import TemplateAttachment
 
-        logger.info(f"[TemplateService] Adding attachment: template_id={template_id}, "
-                   f"owner_operator_id={owner_operator_id}, file_type={file_type}, "
-                   f"file_url={file_url}, file_name={file_name}, file_size={file_size}, "
-                   f"thumbnail_url={thumbnail_url}")
+        logger.info(
+            f"[TemplateService] Adding attachment: template_id={template_id}, "
+            f"owner_operator_id={owner_operator_id}, file_type={file_type}, "
+            f"file_url={file_url}, file_name={file_name}, file_size={file_size}, "
+            f"thumbnail_url={thumbnail_url}"
+        )
 
         # 验证模板所有权
-        template = await TemplateService.get_template(db, template_id, owner_operator_id)
+        template = await TemplateService.get_template(
+            db, template_id, owner_operator_id
+        )
         if not template:
-            logger.error(f"[TemplateService] Template not found: template_id={template_id}, owner_operator_id={owner_operator_id}")
+            logger.error(
+                f"[TemplateService] Template not found: template_id={template_id}, owner_operator_id={owner_operator_id}"
+            )
             raise TemplateNotFoundError()
 
         attachment = TemplateAttachment(
@@ -1161,8 +1234,10 @@ class TemplateService:
         await db.commit()
         await db.refresh(attachment)
 
-        logger.info(f"[TemplateService] Attachment saved: id={attachment.id}, template_id={template_id}, "
-                   f"file_url={attachment.file_url}, thumbnail_url={attachment.thumbnail_url}")
+        logger.info(
+            f"[TemplateService] Attachment saved: id={attachment.id}, template_id={template_id}, "
+            f"file_url={attachment.file_url}, thumbnail_url={attachment.thumbnail_url}"
+        )
         return attachment
 
     @staticmethod
@@ -1177,18 +1252,28 @@ class TemplateService:
         from app.models import TemplateAttachment
         from app.services.storage_service import get_storage_service
 
-        logger.debug(f"[TemplateService] Querying attachments: template_id={template_id}, owner_operator_id={owner_operator_id}")
+        logger.debug(
+            f"[TemplateService] Querying attachments: template_id={template_id}, owner_operator_id={owner_operator_id}"
+        )
 
         # 验证模板所有权
         if owner_operator_id:
-            template = await TemplateService.get_template(db, template_id, owner_operator_id)
+            template = await TemplateService.get_template(
+                db, template_id, owner_operator_id
+            )
             if not template:
-                logger.warning(f"[TemplateService] Template not found for attachment query: "
-                              f"template_id={template_id}, owner_operator_id={owner_operator_id}")
+                logger.warning(
+                    f"[TemplateService] Template not found for attachment query: "
+                    f"template_id={template_id}, owner_operator_id={owner_operator_id}"
+                )
                 raise TemplateNotFoundError()
 
-        query = select(TemplateAttachment).where(TemplateAttachment.template_id == template_id)
-        query = query.order_by(TemplateAttachment.sort_order.asc(), TemplateAttachment.created_at.asc())
+        query = select(TemplateAttachment).where(
+            TemplateAttachment.template_id == template_id
+        )
+        query = query.order_by(
+            TemplateAttachment.sort_order.asc(), TemplateAttachment.created_at.asc()
+        )
 
         result = await db.execute(query)
         attachments = result.scalars().all()
@@ -1196,12 +1281,18 @@ class TemplateService:
         # 动态转换URL（旧数据可能存的是本地路径）
         storage = get_storage_service()
         for attachment in attachments:
-            attachment.file_url = TemplateService._convert_url(attachment.file_url, storage)
+            attachment.file_url = TemplateService._convert_url(
+                attachment.file_url, storage
+            )
             if attachment.thumbnail_url:
-                attachment.thumbnail_url = TemplateService._convert_url(attachment.thumbnail_url, storage)
+                attachment.thumbnail_url = TemplateService._convert_url(
+                    attachment.thumbnail_url, storage
+                )
 
-        logger.debug(f"[TemplateService] Found attachments: template_id={template_id}, count={len(attachments)}, "
-                    f"urls={[a.file_url for a in attachments]}")
+        logger.debug(
+            f"[TemplateService] Found attachments: template_id={template_id}, count={len(attachments)}, "
+            f"urls={[a.file_url for a in attachments]}"
+        )
         return attachments
 
     @staticmethod
@@ -1225,22 +1316,30 @@ class TemplateService:
         """
         from app.models import TemplateAttachment
 
-        logger.info(f"[TemplateService] Deleting attachment: attachment_id={attachment_id}, owner_operator_id={owner_operator_id}")
+        logger.info(
+            f"[TemplateService] Deleting attachment: attachment_id={attachment_id}, owner_operator_id={owner_operator_id}"
+        )
 
         query = select(TemplateAttachment).where(TemplateAttachment.id == attachment_id)
         result = await db.execute(query)
         attachment = result.scalar_one_or_none()
 
         if not attachment:
-            logger.warning(f"[TemplateService] Attachment not found: attachment_id={attachment_id}")
+            logger.warning(
+                f"[TemplateService] Attachment not found: attachment_id={attachment_id}"
+            )
             raise NotFoundError(message="附件不存在")
 
         # 验证模板所有权
         if owner_operator_id:
-            template = await TemplateService.get_template(db, attachment.template_id, owner_operator_id)
+            template = await TemplateService.get_template(
+                db, attachment.template_id, owner_operator_id
+            )
             if not template:
-                logger.warning(f"[TemplateService] Template not found for attachment deletion: "
-                              f"template_id={attachment.template_id}, owner_operator_id={owner_operator_id}")
+                logger.warning(
+                    f"[TemplateService] Template not found for attachment deletion: "
+                    f"template_id={attachment.template_id}, owner_operator_id={owner_operator_id}"
+                )
                 raise TemplateNotFoundError()
 
         # 获取模板并更新计数
@@ -1255,5 +1354,7 @@ class TemplateService:
         await db.delete(attachment)
         await db.commit()
 
-        logger.info(f"[TemplateService] Attachment deleted: attachment_id={attachment_id}, template_id={attachment.template_id}")
+        logger.info(
+            f"[TemplateService] Attachment deleted: attachment_id={attachment_id}, template_id={attachment.template_id}"
+        )
         return True

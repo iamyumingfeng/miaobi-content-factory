@@ -7,22 +7,20 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import AsyncGenerator, Optional, Tuple
-from fastapi import Depends, HTTPException, status, WebSocket
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional, Tuple
+
+from fastapi import Depends, WebSocket
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
+from app.core.exceptions import (AuthenticationError, InvalidTokenError,
+                                 UserNotFoundError)
 from app.core.security import decode_access_token
-from app.core.exceptions import (
-    AuthenticationError,
-    InvalidTokenError,
-    UserNotFoundError,
-)
-from app.models.super_admin import SuperAdmin
 from app.models.operator import Operator
 from app.models.sub_user import SubUser
+from app.models.super_admin import SuperAdmin
 
 # HTTP Bearer 安全方案
 security = HTTPBearer(auto_error=False)
@@ -71,6 +69,7 @@ async def get_token_payload_required(
         AccountLockedError: 账号已被禁用
     """
     from sqlalchemy import select
+
     from app.core.exceptions import AccountLockedError
 
     if not credentials:
@@ -80,26 +79,32 @@ async def get_token_payload_required(
         payload = decode_access_token(credentials.credentials)
         if not payload:
             raise InvalidTokenError()
-        
+
         # 检查用户状态是否被禁用
         user_id = payload.get("sub")
         user_type = payload.get("user_type")
-        
+
         if user_id and user_type:
             user_status = None
             if user_type == "super_admin":
-                result = await db.execute(select(SuperAdmin.status).where(SuperAdmin.id == int(user_id)))
+                result = await db.execute(
+                    select(SuperAdmin.status).where(SuperAdmin.id == int(user_id))
+                )
                 user_status = result.scalar_one_or_none()
             elif user_type == "operator":
-                result = await db.execute(select(Operator.status).where(Operator.id == int(user_id)))
+                result = await db.execute(
+                    select(Operator.status).where(Operator.id == int(user_id))
+                )
                 user_status = result.scalar_one_or_none()
             elif user_type == "sub_user":
-                result = await db.execute(select(SubUser.status).where(SubUser.id == int(user_id)))
+                result = await db.execute(
+                    select(SubUser.status).where(SubUser.id == int(user_id))
+                )
                 user_status = result.scalar_one_or_none()
-            
+
             if user_status == "disabled":
                 raise AccountLockedError("账号已被禁用")
-        
+
         return payload
     except JWTError:
         raise InvalidTokenError()
@@ -122,6 +127,7 @@ async def get_current_user(
         AccountLockedError: 账号已被禁用
     """
     from sqlalchemy import select
+
     from app.core.exceptions import AccountLockedError
 
     user_id = payload.get("sub")
@@ -132,7 +138,9 @@ async def get_current_user(
 
     user = None
     if user_type == "super_admin":
-        result = await db.execute(select(SuperAdmin).where(SuperAdmin.id == int(user_id)))
+        result = await db.execute(
+            select(SuperAdmin).where(SuperAdmin.id == int(user_id))
+        )
         user = result.scalar_one_or_none()
         # 检查超级管理员状态
         if user and user.status == "disabled":
@@ -170,6 +178,7 @@ async def get_current_super_admin(
         AuthorizationError: 用户不是超级管理员
     """
     from sqlalchemy import select
+
     from app.core.exceptions import AuthorizationError
 
     user_id = payload.get("sub")
@@ -225,6 +234,7 @@ async def get_current_operator(
         AuthorizationError: 用户不是创作管理员
     """
     from sqlalchemy import select
+
     from app.core.exceptions import AuthorizationError
 
     user_id = payload.get("sub")
@@ -235,7 +245,9 @@ async def get_current_operator(
 
     if user_type == "super_admin":
         # 超级管理员模拟创作管理员（用于调试）
-        result = await db.execute(select(SuperAdmin).where(SuperAdmin.id == int(user_id)))
+        result = await db.execute(
+            select(SuperAdmin).where(SuperAdmin.id == int(user_id))
+        )
         admin = result.scalar_one_or_none()
         if not admin:
             raise UserNotFoundError()
@@ -272,6 +284,7 @@ async def get_current_sub_user(
         AuthorizationError: 用户不是创作者
     """
     from sqlalchemy import select
+
     from app.core.exceptions import AuthorizationError
 
     user_id = payload.get("sub")
@@ -348,10 +361,14 @@ async def get_websocket_user(
 
         user = None
         if user_type == "super_admin":
-            result = await db.execute(select(SuperAdmin).where(SuperAdmin.id == int(user_id)))
+            result = await db.execute(
+                select(SuperAdmin).where(SuperAdmin.id == int(user_id))
+            )
             user = result.scalar_one_or_none()
         elif user_type == "operator":
-            result = await db.execute(select(Operator).where(Operator.id == int(user_id)))
+            result = await db.execute(
+                select(Operator).where(Operator.id == int(user_id))
+            )
             user = result.scalar_one_or_none()
         elif user_type == "sub_user":
             result = await db.execute(select(SubUser).where(SubUser.id == int(user_id)))

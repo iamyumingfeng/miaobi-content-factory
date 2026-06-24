@@ -8,28 +8,24 @@ Date: 2025
 """
 
 import logging
-from typing import Optional, List
 from datetime import datetime
+from typing import Optional
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
-from app.utils.deps import get_token_payload_required
-from app.utils.response import success_response, ApiResponse
-from app.schemas.trend_analysis import (
-    TimeDimension,
-    CompareType,
-    ContentType,
-    GenerationTrendResponse,
-    DistributionTrendResponse,
-    PublishTrendResponse,
-    OperatorTrendResponse,
-    TrendDataPoint,
-    ComparisonData,
-    OperatorTrendItem,
-    TrendAnalysisFilterOptions,
-)
+from app.schemas.trend_analysis import (CompareType, ComparisonData,
+                                        ContentType, DistributionTrendResponse,
+                                        GenerationTrendResponse,
+                                        OperatorTrendItem,
+                                        OperatorTrendResponse,
+                                        PublishTrendResponse, TimeDimension,
+                                        TrendAnalysisFilterOptions,
+                                        TrendDataPoint)
 from app.services.trend_analysis_service import TrendAnalysisService
+from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 logger = logging.getLogger(__name__)
 
@@ -40,10 +36,18 @@ router = APIRouter()
 async def get_generation_trend(
     start_date: Optional[str] = Query(None, description="统计开始日期（YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="统计结束日期（YYYY-MM-DD）"),
-    dimension: TimeDimension = Query(TimeDimension.DAY, description="时间维度：day/week/month"),
-    compare_type: CompareType = Query(CompareType.NONE, description="对比类型：none/chain/year"),
-    content_type: ContentType = Query(ContentType.ALL, description="内容类型：all/image_text/video"),
-    operator_id: Optional[int] = Query(None, description="筛选创作管理员ID（仅超级管理员）"),
+    dimension: TimeDimension = Query(
+        TimeDimension.DAY, description="时间维度：day/week/month"
+    ),
+    compare_type: CompareType = Query(
+        CompareType.NONE, description="对比类型：none/chain/year"
+    ),
+    content_type: ContentType = Query(
+        ContentType.ALL, description="内容类型：all/image_text/video"
+    ),
+    operator_id: Optional[int] = Query(
+        None, description="筛选创作管理员ID（仅超级管理员）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -78,8 +82,15 @@ async def get_generation_trend(
     # 超级管理员可以使用 operator_id 筛选
     filter_operator_id = operator_id if is_super_admin and operator_id else None
 
-    logger.info("[TrendAnalysis API] get_generation_trend | user_type=%s | owner=%s | start=%s | end=%s | dim=%s | compare=%s",
-                user_type, owner_operator_id, parsed_start_date, parsed_end_date, dimension, compare_type)
+    logger.info(
+        "[TrendAnalysis API] get_generation_trend | user_type=%s | owner=%s | start=%s | end=%s | dim=%s | compare=%s",
+        user_type,
+        owner_operator_id,
+        parsed_start_date,
+        parsed_end_date,
+        dimension,
+        compare_type,
+    )
 
     result = await TrendAnalysisService.get_generation_trend(
         db=db,
@@ -90,7 +101,7 @@ async def get_generation_trend(
         dimension=dimension.value,
         compare_type=compare_type.value,
         content_type=content_type.value,
-        filter_operator_id=filter_operator_id
+        filter_operator_id=filter_operator_id,
     )
 
     # 构建响应
@@ -104,9 +115,9 @@ async def get_generation_trend(
             total=result["total"],
             avg_daily=result["avg_daily"],
             max_daily=result["max_daily"],
-            compare=compare_data
+            compare=compare_data,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -114,10 +125,18 @@ async def get_generation_trend(
 async def get_distribution_trend(
     start_date: Optional[str] = Query(None, description="统计开始日期（YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="统计结束日期（YYYY-MM-DD）"),
-    dimension: TimeDimension = Query(TimeDimension.DAY, description="时间维度：day/week/month"),
-    compare_type: CompareType = Query(CompareType.NONE, description="对比类型：none/chain/year"),
-    content_type: ContentType = Query(ContentType.ALL, description="内容类型：all/image_text/video"),
-    operator_id: Optional[int] = Query(None, description="筛选创作管理员ID（仅超级管理员）"),
+    dimension: TimeDimension = Query(
+        TimeDimension.DAY, description="时间维度：day/week/month"
+    ),
+    compare_type: CompareType = Query(
+        CompareType.NONE, description="对比类型：none/chain/year"
+    ),
+    content_type: ContentType = Query(
+        ContentType.ALL, description="内容类型：all/image_text/video"
+    ),
+    operator_id: Optional[int] = Query(
+        None, description="筛选创作管理员ID（仅超级管理员）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -152,8 +171,15 @@ async def get_distribution_trend(
     # 超级管理员可以使用 operator_id 筛选
     filter_operator_id = operator_id if is_super_admin and operator_id else None
 
-    logger.info("[TrendAnalysis API] get_distribution_trend | user_type=%s | owner=%s | start=%s | end=%s | dim=%s | compare=%s",
-                user_type, owner_operator_id, parsed_start_date, parsed_end_date, dimension, compare_type)
+    logger.info(
+        "[TrendAnalysis API] get_distribution_trend | user_type=%s | owner=%s | start=%s | end=%s | dim=%s | compare=%s",
+        user_type,
+        owner_operator_id,
+        parsed_start_date,
+        parsed_end_date,
+        dimension,
+        compare_type,
+    )
 
     result = await TrendAnalysisService.get_distribution_trend(
         db=db,
@@ -164,7 +190,7 @@ async def get_distribution_trend(
         dimension=dimension.value,
         compare_type=compare_type.value,
         content_type=content_type.value,
-        filter_operator_id=filter_operator_id
+        filter_operator_id=filter_operator_id,
     )
 
     # 构建响应
@@ -183,9 +209,9 @@ async def get_distribution_trend(
             distribution_rate=result["distribution_rate"],
             publish_rate=result["publish_rate"],
             distributed_compare=distributed_compare,
-            published_compare=published_compare
+            published_compare=published_compare,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -193,9 +219,15 @@ async def get_distribution_trend(
 async def get_publish_trend(
     start_date: Optional[str] = Query(None, description="统计开始日期（YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="统计结束日期（YYYY-MM-DD）"),
-    dimension: TimeDimension = Query(TimeDimension.DAY, description="时间维度：day/week/month"),
-    compare_type: CompareType = Query(CompareType.NONE, description="对比类型：none/chain/year"),
-    operator_id: Optional[int] = Query(None, description="筛选创作管理员ID（仅超级管理员）"),
+    dimension: TimeDimension = Query(
+        TimeDimension.DAY, description="时间维度：day/week/month"
+    ),
+    compare_type: CompareType = Query(
+        CompareType.NONE, description="对比类型：none/chain/year"
+    ),
+    operator_id: Optional[int] = Query(
+        None, description="筛选创作管理员ID（仅超级管理员）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -229,10 +261,19 @@ async def get_publish_trend(
             pass
 
     # 超级管理员可以使用 operator_id 筛选
-    filter_operator_id = operator_id if user_type == "super_admin" and operator_id else None
+    filter_operator_id = (
+        operator_id if user_type == "super_admin" and operator_id else None
+    )
 
-    logger.info("[TrendAnalysis API] get_publish_trend | user_type=%s | user_id=%s | start=%s | end=%s | dim=%s | compare=%s",
-                user_type, user_id, parsed_start_date, parsed_end_date, dimension, compare_type)
+    logger.info(
+        "[TrendAnalysis API] get_publish_trend | user_type=%s | user_id=%s | start=%s | end=%s | dim=%s | compare=%s",
+        user_type,
+        user_id,
+        parsed_start_date,
+        parsed_end_date,
+        dimension,
+        compare_type,
+    )
 
     result = await TrendAnalysisService.get_publish_trend(
         db=db,
@@ -242,7 +283,7 @@ async def get_publish_trend(
         end_date=parsed_end_date,
         dimension=dimension.value,
         compare_type=compare_type.value,
-        filter_operator_id=filter_operator_id
+        filter_operator_id=filter_operator_id,
     )
 
     # 构建响应
@@ -260,9 +301,9 @@ async def get_publish_trend(
             total_published=result["total_published"],
             success_rate=result["success_rate"],
             generated_compare=generated_compare,
-            published_compare=published_compare
+            published_compare=published_compare,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -270,7 +311,9 @@ async def get_publish_trend(
 async def get_operator_trend(
     start_date: Optional[str] = Query(None, description="统计开始日期（YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="统计结束日期（YYYY-MM-DD）"),
-    operator_id: Optional[int] = Query(None, description="筛选创作管理员ID（仅超级管理员）"),
+    operator_id: Optional[int] = Query(
+        None, description="筛选创作管理员ID（仅超级管理员）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -306,8 +349,12 @@ async def get_operator_trend(
     # 超级管理员可以使用 operator_id 筛选
     filter_operator_id = operator_id if operator_id else None
 
-    logger.info("[TrendAnalysis API] get_operator_trend | owner=%s | start=%s | end=%s",
-                owner_operator_id, parsed_start_date, parsed_end_date)
+    logger.info(
+        "[TrendAnalysis API] get_operator_trend | owner=%s | start=%s | end=%s",
+        owner_operator_id,
+        parsed_start_date,
+        parsed_end_date,
+    )
 
     result = await TrendAnalysisService.get_operator_trend(
         db=db,
@@ -315,14 +362,12 @@ async def get_operator_trend(
         is_super_admin=is_super_admin,
         start_date=parsed_start_date,
         end_date=parsed_end_date,
-        filter_operator_id=filter_operator_id
+        filter_operator_id=filter_operator_id,
     )
 
     return success_response(
-        data=OperatorTrendResponse(
-            data=[OperatorTrendItem(**item) for item in result]
-        ),
-        message="获取成功"
+        data=OperatorTrendResponse(data=[OperatorTrendItem(**item) for item in result]),
+        message="获取成功",
     )
 
 
@@ -346,20 +391,19 @@ async def get_filter_options(
                 content_types=[
                     {"value": "all", "label": "全部"},
                     {"value": "image_text", "label": "图文"},
-                    {"value": "video", "label": "视频"}
+                    {"value": "video", "label": "视频"},
                 ],
                 dimensions=[
                     {"value": "day", "label": "按天"},
                     {"value": "week", "label": "按周"},
-                    {"value": "month", "label": "按月"}
-                ]
+                    {"value": "month", "label": "按月"},
+                ],
             ),
-            message="获取成功"
+            message="获取成功",
         )
 
     result = await TrendAnalysisService.get_filter_options(db)
 
     return success_response(
-        data=TrendAnalysisFilterOptions(**result),
-        message="获取成功"
+        data=TrendAnalysisFilterOptions(**result), message="获取成功"
     )

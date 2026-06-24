@@ -8,24 +8,22 @@ Date: 2026
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy import select, func, and_, or_
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
 from app.models import CreativeSeed, Operator
-from app.schemas.creative_seed import (
-    CreativeSeedCreate,
-    CreativeSeedUpdate,
-    CreativeSeedResponse,
-    CreativeSeedListResponse,
-    CreativeSeedSelectResponse,
-    CreativeSeedGroupResponse,
-)
 from app.schemas import PaginatedResponse
-from app.utils.response import success_response, ApiResponse
+from app.schemas.creative_seed import (CreativeSeedCreate,
+                                       CreativeSeedGroupResponse,
+                                       CreativeSeedResponse,
+                                       CreativeSeedSelectResponse,
+                                       CreativeSeedUpdate)
 from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -75,14 +73,19 @@ CATEGORY_OPTIONS = [
 def _build_seed_response(seed: CreativeSeed, owner_name: Optional[str] = None) -> dict:
     """构建创意种子响应数据"""
     import json
+
     return {
         "id": seed.id,
         "name": seed.name,
         "seed_type": seed.seed_type,
         "template": seed.template,
         "description": seed.description,
-        "forbidden_patterns": json.loads(seed.forbidden_patterns) if seed.forbidden_patterns else [],
-        "example_phrases": json.loads(seed.example_phrases) if seed.example_phrases else [],
+        "forbidden_patterns": (
+            json.loads(seed.forbidden_patterns) if seed.forbidden_patterns else []
+        ),
+        "example_phrases": (
+            json.loads(seed.example_phrases) if seed.example_phrases else []
+        ),
         "avoid_phrases": json.loads(seed.avoid_phrases) if seed.avoid_phrases else [],
         "category": seed.category,
         "status": seed.status,
@@ -101,7 +104,9 @@ async def _get_operator_name(db: AsyncSession, operator_id: int) -> Optional[str
     result = await db.execute(select(Operator).where(Operator.id == operator_id))
     operator = result.scalar_one_or_none()
     if operator:
-        return getattr(operator, "nickname", None) or getattr(operator, "display_name", None)
+        return getattr(operator, "nickname", None) or getattr(
+            operator, "display_name", None
+        )
     return None
 
 
@@ -118,7 +123,7 @@ async def get_seed_types(
             "seed_types": SEED_TYPE_INFO,
             "categories": CATEGORY_OPTIONS,
         },
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -143,7 +148,7 @@ async def get_seeds_grouped(
         or_(
             CreativeSeed.owner_operator_id == current_user_id,
             CreativeSeed.is_system == True,
-        )
+        ),
     ]
 
     if category and category != "通用":
@@ -170,7 +175,8 @@ async def get_seeds_grouped(
             template=s.template,
             category=s.category,
         )
-        for s in seeds if s.seed_type == "opening"
+        for s in seeds
+        if s.seed_type == "opening"
     ]
     emotion = [
         CreativeSeedSelectResponse(
@@ -180,7 +186,8 @@ async def get_seeds_grouped(
             template=s.template,
             category=s.category,
         )
-        for s in seeds if s.seed_type == "emotion"
+        for s in seeds
+        if s.seed_type == "emotion"
     ]
     ending = [
         CreativeSeedSelectResponse(
@@ -190,7 +197,8 @@ async def get_seeds_grouped(
             template=s.template,
             category=s.category,
         )
-        for s in seeds if s.seed_type == "ending"
+        for s in seeds
+        if s.seed_type == "ending"
     ]
 
     return success_response(
@@ -199,7 +207,7 @@ async def get_seeds_grouped(
             emotion=emotion,
             ending=ending,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -251,7 +259,9 @@ async def list_creative_seeds(
         )
 
     # 查询总数
-    count_query = select(func.count()).select_from(CreativeSeed).where(and_(*conditions))
+    count_query = (
+        select(func.count()).select_from(CreativeSeed).where(and_(*conditions))
+    )
     total_result = await db.execute(count_query)
     total = total_result.scalar() or 0
 
@@ -305,7 +315,7 @@ async def get_creative_seed(
             or_(
                 CreativeSeed.owner_operator_id == current_user_id,
                 CreativeSeed.is_system == True,
-            )
+            ),
         )
     )
     result = await db.execute(query)
@@ -317,7 +327,9 @@ async def get_creative_seed(
     owner_name = None
     if seed.owner_operator_id:
         owner_name = await _get_operator_name(db, seed.owner_operator_id)
-    return success_response(data=_build_seed_response(seed, owner_name), message="获取成功")
+    return success_response(
+        data=_build_seed_response(seed, owner_name), message="获取成功"
+    )
 
 
 @router.post("", response_model=ApiResponse[dict], status_code=status.HTTP_201_CREATED)
@@ -355,14 +367,23 @@ async def create_creative_seed(
         )
 
     import json
+
     seed = CreativeSeed(
         name=request.name,
         seed_type=request.seed_type.value,
         template=request.template,
         description=request.description,
-        forbidden_patterns=json.dumps(request.forbidden_patterns) if request.forbidden_patterns else None,
-        example_phrases=json.dumps(request.example_phrases) if request.example_phrases else None,
-        avoid_phrases=json.dumps(request.avoid_phrases) if request.avoid_phrases else None,
+        forbidden_patterns=(
+            json.dumps(request.forbidden_patterns)
+            if request.forbidden_patterns
+            else None
+        ),
+        example_phrases=(
+            json.dumps(request.example_phrases) if request.example_phrases else None
+        ),
+        avoid_phrases=(
+            json.dumps(request.avoid_phrases) if request.avoid_phrases else None
+        ),
         category=request.category,
         status=request.status.value,
         is_system=False,
@@ -372,8 +393,13 @@ async def create_creative_seed(
     await db.commit()
     await db.refresh(seed)
 
-    logger.info("[CreativeSeed] 创建种子成功 | id=%s | name=%s | type=%s | owner=%s",
-                seed.id, seed.name, seed.seed_type, current_user_id)
+    logger.info(
+        "[CreativeSeed] 创建种子成功 | id=%s | name=%s | type=%s | owner=%s",
+        seed.id,
+        seed.name,
+        seed.seed_type,
+        current_user_id,
+    )
 
     return success_response(data=_build_seed_response(seed), message="创建成功")
 
@@ -455,7 +481,9 @@ async def update_creative_seed(
     owner_name = None
     if seed.owner_operator_id:
         owner_name = await _get_operator_name(db, seed.owner_operator_id)
-    return success_response(data=_build_seed_response(seed, owner_name), message="更新成功")
+    return success_response(
+        data=_build_seed_response(seed, owner_name), message="更新成功"
+    )
 
 
 @router.delete("/{seed_id}")

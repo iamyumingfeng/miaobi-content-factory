@@ -7,22 +7,17 @@ Author: Claude Code
 Date: 2025
 """
 
-import base64
+import asyncio
 import json
 import logging
-import re
 import time
-import asyncio
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 import aiohttp
 
-from .base import (
-    BaseModelAdapter,
-    GenerationResult,
-    BatchChatResult,
-    ModelConfig,
-)
-from .params import TextGenParams, ImageGenParams, SUPPORTED_RATIOS
+from .base import (BaseModelAdapter, GenerationResult,
+                   ModelConfig)
+from .params import ImageGenParams, TextGenParams
 
 logger = logging.getLogger(__name__)
 
@@ -89,9 +84,17 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                 "top_p": p.top_p,
             }
 
-            headers = {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"}
-            logger.info("[LLM] 文案生成请求| platform=%s | model=%s", self.platform, p.model_id)
-            logger.info("[LLM] 请求 payload: %s", json.dumps(payload, ensure_ascii=False, indent=2))
+            headers = {
+                "Authorization": f"Bearer {self.config.api_key}",
+                "Content-Type": "application/json",
+            }
+            logger.info(
+                "[LLM] 文案生成请求| platform=%s | model=%s", self.platform, p.model_id
+            )
+            logger.info(
+                "[LLM] 请求 payload: %s",
+                json.dumps(payload, ensure_ascii=False, indent=2),
+            )
 
             start_time = time.time()
             session = await self._get_session()
@@ -99,29 +102,52 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                 # 检查响应状态
                 if response.status != 200:
                     error_text = await response.text()
-                    logger.error(f"{self.platform} API returned status {response.status}: {error_text[:500]}")
+                    logger.error(
+                        f"{self.platform} API returned status {response.status}: {error_text[:500]}"
+                    )
                     return GenerationResult(
                         success=False,
                         error_message=f"{self.platform} API error {response.status}: {error_text[:200]}",
-                        error_type="server_error" if response.status >= 500 else "client_error",
+                        error_type=(
+                            "server_error" if response.status >= 500 else "client_error"
+                        ),
                     )
-                
+
                 result = await response.json()
                 elapsed = time.time() - start_time
-                logger.info("[LLM] 文案生成响应 | platform=%s | elapsed=%.2fs", self.platform, elapsed)
-                logger.info("[LLM] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2))
+                logger.info(
+                    "[LLM] 文案生成响应 | platform=%s | elapsed=%.2fs",
+                    self.platform,
+                    elapsed,
+                )
+                logger.info(
+                    "[LLM] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2),
+                )
 
                 choices = result.get("choices", [])
                 if not choices:
-                    return GenerationResult(success=False, error_message="No text generated", raw_response=result)
+                    return GenerationResult(
+                        success=False,
+                        error_message="No text generated",
+                        raw_response=result,
+                    )
 
                 generated_text = choices[0].get("message", {}).get("content", "")
 
-                logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
-                logger.info("[LLM] 文案长度: %d", len(generated_text) if generated_text else 0)
+                logger.info(
+                    "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
+                logger.info(
+                    "[LLM] 文案长度: %d", len(generated_text) if generated_text else 0
+                )
                 logger.info("[LLM] 生成的文案内容: %s", generated_text)
-                logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
-                return GenerationResult(success=True, text=generated_text, raw_response=result)
+                logger.info(
+                    "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
+                return GenerationResult(
+                    success=True, text=generated_text, raw_response=result
+                )
 
         except asyncio.TimeoutError as e:
             logger.error(f"{self.platform} request timeout after 300s: {e}")
@@ -131,7 +157,9 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                 error_type="network_error",
             )
         except aiohttp.ClientError as e:
-            logger.error(f"{self.platform} HTTP request failed [{self.classify_http_error(e)}]: {e}")
+            logger.error(
+                f"{self.platform} HTTP request failed [{self.classify_http_error(e)}]: {e}"
+            )
             return self.handle_error(e)
         except Exception as e:
             logger.error(f"{self.platform} text generation failed: {e}")
@@ -159,10 +187,19 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                 "size": size,
             }
 
-            headers = {"Authorization": f"Bearer {self.config.api_key}", "Content-Type": "application/json"}
+            headers = {
+                "Authorization": f"Bearer {self.config.api_key}",
+                "Content-Type": "application/json",
+            }
 
-            logger.info("[Image] 图片生成请求 | platform=%s | model=%s | ratio=%s -> %s | count=%s",
-                       self.platform, p.model_id, p.ratio, size, p.count)
+            logger.info(
+                "[Image] 图片生成请求 | platform=%s | model=%s | ratio=%s -> %s | count=%s",
+                self.platform,
+                p.model_id,
+                p.ratio,
+                size,
+                p.count,
+            )
             payload_str = json.dumps(payload, ensure_ascii=False, indent=2)
             logger.info("[Image] 请求 payload: %s", payload_str)
 
@@ -172,12 +209,23 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                 response.raise_for_status()
                 result = await response.json()
                 elapsed = time.time() - start_time
-                logger.info("[Image] 图片生成响应 | platform=%s | elapsed=%.2fs", self.platform, elapsed)
-                logger.info("[Image] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2))
+                logger.info(
+                    "[Image] 图片生成响应 | platform=%s | elapsed=%.2fs",
+                    self.platform,
+                    elapsed,
+                )
+                logger.info(
+                    "[Image] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2),
+                )
 
                 data = result.get("data", [])
                 if not data:
-                    return GenerationResult(success=False, error_message="No image generated", raw_response=result)
+                    return GenerationResult(
+                        success=False,
+                        error_message="No image generated",
+                        raw_response=result,
+                    )
 
                 image_urls = []
                 image_base64_list = []
@@ -189,9 +237,15 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                     elif b64_val:
                         image_base64_list.append(b64_val)
 
-                logger.info("[Image] 生成图片: urls=%d base64=%d", len(image_urls), len(image_base64_list))
+                logger.info(
+                    "[Image] 生成图片: urls=%d base64=%d",
+                    len(image_urls),
+                    len(image_base64_list),
+                )
                 return GenerationResult(
-                    success=True, image_urls=image_urls, image_base64_list=image_base64_list or None,
+                    success=True,
+                    image_urls=image_urls,
+                    image_base64_list=image_base64_list or None,
                     raw_response=result,
                 )
 
@@ -203,7 +257,9 @@ class OpenAICompatibleAdapter(BaseModelAdapter):
                 error_type="network_error",
             )
         except aiohttp.ClientError as e:
-            logger.error(f"{self.platform} HTTP request failed [{self.classify_http_error(e)}]: {e}")
+            logger.error(
+                f"{self.platform} HTTP request failed [{self.classify_http_error(e)}]: {e}"
+            )
             return self.handle_error(e)
         except Exception as e:
             logger.error(f"{self.platform} image generation failed: {e}")

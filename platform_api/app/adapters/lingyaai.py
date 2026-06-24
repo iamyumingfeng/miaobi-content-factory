@@ -31,16 +31,15 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Any, Optional, List
+from typing import Optional
 
 import aiohttp
 
-from .params import TextGenParams, ImageGenParams
 from .base import GenerationResult
-from .openai_compatible import OpenAICompatibleAdapter
 from .factory import AdapterRegistry
-
 from .image_prompts import enhance_image_prompt, get_negative_prompt
+from .openai_compatible import OpenAICompatibleAdapter
+from .params import ImageGenParams, TextGenParams
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +54,11 @@ IMAGE_MODEL_CONFIG = {
     },
     "gpt-image-2": {
         "supported_aspect_ratios": [
-            "1:1", "4:3", "3:4", "16:9", "9:16",
+            "1:1",
+            "4:3",
+            "3:4",
+            "16:9",
+            "9:16",
         ],
         "default_aspect_ratio": "1:1",
         "uses_aspect_ratio": True,
@@ -65,8 +68,16 @@ IMAGE_MODEL_CONFIG = {
     },
     "nano-banana": {
         "supported_aspect_ratios": [
-            "1:1", "4:3", "3:4", "16:9", "9:16",
-            "2:3", "3:2", "4:5", "5:4", "21:9",
+            "1:1",
+            "4:3",
+            "3:4",
+            "16:9",
+            "9:16",
+            "2:3",
+            "3:2",
+            "4:5",
+            "5:4",
+            "21:9",
         ],
         "default_aspect_ratio": "1:1",
         "uses_aspect_ratio": True,
@@ -74,8 +85,16 @@ IMAGE_MODEL_CONFIG = {
     },
     "nano-banana-pro": {
         "supported_aspect_ratios": [
-            "1:1", "4:3", "3:4", "16:9", "9:16",
-            "2:3", "3:2", "4:5", "5:4", "21:9",
+            "1:1",
+            "4:3",
+            "3:4",
+            "16:9",
+            "9:16",
+            "2:3",
+            "3:2",
+            "4:5",
+            "5:4",
+            "21:9",
         ],
         "default_aspect_ratio": "1:1",
         "uses_aspect_ratio": True,
@@ -86,8 +105,16 @@ IMAGE_MODEL_CONFIG = {
     },
     "nano-banana-2": {
         "supported_aspect_ratios": [
-            "1:1", "4:3", "3:4", "16:9", "9:16",
-            "2:3", "3:2", "4:5", "5:4", "21:9",
+            "1:1",
+            "4:3",
+            "3:4",
+            "16:9",
+            "9:16",
+            "2:3",
+            "3:2",
+            "4:5",
+            "5:4",
+            "21:9",
         ],
         "default_aspect_ratio": "1:1",
         "uses_aspect_ratio": True,
@@ -163,8 +190,15 @@ class LingyaAIAdapter(OpenAICompatibleAdapter):
                 "Content-Type": "application/json",
             }
 
-            logger.info("[LLM] LingyaAI文案生成请求 | platform=lingyaai | model=%s | url=%s", p_val.model_id, url)
-            logger.info("[LLM] 请求 payload: %s", json.dumps(payload, ensure_ascii=False, indent=2))
+            logger.info(
+                "[LLM] LingyaAI文案生成请求 | platform=lingyaai | model=%s | url=%s",
+                p_val.model_id,
+                url,
+            )
+            logger.info(
+                "[LLM] 请求 payload: %s",
+                json.dumps(payload, ensure_ascii=False, indent=2),
+            )
 
             start_time = time.time()
 
@@ -174,8 +208,15 @@ class LingyaAIAdapter(OpenAICompatibleAdapter):
                 result = await response.json()
 
                 elapsed = time.time() - start_time
-                logger.info("[LLM] LingyaAI文案生成响应 | platform=lingyaai | elapsed=%.2fs | model=%s", elapsed, p_val.model_id)
-                logger.info("[LLM] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[LLM] LingyaAI文案生成响应 | platform=lingyaai | elapsed=%.2fs | model=%s",
+                    elapsed,
+                    p_val.model_id,
+                )
+                logger.info(
+                    "[LLM] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 # 提取生成的文本
                 choices = result.get("choices", [])
@@ -190,10 +231,17 @@ class LingyaAIAdapter(OpenAICompatibleAdapter):
 
                 generated_text = choices[0].get("message", {}).get("content", "")
 
-                logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
-                logger.info("[LLM] 生成的文案长度: %d 字符", len(generated_text) if generated_text else 0)
+                logger.info(
+                    "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
+                logger.info(
+                    "[LLM] 生成的文案长度: %d 字符",
+                    len(generated_text) if generated_text else 0,
+                )
                 logger.info("[LLM] 生成的文案内容: %s", generated_text)
-                logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -229,13 +277,16 @@ class LingyaAIAdapter(OpenAICompatibleAdapter):
             has_reference = len(refs) > 0
             enhanced_prompt = enhance_image_prompt(
                 formatted_prompt,
-                has_reference=has_reference and "【参考图说明】" not in formatted_prompt,
+                has_reference=has_reference
+                and "【参考图说明】" not in formatted_prompt,
             )
             negative_prompt = get_negative_prompt("")
 
             url = f"{self.base_url}/images/generations"
             model_id = p.model_id
-            model_config = IMAGE_MODEL_CONFIG.get(model_id, IMAGE_MODEL_CONFIG["gpt-image-1"])
+            model_config = IMAGE_MODEL_CONFIG.get(
+                model_id, IMAGE_MODEL_CONFIG["gpt-image-1"]
+            )
 
             payload = {
                 "model": model_id,
@@ -263,12 +314,19 @@ class LingyaAIAdapter(OpenAICompatibleAdapter):
                 "Content-Type": "application/json",
             }
 
-            logger.info("[Image] LingyaAI图片生成请求 | platform=lingyaai | model=%s | url=%s | count=%s", model_id, url, p.count)
+            logger.info(
+                "[Image] LingyaAI图片生成请求 | platform=lingyaai | model=%s | url=%s | count=%s",
+                model_id,
+                url,
+                p.count,
+            )
             # Base64 日志优化：仅替换 Base64 数据为长度标记，其余 payload 完整输出
             payload_str = json.dumps(payload, ensure_ascii=False, indent=2)
-            payload_str = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+',
-                                lambda m: f'<Base64 {len(m.group(0))} chars>',
-                                payload_str)
+            payload_str = re.sub(
+                r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+",
+                lambda m: f"<Base64 {len(m.group(0))} chars>",
+                payload_str,
+            )
             logger.info("[Image] 请求 payload: %s", payload_str)
 
             start_time = time.time()
@@ -279,8 +337,14 @@ class LingyaAIAdapter(OpenAICompatibleAdapter):
                 result = await response.json()
 
                 elapsed = time.time() - start_time
-                logger.info("[Image] LingyaAI图片生成响应 | platform=lingyaai | elapsed=%.2fs", elapsed)
-                logger.info("[Image] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2))
+                logger.info(
+                    "[Image] LingyaAI图片生成响应 | platform=lingyaai | elapsed=%.2fs",
+                    elapsed,
+                )
+                logger.info(
+                    "[Image] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2),
+                )
 
                 # 提取生成的图片 URL
                 data = result.get("data", [])
@@ -295,10 +359,17 @@ class LingyaAIAdapter(OpenAICompatibleAdapter):
 
                 image_urls = [item.get("url") for item in data if item.get("url")]
 
-                logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
-                logger.info("[Image] LingyaAI生成图片数量: %d", len(image_urls) if image_urls else 0)
+                logger.info(
+                    "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
+                logger.info(
+                    "[Image] LingyaAI生成图片数量: %d",
+                    len(image_urls) if image_urls else 0,
+                )
                 logger.info("[Image] 图片URL: %s", image_urls[:2] if image_urls else [])
-                logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,

@@ -7,13 +7,13 @@ Author: Claude Code
 Date: 2025
 """
 
-import json
 import asyncio
+import json
 import logging
-from typing import List, Optional, Dict, Any
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from dataclasses import dataclass, asdict
 from enum import Enum
+from typing import Any, Dict, List, Optional
 
 import redis.asyncio as redis
 
@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 
 class DLQStatus(str, Enum):
     """死信队列状态"""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -33,6 +34,7 @@ class DLQStatus(str, Enum):
 @dataclass
 class DLQItem:
     """死信队列项目"""
+
     id: str
     task_id: Optional[int]
     item_id: Optional[int]

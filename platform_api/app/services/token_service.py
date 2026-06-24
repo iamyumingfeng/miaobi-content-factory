@@ -8,18 +8,16 @@ Date: 2025
 """
 
 from datetime import datetime
-from typing import Optional, Tuple, Dict, Any
+from typing import Any, Optional, Tuple
+
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import (
-    create_tokens_for_user,
-    refresh_access_token
-)
-from app.models.refresh_token import RefreshToken
-from app.models.super_admin import SuperAdmin
+from app.core.security import create_tokens_for_user, refresh_access_token
 from app.models.operator import Operator
+from app.models.refresh_token import RefreshToken
 from app.models.sub_user import SubUser
+from app.models.super_admin import SuperAdmin
 from app.schemas.auth import LoginResponse, RefreshTokenResponse
 
 
@@ -35,7 +33,7 @@ class TokenService:
         user_type: str,
         expires_at: datetime,
         ip_address: Optional[str] = None,
-        device_info: Optional[str] = None
+        device_info: Optional[str] = None,
     ) -> RefreshToken:
         """
         保存 refresh token 到数据库
@@ -61,7 +59,7 @@ class TokenService:
             issued_at=datetime.utcnow(),
             expires_at=expires_at,
             ip_address=ip_address,
-            device_info=device_info
+            device_info=device_info,
         )
         db.add(token)
         await db.commit()
@@ -74,7 +72,7 @@ class TokenService:
         user: Any,
         user_type: str,
         ip_address: Optional[str] = None,
-        device_info: Optional[str] = None
+        device_info: Optional[str] = None,
     ) -> LoginResponse:
         """
         创建登录响应（包含 access token 和 refresh token）
@@ -94,7 +92,7 @@ class TokenService:
             user_id=user.id,
             user_type=user_type,
             userid=user.userid,
-            nickname=user.nickname
+            nickname=user.nickname,
         )
 
         # 保存 refresh token 到数据库
@@ -106,7 +104,7 @@ class TokenService:
             user_type=user_type,
             expires_at=datetime.fromisoformat(token_data["refresh_expires_at"]),
             ip_address=ip_address,
-            device_info=device_info
+            device_info=device_info,
         )
 
         # 更新用户登录状态
@@ -125,15 +123,13 @@ class TokenService:
                 "nickname": user.nickname,
                 "display_name": user.display_name,
                 "role": user_type,
-                "wechat_bound": bool(user.wechat_openid)
-            }
+                "wechat_bound": bool(user.wechat_openid),
+            },
         )
 
     @staticmethod
     async def _update_user_login_status(
-        db: AsyncSession,
-        user: Any,
-        user_type: str
+        db: AsyncSession, user: Any, user_type: str
     ) -> None:
         """更新用户登录状态"""
         user_model = TokenService._get_user_model(user_type)
@@ -148,7 +144,7 @@ class TokenService:
                 last_login_at=datetime.utcnow(),
                 login_failure_count=0,
                 locked_until=None,
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
             )
         )
         await db.commit()
@@ -158,7 +154,7 @@ class TokenService:
         db: AsyncSession,
         refresh_token_str: str,
         ip_address: Optional[str] = None,
-        device_info: Optional[str] = None
+        device_info: Optional[str] = None,
     ) -> Tuple[Optional[RefreshTokenResponse], Optional[str]]:
         """
         使用 refresh token 刷新 access token
@@ -180,9 +176,7 @@ class TokenService:
         jti = user_data["jti"]
 
         # 在数据库中查找 refresh token
-        result = await db.execute(
-            select(RefreshToken).where(RefreshToken.jti == jti)
-        )
+        result = await db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
         stored_token = result.scalar_one_or_none()
 
         if not stored_token:
@@ -200,32 +194,31 @@ class TokenService:
         )
         if not user or error:
             # 用户不存在或被禁用，撤销该 token
-            await TokenService._revoke_token(
-                db, stored_token, error or "用户状态异常"
-            )
+            await TokenService._revoke_token(db, stored_token, error or "用户状态异常")
             return None, error or "用户状态异常"
 
         if user.status == "disabled":
-            await TokenService._revoke_token(
-                db, stored_token, "账号已禁用"
-            )
+            await TokenService._revoke_token(db, stored_token, "账号已禁用")
             return None, "账号已被禁用"
 
         await db.commit()
 
         # 返回新的 access token
-        return RefreshTokenResponse(
-            access_token=new_access_token,
-            token_type="bearer",
-            expires_in=1440 * 60  # 24小时
-        ), None
+        return (
+            RefreshTokenResponse(
+                access_token=new_access_token,
+                token_type="bearer",
+                expires_in=1440 * 60,  # 24小时
+            ),
+            None,
+        )
 
     @staticmethod
     async def logout(
         db: AsyncSession,
         user_id: int,
         user_type: str,
-        refresh_token_str: Optional[str] = None
+        refresh_token_str: Optional[str] = None,
     ) -> None:
         """
         用户登出，更新状态并撤销 token
@@ -242,6 +235,7 @@ class TokenService:
         # 撤销指定的 refresh token（如果提供）
         if refresh_token_str:
             from app.core.security import decode_access_token
+
             payload = decode_access_token(refresh_token_str)
             if payload and payload.get("jti"):
                 jti = payload["jti"]
@@ -249,9 +243,7 @@ class TokenService:
 
     @staticmethod
     async def _mark_user_offline(
-        db: AsyncSession,
-        user_id: int,
-        user_type: str
+        db: AsyncSession, user_id: int, user_type: str
     ) -> None:
         """将用户标记为离线"""
         user_model = TokenService._get_user_model(user_type)
@@ -261,18 +253,13 @@ class TokenService:
         await db.execute(
             update(user_model)
             .where(user_model.id == user_id)
-            .values(
-                status="offline",
-                updated_at=datetime.utcnow()
-            )
+            .values(status="offline", updated_at=datetime.utcnow())
         )
         await db.commit()
 
     @staticmethod
     async def mark_user_offline_on_token_expiry(
-        db: AsyncSession,
-        user_id: int,
-        user_type: str
+        db: AsyncSession, user_id: int, user_type: str
     ) -> None:
         """
         当 token 过期时，标记用户为离线状态（如果没有其他有效 token）
@@ -284,12 +271,11 @@ class TokenService:
         """
         # 检查该用户是否还有其他有效的 token
         result = await db.execute(
-            select(RefreshToken)
-            .where(
+            select(RefreshToken).where(
                 RefreshToken.user_id == user_id,
                 RefreshToken.user_type == user_type,
                 RefreshToken.is_revoked == False,
-                RefreshToken.expires_at > datetime.utcnow()
+                RefreshToken.expires_at > datetime.utcnow(),
             )
         )
         active_tokens = result.scalars().all()
@@ -300,9 +286,7 @@ class TokenService:
 
     @staticmethod
     async def revoke_token_by_jti(
-        db: AsyncSession,
-        jti: str,
-        reason: str = "已撤销"
+        db: AsyncSession, jti: str, reason: str = "已撤销"
     ) -> bool:
         """
         根据 JTI 撤销 token
@@ -317,15 +301,12 @@ class TokenService:
         """
         result = await db.execute(
             update(RefreshToken)
-            .where(
-                RefreshToken.jti == jti,
-                RefreshToken.is_revoked == False
-            )
+            .where(RefreshToken.jti == jti, RefreshToken.is_revoked == False)
             .values(
                 is_revoked=True,
                 revoked_at=datetime.utcnow(),
                 revoke_reason=reason,
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
             )
         )
         await db.commit()
@@ -333,10 +314,7 @@ class TokenService:
 
     @staticmethod
     async def revoke_all_user_tokens(
-        db: AsyncSession,
-        user_id: int,
-        user_type: str,
-        reason: str = "用户退出"
+        db: AsyncSession, user_id: int, user_type: str, reason: str = "用户退出"
     ) -> int:
         """
         撤销用户的所有 token
@@ -355,24 +333,20 @@ class TokenService:
             .where(
                 RefreshToken.user_id == user_id,
                 RefreshToken.user_type == user_type,
-                RefreshToken.is_revoked == False
+                RefreshToken.is_revoked == False,
             )
             .values(
                 is_revoked=True,
                 revoked_at=datetime.utcnow(),
                 revoke_reason=reason,
-                updated_at=datetime.utcnow()
+                updated_at=datetime.utcnow(),
             )
         )
         await db.commit()
         return result.rowcount
 
     @staticmethod
-    async def _revoke_token(
-        db: AsyncSession,
-        token: RefreshToken,
-        reason: str
-    ) -> None:
+    async def _revoke_token(db: AsyncSession, token: RefreshToken, reason: str) -> None:
         """撤销单个 token"""
         token.is_revoked = True
         token.revoked_at = datetime.utcnow()
@@ -382,18 +356,14 @@ class TokenService:
 
     @staticmethod
     async def _get_user_by_id_and_type(
-        db: AsyncSession,
-        user_id: int,
-        user_type: str
+        db: AsyncSession, user_id: int, user_type: str
     ) -> Tuple[Optional[Any], Optional[str]]:
         """根据 ID 和类型获取用户"""
         user_model = TokenService._get_user_model(user_type)
         if not user_model:
             return None, "无效的用户类型"
 
-        result = await db.execute(
-            select(user_model).where(user_model.id == user_id)
-        )
+        result = await db.execute(select(user_model).where(user_model.id == user_id))
         user = result.scalar_one_or_none()
 
         if not user:
@@ -407,6 +377,6 @@ class TokenService:
         user_models = {
             "super_admin": SuperAdmin,
             "operator": Operator,
-            "sub_user": SubUser
+            "sub_user": SubUser,
         }
         return user_models.get(user_type)

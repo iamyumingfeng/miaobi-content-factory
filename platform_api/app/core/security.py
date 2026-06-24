@@ -12,11 +12,12 @@ Author: Claude Code
 Date: 2025
 """
 
-from datetime import datetime, timedelta
-from typing import Optional, Dict, Any, Tuple
-from jose import JWTError, jwt
-import bcrypt
 import secrets
+from datetime import datetime, timedelta
+from typing import Any, Dict, Optional, Tuple
+
+import bcrypt
+from jose import JWTError, jwt
 
 from .config import get_settings
 
@@ -41,8 +42,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
         bool: 密码正确返回 True
     """
     # 确保密码不超过72字节（bcrypt限制）
-    password_bytes = plain_password.encode('utf-8')[:72]
-    hashed_bytes = hashed_password.encode('utf-8')
+    password_bytes = plain_password.encode("utf-8")[:72]
+    hashed_bytes = hashed_password.encode("utf-8")
     return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
@@ -57,18 +58,17 @@ def get_password_hash(password: str) -> str:
         str: 哈希后的密码
     """
     # 确保密码不超过72字节（bcrypt限制）
-    password_bytes = password.encode('utf-8')[:72]
+    password_bytes = password.encode("utf-8")[:72]
     salt = bcrypt.gensalt(rounds=12)
     hashed = bcrypt.hashpw(password_bytes, salt)
-    return hashed.decode('utf-8')
+    return hashed.decode("utf-8")
 
 
 # ============================================
 # JWT 令牌相关函数
 # ============================================
 def create_access_token(
-    data: Dict[str, Any],
-    expires_delta: Optional[timedelta] = None
+    data: Dict[str, Any], expires_delta: Optional[timedelta] = None
 ) -> str:
     """
     创建访问令牌
@@ -91,19 +91,14 @@ def create_access_token(
 
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
-        to_encode,
-        settings.secret_key,
-        algorithm=settings.algorithm
+        to_encode, settings.secret_key, algorithm=settings.algorithm
     )
 
     return encoded_jwt
 
 
 def create_refresh_token(
-    user_id: int,
-    user_type: str,
-    userid: str,
-    expires_delta: Optional[timedelta] = None
+    user_id: int, user_type: str, userid: str, expires_delta: Optional[timedelta] = None
 ) -> Tuple[str, str, datetime]:
     """
     创建刷新令牌
@@ -130,13 +125,11 @@ def create_refresh_token(
         "userid": userid,
         "jti": jti,
         "type": "refresh",
-        "exp": expire
+        "exp": expire,
     }
 
     encoded_jwt = jwt.encode(
-        to_encode,
-        settings.secret_key,
-        algorithm=settings.algorithm
+        to_encode, settings.secret_key, algorithm=settings.algorithm
     )
 
     return encoded_jwt, jti, expire
@@ -154,9 +147,7 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     """
     try:
         payload = jwt.decode(
-            token,
-            settings.secret_key,
-            algorithms=[settings.algorithm]
+            token, settings.secret_key, algorithms=[settings.algorithm]
         )
         return payload
     except JWTError:
@@ -188,7 +179,9 @@ def verify_access_token(token: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
     return True, payload
 
 
-def refresh_access_token(refresh_token: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+def refresh_access_token(
+    refresh_token: str,
+) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
     """
     使用 refresh token 刷新 access token
 
@@ -201,9 +194,7 @@ def refresh_access_token(refresh_token: str) -> Tuple[Optional[str], Optional[Di
     """
     try:
         payload = jwt.decode(
-            refresh_token,
-            settings.secret_key,
-            algorithms=[settings.algorithm]
+            refresh_token, settings.secret_key, algorithms=[settings.algorithm]
         )
 
         # 验证是 refresh token 类型
@@ -227,14 +218,14 @@ def refresh_access_token(refresh_token: str) -> Tuple[Optional[str], Optional[Di
                 "user_type": user_type,
                 "userid": userid,
             },
-            expires_delta=access_token_expires
+            expires_delta=access_token_expires,
         )
 
         return new_access_token, {
             "user_id": int(user_id),
             "user_type": user_type,
             "userid": userid,
-            "jti": jti
+            "jti": jti,
         }
 
     except JWTError:
@@ -242,10 +233,7 @@ def refresh_access_token(refresh_token: str) -> Tuple[Optional[str], Optional[Di
 
 
 def create_tokens_for_user(
-    user_id: int,
-    user_type: str,
-    userid: str,
-    nickname: Optional[str] = None
+    user_id: int, user_type: str, userid: str, nickname: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     为用户创建访问令牌和刷新令牌
@@ -267,14 +255,12 @@ def create_tokens_for_user(
             "user_type": user_type,
             "userid": userid,
         },
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
     )
 
     # 创建 refresh token
     refresh_token, jti, refresh_expires_at = create_refresh_token(
-        user_id=user_id,
-        user_type=user_type,
-        userid=userid
+        user_id=user_id, user_type=user_type, userid=userid
     )
 
     return {
@@ -290,7 +276,7 @@ def create_tokens_for_user(
             "userid": userid,
             "nickname": nickname,
             "role": user_type,
-        }
+        },
     }
 
 
@@ -318,8 +304,9 @@ def generate_nonce(length: int = 16) -> str:
         str: 随机字符串
     """
     import string
+
     chars = string.ascii_letters + string.digits
-    return ''.join(secrets.choice(chars) for _ in range(length))
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 def generate_userid(prefix: str = "u") -> str:
@@ -346,5 +333,6 @@ def generate_invitation_code() -> str:
         str: 6 位大写字母和数字的邀请码
     """
     import string
+
     chars = string.ascii_uppercase + string.digits
-    return ''.join(secrets.choice(chars) for _ in range(6))
+    return "".join(secrets.choice(chars) for _ in range(6))

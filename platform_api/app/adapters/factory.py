@@ -7,8 +7,8 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import Dict, Type, Optional
 import logging
+from typing import Dict, Optional, Type
 
 from .base import BaseModelAdapter, ModelConfig
 
@@ -137,7 +137,7 @@ class ModelAdapterFactory:
         """
         # 验证必需字段
         if not config.platform:
-            raise ValueError(f"platform is required for model config")
+            raise ValueError("platform is required for model config")
 
         if not config.model_id:
             raise ValueError(f"model_id is required for platform {platform}")
@@ -148,32 +148,44 @@ class ModelAdapterFactory:
             # 可灵平台使用 AccessKey+SecretKey 动态 JWT，不需要静态 api_key
             if platform_lower == "kling":
                 has_access_keys = bool(
-                    config.extra_params and
-                    config.extra_params.get("access_key_id") and
-                    config.extra_params.get("access_key_secret")
+                    config.extra_params
+                    and config.extra_params.get("access_key_id")
+                    and config.extra_params.get("access_key_secret")
                 )
                 if not has_access_keys:
-                    raise ValueError(f"access_key_id and access_key_secret are required for platform {platform}")
+                    raise ValueError(
+                        f"access_key_id and access_key_secret are required for platform {platform}"
+                    )
             # 即梦AI使用火山引擎 HMAC-SHA256 签名认证，不需要静态 api_key
             elif platform_lower == "jimeng":
                 has_access_keys = bool(
-                    config.extra_params and
-                    config.extra_params.get("access_key") and
-                    config.extra_params.get("secret_key")
+                    config.extra_params
+                    and config.extra_params.get("access_key")
+                    and config.extra_params.get("secret_key")
                 )
                 if not has_access_keys:
-                    raise ValueError(f"access_key and secret_key are required for platform {platform}")
+                    raise ValueError(
+                        f"access_key and secret_key are required for platform {platform}"
+                    )
             else:
                 raise ValueError(f"api_key is required for platform {platform}")
 
         # 验证并发限制
         if config.max_concurrency is not None and config.max_concurrency < 1:
-            raise ValueError(f"max_concurrency must be at least 1, got {config.max_concurrency}")
+            raise ValueError(
+                f"max_concurrency must be at least 1, got {config.max_concurrency}"
+            )
 
         # 平台特定验证
 
         # 所有 OpenAI 兼容平台的统一验证
-        openai_compatible_platforms = {"volcano", "zhipu", "moonshot", "deepseek", "lingyaai"}
+        openai_compatible_platforms = {
+            "volcano",
+            "zhipu",
+            "moonshot",
+            "deepseek",
+            "lingyaai",
+        }
         if platform_lower in openai_compatible_platforms:
             if not config.base_url:
                 logger.warning(f"base_url not provided for {platform}, using default")
@@ -192,7 +204,7 @@ class ModelAdapterFactory:
         elif platform_lower == "kling":
             if not config.base_url:
                 logger.warning("base_url not provided for kling, using default")
-        
+
         # lingyaai平台验证
         elif platform_lower == "lingyaai":
             if not config.base_url:
@@ -230,7 +242,10 @@ class ModelAdapterFactory:
         if module_name:
             try:
                 import importlib
+
                 importlib.import_module(module_name)
                 logger.info(f"Successfully imported adapter for {platform}")
             except Exception as e:
-                logger.error(f"Failed to import adapter for {platform}: {e}", exc_info=True)
+                logger.error(
+                    f"Failed to import adapter for {platform}: {e}", exc_info=True
+                )

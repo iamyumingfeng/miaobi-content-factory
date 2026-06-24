@@ -6,35 +6,26 @@ Date: 2025
 """
 
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
+
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
+                     UploadFile, status)
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
-from sqlalchemy import select, func, and_
+from typing import List, Optional
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, List
 
 from app.core.database import get_async_db
-from app.utils.response import success_response, ApiResponse
 from app.schemas import PaginatedResponse
-from app.utils.deps import get_token_payload_required
+from app.schemas.templates import (TemplateCopyRequest,
+                                   TemplateCreate, TemplateResponse,
+                                   TemplateTagCreate, TemplateTagResponse,
+                                   TemplateTagUpdate, TemplateUpdate)
 from app.services.template_service import TemplateService
-from app.schemas.templates import (
-    TemplatePlatformCreate,
-    TemplatePlatformUpdate,
-    TemplatePlatformResponse,
-    TemplateCategoryCreate,
-    TemplateCategoryUpdate,
-    TemplateCategoryResponse,
-    TemplateCreate,
-    TemplateUpdate,
-    TemplateResponse,
-    TemplateCopyRequest,
-    TemplateTagCreate,
-    TemplateTagUpdate,
-    TemplateTagResponse,
-    TemplateAttachmentResponse,
-)
+from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 
@@ -43,7 +34,10 @@ router = APIRouter()
 # 模板平台管理（独立平台表）- 放在最前面避免路由冲突
 # ============================================
 
-@router.post("/platforms", response_model=ApiResponse[dict], status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/platforms", response_model=ApiResponse[dict], status_code=status.HTTP_201_CREATED
+)
 async def create_template_platform(
     data: dict,
     payload: dict = Depends(get_token_payload_required),
@@ -61,7 +55,7 @@ async def create_template_platform(
     if user_type == "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能创建平台，请由创作管理员操作"
+            detail="超级管理员不能创建平台，请由创作管理员操作",
         )
 
     current_user_id = int(payload.get("sub"))
@@ -72,27 +66,32 @@ async def create_template_platform(
         created_by=current_user_id,
         description=data.get("description"),
         color=data.get("color"),
-        sort_order=data.get("sort_order", 0)
+        sort_order=data.get("sort_order", 0),
     )
 
-    return success_response(data={
-        "id": platform.id,
-        "name": platform.name,
-        "description": platform.description,
-        "color": platform.color,
-        "sort_order": platform.sort_order,
-        "created_by": platform.created_by,
-        "owner_operator_id": platform.owner_operator_id,
-        "created_at": platform.created_at,
-        "updated_at": platform.updated_at,
-        "category_count": 0,
-    }, message="创建成功")
+    return success_response(
+        data={
+            "id": platform.id,
+            "name": platform.name,
+            "description": platform.description,
+            "color": platform.color,
+            "sort_order": platform.sort_order,
+            "created_by": platform.created_by,
+            "owner_operator_id": platform.owner_operator_id,
+            "created_at": platform.created_at,
+            "updated_at": platform.updated_at,
+            "category_count": 0,
+        },
+        message="创建成功",
+    )
 
 
 @router.get("/platforms", response_model=ApiResponse[list])
 async def list_template_platforms(
     keyword: Optional[str] = Query(None, description="搜索关键词"),
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -114,30 +113,33 @@ async def list_template_platforms(
 
     service = TemplatePlatformService(db)
     platforms = await service.get_platforms(
-        owner_operator_id=filter_owner_id,
-        keyword=keyword
+        owner_operator_id=filter_owner_id, keyword=keyword
     )
 
     result = []
     for p in platforms:
-        result.append({
-            "id": p.id,
-            "name": p.name,
-            "description": p.description,
-            "color": p.color,
-            "sort_order": p.sort_order,
-            "created_by": p.created_by,
-            "owner_operator_id": p.owner_operator_id,
-            "created_at": p.created_at,
-            "updated_at": p.updated_at,
-            "category_count": len(p.categories),
-        })
+        result.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "description": p.description,
+                "color": p.color,
+                "sort_order": p.sort_order,
+                "created_by": p.created_by,
+                "owner_operator_id": p.owner_operator_id,
+                "created_at": p.created_at,
+                "updated_at": p.updated_at,
+                "category_count": len(p.categories),
+            }
+        )
     return success_response(data=result, message="获取成功")
 
 
 @router.get("/platforms/tree", response_model=ApiResponse[dict])
 async def get_template_platform_tree(
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -181,23 +183,23 @@ async def get_template_platform(
         platform_id, None if is_super_admin else current_user_id
     )
     if not platform:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="平台不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="平台不存在")
 
-    return success_response(data={
-        "id": platform.id,
-        "name": platform.name,
-        "description": platform.description,
-        "color": platform.color,
-        "sort_order": platform.sort_order,
-        "created_by": platform.created_by,
-        "owner_operator_id": platform.owner_operator_id,
-        "created_at": platform.created_at,
-        "updated_at": platform.updated_at,
-        "category_count": len(platform.categories),
-    }, message="获取成功")
+    return success_response(
+        data={
+            "id": platform.id,
+            "name": platform.name,
+            "description": platform.description,
+            "color": platform.color,
+            "sort_order": platform.sort_order,
+            "created_by": platform.created_by,
+            "owner_operator_id": platform.owner_operator_id,
+            "created_at": platform.created_at,
+            "updated_at": platform.updated_at,
+            "category_count": len(platform.categories),
+        },
+        message="获取成功",
+    )
 
 
 @router.put("/platforms/{platform_id}", response_model=ApiResponse[dict])
@@ -219,25 +221,25 @@ async def update_template_platform(
         platform = await service.update_platform(
             platform_id=platform_id,
             owner_operator_id=None if is_super_admin else current_user_id,
-            **data
+            **data,
         )
-        return success_response(data={
-            "id": platform.id,
-            "name": platform.name,
-            "description": platform.description,
-            "color": platform.color,
-            "sort_order": platform.sort_order,
-            "created_by": platform.created_by,
-            "owner_operator_id": platform.owner_operator_id,
-            "created_at": platform.created_at,
-            "updated_at": platform.updated_at,
-            "category_count": len(platform.categories),
-        }, message="更新成功")
+        return success_response(
+            data={
+                "id": platform.id,
+                "name": platform.name,
+                "description": platform.description,
+                "color": platform.color,
+                "sort_order": platform.sort_order,
+                "created_by": platform.created_by,
+                "owner_operator_id": platform.owner_operator_id,
+                "created_at": platform.created_at,
+                "updated_at": platform.updated_at,
+                "category_count": len(platform.categories),
+            },
+            message="更新成功",
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/platforms/{platform_id}")
@@ -255,19 +257,17 @@ async def delete_template_platform(
 
     service = TemplatePlatformService(db)
     try:
-        await service.delete_platform(platform_id, None if is_super_admin else current_user_id)
+        await service.delete_platform(
+            platform_id, None if is_super_admin else current_user_id
+        )
         return success_response(message="删除成功")
     except Exception as e:
         error_msg = str(e)
         if "存在" in error_msg:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
+                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
             )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
 
 @router.get("/platforms/{platform_id}/stats", response_model=ApiResponse[dict])
@@ -279,9 +279,10 @@ async def get_template_platform_stats(
     """
     获取模板平台统计信息（模板数量、分类数量、标签数量）
     """
+
+    from app.models import (TemplateTag,
+                            TemplateTagRel)
     from app.services.template_platform_service import TemplatePlatformService
-    from app.models import TemplateTagRel, TemplateTag, TemplateCategory, Template
-    from sqlalchemy import func
 
     service = TemplatePlatformService(db)
     platform = await service.get_platform(platform_id)
@@ -297,20 +298,26 @@ async def get_template_platform_stats(
     # 统计模板数量
     if platform.categories:
         category_ids = [cat.id for cat in platform.categories]
-        template_count = await db.scalar(
-            select(func.count(func.distinct(TemplateTagRel.template_id)))
-            .join(TemplateTag, TemplateTagRel.tag_id == TemplateTag.id)
-            .where(TemplateTag.category_id.in_(category_ids))
-        ) or 0
+        template_count = (
+            await db.scalar(
+                select(func.count(func.distinct(TemplateTagRel.template_id)))
+                .join(TemplateTag, TemplateTagRel.tag_id == TemplateTag.id)
+                .where(TemplateTag.category_id.in_(category_ids))
+            )
+            or 0
+        )
     else:
         template_count = 0
 
-    return success_response(data={
-        "platform_id": platform_id,
-        "template_count": template_count,
-        "category_count": category_count,
-        "tag_count": tag_count,
-    }, message="获取成功")
+    return success_response(
+        data={
+            "platform_id": platform_id,
+            "template_count": template_count,
+            "category_count": category_count,
+            "tag_count": tag_count,
+        },
+        message="获取成功",
+    )
 
 
 # ============================================
@@ -355,7 +362,9 @@ class BatchMigrateRequest(BaseModel):
 # ============================================
 # 响应构建辅助函数
 # ============================================
-def build_template_response(item, tags=None, platform=None, include_owner=False, attachments=None):
+def build_template_response(
+    item, tags=None, platform=None, include_owner=False, attachments=None
+):
     """构建模板响应数据（统一复用）"""
     if tags is None:
         tags = []
@@ -366,29 +375,31 @@ def build_template_response(item, tags=None, platform=None, include_owner=False,
         first_tag = tags[0]
         if isinstance(first_tag, dict) and "category" in first_tag:
             category = first_tag["category"]
-        elif hasattr(first_tag, 'category') and first_tag.category:
+        elif hasattr(first_tag, "category") and first_tag.category:
             category = first_tag.category
 
     # 转换附件数据
     serialized_attachments = []
     for att in attachments:
-        if hasattr(att, 'id'):
+        if hasattr(att, "id"):
             # 模型对象，需要序列化
-            serialized_attachments.append({
-                "id": att.id,
-                "template_id": att.template_id,
-                "file_type": att.file_type,
-                "file_url": att.file_url,
-                "file_name": att.file_name,
-                "file_size": att.file_size,
-                "sort_order": att.sort_order,
-                "width": att.width,
-                "height": att.height,
-                "duration": att.duration,
-                "thumbnail_url": att.thumbnail_url,
-                "created_at": att.created_at,
-                "updated_at": att.updated_at,
-            })
+            serialized_attachments.append(
+                {
+                    "id": att.id,
+                    "template_id": att.template_id,
+                    "file_type": att.file_type,
+                    "file_url": att.file_url,
+                    "file_name": att.file_name,
+                    "file_size": att.file_size,
+                    "sort_order": att.sort_order,
+                    "width": att.width,
+                    "height": att.height,
+                    "duration": att.duration,
+                    "thumbnail_url": att.thumbnail_url,
+                    "created_at": att.created_at,
+                    "updated_at": att.updated_at,
+                }
+            )
         else:
             # 已经是字典格式
             serialized_attachments.append(att)
@@ -431,7 +442,7 @@ def build_template_response(item, tags=None, platform=None, include_owner=False,
     data = {
         "id": item.id,
         "name": item.name,
-        "product_name": (getattr(item, 'product_name', None) or '').strip() or '产品',
+        "product_name": (getattr(item, "product_name", None) or "").strip() or "产品",
         "description": item.description if item.description is not None else "",
         "content_type": item.content_type,
         "prompt_template": item.prompt_template,
@@ -517,7 +528,9 @@ async def load_template_tags(db, template_id):
 @router.get("/categories", response_model=ApiResponse[list])
 async def list_template_categories(
     platform_id: Optional[int] = Query(None, description="平台ID筛选"),
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -538,23 +551,25 @@ async def list_template_categories(
     categories = await TemplateService.list_template_categories(
         db, owner_operator_id=filter_owner_id, platform_id=platform_id
     )
-    
+
     # 加载统计信息
     result = []
     for cat in categories:
         tag_count = await TemplateService.count_tags_by_category(db, cat.id)
-        result.append({
-            "id": cat.id,
-            "name": cat.name,
-            "description": cat.description,
-            "color": cat.color,
-            "platform_id": cat.template_platform_id,
-            "sort_order": cat.sort_order,
-            "tag_count": tag_count,
-            "created_at": cat.created_at,
-            "updated_at": cat.updated_at,
-        })
-    
+        result.append(
+            {
+                "id": cat.id,
+                "name": cat.name,
+                "description": cat.description,
+                "color": cat.color,
+                "platform_id": cat.template_platform_id,
+                "sort_order": cat.sort_order,
+                "tag_count": tag_count,
+                "created_at": cat.created_at,
+                "updated_at": cat.updated_at,
+            }
+        )
+
     return success_response(data=result, message="获取成功")
 
 
@@ -571,11 +586,11 @@ async def create_template_category(
     if user_type == "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能创建分类，请由创作管理员操作"
+            detail="超级管理员不能创建分类，请由创作管理员操作",
         )
-    
+
     current_user_id = int(payload.get("sub"))
-    
+
     category = await TemplateService.create_template_category(
         db,
         name=request["name"],
@@ -586,12 +601,15 @@ async def create_template_category(
         color=request.get("color"),
         sort_order=request.get("sort_order", 0),
     )
-    
-    return success_response(data={
-        "id": category.id,
-        "name": category.name,
-        "platform_id": category.template_platform_id,
-    }, message="创建成功")
+
+    return success_response(
+        data={
+            "id": category.id,
+            "name": category.name,
+            "platform_id": category.template_platform_id,
+        },
+        message="创建成功",
+    )
 
 
 @router.put("/categories/{id}", response_model=ApiResponse[dict])
@@ -607,18 +625,21 @@ async def update_template_category(
     current_user_id = int(payload.get("sub"))
     user_type = payload.get("user_type")
     is_super_admin = user_type == "super_admin"
-    
+
     category = await TemplateService.update_template_category(
         db,
         category_id=id,
         owner_operator_id=None if is_super_admin else current_user_id,
-        **{k: v for k, v in request.items() if v is not None}
+        **{k: v for k, v in request.items() if v is not None},
     )
-    
-    return success_response(data={
-        "id": category.id,
-        "name": category.name,
-    }, message="更新成功")
+
+    return success_response(
+        data={
+            "id": category.id,
+            "name": category.name,
+        },
+        message="更新成功",
+    )
 
 
 @router.delete("/categories/{id}")
@@ -633,7 +654,7 @@ async def delete_template_category(
     current_user_id = int(payload.get("sub"))
     user_type = payload.get("user_type")
     is_super_admin = user_type == "super_admin"
-    
+
     await TemplateService.delete_template_category(
         db, id, None if is_super_admin else current_user_id
     )
@@ -646,7 +667,9 @@ async def delete_template_category(
 @router.get("/tags", response_model=ApiResponse[list[TemplateTagResponse]])
 async def list_template_tags(
     category_id: Optional[int] = Query(None, description="分类ID，筛选特定分类的标签"),
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -672,17 +695,19 @@ async def list_template_tags(
 
     response_tags = []
     for tag in tags:
-        response_tags.append({
-            "id": tag.id,
-            "name": tag.name,
-            "description": tag.description,
-            "color": tag.color,
-            "category_id": tag.category_id,
-            "is_system": tag.is_system,
-            "created_by": tag.created_by,
-            "created_at": tag.created_at,
-            "updated_at": tag.updated_at,
-        })
+        response_tags.append(
+            {
+                "id": tag.id,
+                "name": tag.name,
+                "description": tag.description,
+                "color": tag.color,
+                "category_id": tag.category_id,
+                "is_system": tag.is_system,
+                "created_by": tag.created_by,
+                "created_at": tag.created_at,
+                "updated_at": tag.updated_at,
+            }
+        )
 
     return success_response(data=response_tags, message="获取成功")
 
@@ -753,13 +778,9 @@ async def update_template_tag(
         error_msg = str(e)
         if "系统默认标签" in error_msg:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
+                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
             )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
 
 @router.delete("/tags/{id}")
@@ -778,19 +799,17 @@ async def delete_template_tag(
     user_type = payload.get("user_type")
     is_super_admin = user_type == "super_admin"
     try:
-        await TemplateService.delete_template_tag(db, id, created_by, is_super_admin=is_super_admin)
+        await TemplateService.delete_template_tag(
+            db, id, created_by, is_super_admin=is_super_admin
+        )
         return success_response(data=None, message="删除成功")
     except Exception as e:
         error_msg = str(e)
         if "系统默认标签" in error_msg:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
+                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
             )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
 
 # ============================================
@@ -807,7 +826,9 @@ async def list_templates(
     tag_id: Optional[int] = Query(None, description="标签筛选"),
     no_tag: bool = Query(False, description="仅显示无标签模板"),
     keyword: Optional[str] = Query(None, description="关键词搜索"),
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -844,9 +865,21 @@ async def list_templates(
         tags = await load_template_tags(db, item.id)
         platform = None
         if item.platform_id:
-            platform = await TemplateService.get_template_platform(db, item.platform_id, filter_owner_id)
-        attachments = await TemplateService.list_template_attachments(db, item.id, filter_owner_id)
-        response_items.append(build_template_response(item, tags, platform, include_owner=(user_type == "super_admin"), attachments=attachments))
+            platform = await TemplateService.get_template_platform(
+                db, item.platform_id, filter_owner_id
+            )
+        attachments = await TemplateService.list_template_attachments(
+            db, item.id, filter_owner_id
+        )
+        response_items.append(
+            build_template_response(
+                item,
+                tags,
+                platform,
+                include_owner=(user_type == "super_admin"),
+                attachments=attachments,
+            )
+        )
 
     return success_response(
         data=PaginatedResponse(
@@ -856,7 +889,7 @@ async def list_templates(
             limit=limit,
             total_pages=(total + limit - 1) // limit if total > 0 else 0,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -882,9 +915,11 @@ async def create_template(
     created_by = owner_operator_id
 
     # DEBUG: 打印创建模板的请求参数
-    logger.debug(f"[Template Create] request: name={request.name}, content_type={request.content_type}, "
-                 f"platform_id={request.platform_id}, tag_ids={request.tag_ids}, "
-                 f"owner_operator_id={owner_operator_id}")
+    logger.debug(
+        f"[Template Create] request: name={request.name}, content_type={request.content_type}, "
+        f"platform_id={request.platform_id}, tag_ids={request.tag_ids}, "
+        f"owner_operator_id={owner_operator_id}"
+    )
 
     template = await TemplateService.create_template(
         db,
@@ -910,16 +945,24 @@ async def create_template(
     )
 
     # DEBUG: 打印创建后的模板信息
-    logger.debug(f"[Template Create] template created: id={template.id}, platform_id={template.platform_id}")
+    logger.debug(
+        f"[Template Create] template created: id={template.id}, platform_id={template.platform_id}"
+    )
 
     # 加载关联数据并构建响应
     tags = await load_template_tags(db, template.id)
     platform = None
     if template.platform_id:
-        platform = await TemplateService.get_template_platform(db, template.platform_id, owner_operator_id)
-    attachments = await TemplateService.list_template_attachments(db, template.id, owner_operator_id)
+        platform = await TemplateService.get_template_platform(
+            db, template.platform_id, owner_operator_id
+        )
+    attachments = await TemplateService.list_template_attachments(
+        db, template.id, owner_operator_id
+    )
 
-    response_data = build_template_response(template, tags, platform, include_owner=True, attachments=attachments)
+    response_data = build_template_response(
+        template, tags, platform, include_owner=True, attachments=attachments
+    )
     return success_response(data=response_data, message="创建成功")
 
 
@@ -943,18 +986,21 @@ async def get_template(
         db, id, owner_operator_id=None if is_super_admin else current_user_id
     )
     if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="模板不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="模板不存在")
 
     tags = await load_template_tags(db, template.id)
     platform = None
     if template.platform_id:
-        platform = await TemplateService.get_template_platform(db, template.platform_id, template.owner_operator_id)
-    attachments = await TemplateService.list_template_attachments(db, template.id, template.owner_operator_id)
+        platform = await TemplateService.get_template_platform(
+            db, template.platform_id, template.owner_operator_id
+        )
+    attachments = await TemplateService.list_template_attachments(
+        db, template.id, template.owner_operator_id
+    )
 
-    response_data = build_template_response(template, tags, platform, include_owner=is_super_admin, attachments=attachments)
+    response_data = build_template_response(
+        template, tags, platform, include_owner=is_super_admin, attachments=attachments
+    )
     return success_response(data=response_data, message="获取成功")
 
 
@@ -986,19 +1032,28 @@ async def update_template(
         tags = await load_template_tags(db, template.id)
         platform = None
         if template.platform_id:
-            platform = await TemplateService.get_template_platform(db, template.platform_id, template.owner_operator_id)
-        attachments = await TemplateService.list_template_attachments(db, template.id, template.owner_operator_id)
-
-        response_data = build_template_response(template, tags, platform, include_owner=is_super_admin, attachments=attachments)
-        return success_response(data=response_data, message="更新成功")
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
+            platform = await TemplateService.get_template_platform(
+                db, template.platform_id, template.owner_operator_id
+            )
+        attachments = await TemplateService.list_template_attachments(
+            db, template.id, template.owner_operator_id
         )
 
+        response_data = build_template_response(
+            template,
+            tags,
+            platform,
+            include_owner=is_super_admin,
+            attachments=attachments,
+        )
+        return success_response(data=response_data, message="更新成功")
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
-@router.post("/{id}/update-with-attachments", response_model=ApiResponse[TemplateResponse])
+
+@router.post(
+    "/{id}/update-with-attachments", response_model=ApiResponse[TemplateResponse]
+)
 async def update_template_with_attachments(
     id: int,
     name: Optional[str] = Form(default=None, description="模板名称"),
@@ -1011,15 +1066,23 @@ async def update_template_with_attachments(
     style_reference: Optional[str] = Form(default=None, description="风格参考"),
     platform_rules_json: Optional[str] = Form(default=None, description="平台规则JSON"),
     status: Optional[str] = Form(default=None, description="状态"),
-    image_size_ratio: Optional[str] = Form(default=None, description="图片尺寸比例：1:1/4:3/16:9/3:4/9:16"),
+    image_size_ratio: Optional[str] = Form(
+        default=None, description="图片尺寸比例：1:1/4:3/16:9/3:4/9:16"
+    ),
     add_watermark: Optional[bool] = Form(default=None, description="是否添加水印"),
     viral_type: Optional[str] = Form(default=None, description="爆款类型"),
-    product_selling_points: Optional[str] = Form(default=None, description="产品卖点描述"),
+    product_selling_points: Optional[str] = Form(
+        default=None, description="产品卖点描述"
+    ),
     opening_seed_id: Optional[str] = Form(default=None, description="开头模式种子ID"),
     emotion_seed_id: Optional[str] = Form(default=None, description="情感基调种子ID"),
     ending_seed_id: Optional[str] = Form(default=None, description="结尾模式种子ID"),
-    delete_attachment_ids: Optional[str] = Form(default=None, description="要删除的附件ID列表（逗号分隔）"),
-    files: Optional[List[UploadFile]] = File(default=None, description="新文件列表（图片或视频，最多5个）"),
+    delete_attachment_ids: Optional[str] = Form(
+        default=None, description="要删除的附件ID列表（逗号分隔）"
+    ),
+    files: Optional[List[UploadFile]] = File(
+        default=None, description="新文件列表（图片或视频，最多5个）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -1032,6 +1095,7 @@ async def update_template_with_attachments(
     - 支持同时更新模板基本信息
     """
     import io
+
     from app.services.storage_service import get_storage_service
 
     user_type = payload.get("user_type")
@@ -1039,54 +1103,67 @@ async def update_template_with_attachments(
     is_super_admin = user_type == "super_admin"
     owner_operator_id = None if is_super_admin else current_user_id
 
-    logger.info(f"[TemplateUpdateWithAttachments] Starting: template_id={id}, user_type={user_type}, "
-                f"delete_attachment_ids={delete_attachment_ids}, files_count={len(files) if files else 0}")
+    logger.info(
+        f"[TemplateUpdateWithAttachments] Starting: template_id={id}, user_type={user_type}, "
+        f"delete_attachment_ids={delete_attachment_ids}, files_count={len(files) if files else 0}"
+    )
 
     # 获取模板（验证所有权）
     template = await TemplateService.get_template(db, id, owner_operator_id)
     if not template:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="模板不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="模板不存在")
 
     # 解析要删除的附件ID
     parsed_delete_ids = []
     if delete_attachment_ids:
         try:
-            parsed_delete_ids = [int(aid.strip()) for aid in delete_attachment_ids.split(",") if aid.strip()]
-            logger.debug(f"[TemplateUpdateWithAttachments] Parsed delete_attachment_ids: {parsed_delete_ids}")
+            parsed_delete_ids = [
+                int(aid.strip())
+                for aid in delete_attachment_ids.split(",")
+                if aid.strip()
+            ]
+            logger.debug(
+                f"[TemplateUpdateWithAttachments] Parsed delete_attachment_ids: {parsed_delete_ids}"
+            )
         except ValueError:
-            logger.warning(f"[TemplateUpdateWithAttachments] Invalid delete_attachment_ids format: {delete_attachment_ids}")
+            logger.warning(
+                f"[TemplateUpdateWithAttachments] Invalid delete_attachment_ids format: {delete_attachment_ids}"
+            )
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="附件ID格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="附件ID格式不正确"
             )
 
     # 解析标签ID
     parsed_tag_ids = None
     if tag_ids:
         try:
-            parsed_tag_ids = [int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
-            logger.debug(f"[TemplateUpdateWithAttachments] Parsed tag_ids: {parsed_tag_ids}")
+            parsed_tag_ids = [
+                int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
+            ]
+            logger.debug(
+                f"[TemplateUpdateWithAttachments] Parsed tag_ids: {parsed_tag_ids}"
+            )
         except ValueError:
-            logger.warning(f"[TemplateUpdateWithAttachments] Invalid tag_ids format: {tag_ids}")
+            logger.warning(
+                f"[TemplateUpdateWithAttachments] Invalid tag_ids format: {tag_ids}"
+            )
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="标签ID格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="标签ID格式不正确"
             )
 
     # 解析 platform_rules_json
     import json
+
     parsed_platform_rules = None
     if platform_rules_json:
         try:
             parsed_platform_rules = json.loads(platform_rules_json)
         except Exception:
-            logger.warning(f"[TemplateUpdateWithAttachments] Invalid platform_rules_json format: {platform_rules_json}")
+            logger.warning(
+                f"[TemplateUpdateWithAttachments] Invalid platform_rules_json format: {platform_rules_json}"
+            )
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="平台规则JSON格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="平台规则JSON格式不正确"
             )
 
     # 构建更新数据
@@ -1122,13 +1199,27 @@ async def update_template_with_attachments(
         update_data["product_selling_points"] = product_selling_points
     # 转换种子 ID："auto" 或空表示随机选择，否则保持原值（字符串）
     if opening_seed_id is not None:
-        update_data["opening_seed_id"] = "auto" if (opening_seed_id == 'auto' or not opening_seed_id) else opening_seed_id
+        update_data["opening_seed_id"] = (
+            "auto"
+            if (opening_seed_id == "auto" or not opening_seed_id)
+            else opening_seed_id
+        )
     if emotion_seed_id is not None:
-        update_data["emotion_seed_id"] = "auto" if (emotion_seed_id == 'auto' or not emotion_seed_id) else emotion_seed_id
+        update_data["emotion_seed_id"] = (
+            "auto"
+            if (emotion_seed_id == "auto" or not emotion_seed_id)
+            else emotion_seed_id
+        )
     if ending_seed_id is not None:
-        update_data["ending_seed_id"] = "auto" if (ending_seed_id == 'auto' or not ending_seed_id) else ending_seed_id
+        update_data["ending_seed_id"] = (
+            "auto"
+            if (ending_seed_id == "auto" or not ending_seed_id)
+            else ending_seed_id
+        )
 
-    logger.info(f"[TemplateUpdateWithAttachments] image_size_ratio received: '{image_size_ratio}', type: {type(image_size_ratio)}")
+    logger.info(
+        f"[TemplateUpdateWithAttachments] image_size_ratio received: '{image_size_ratio}', type: {type(image_size_ratio)}"
+    )
     logger.info(f"[TemplateUpdateWithAttachments] update_data: {update_data}")
 
     # 删除指定附件
@@ -1137,9 +1228,13 @@ async def update_template_with_attachments(
         try:
             await TemplateService.delete_template_attachment(db, aid, owner_operator_id)
             deleted_count += 1
-            logger.info(f"[TemplateUpdateWithAttachments] Deleted attachment: attachment_id={aid}")
+            logger.info(
+                f"[TemplateUpdateWithAttachments] Deleted attachment: attachment_id={aid}"
+            )
         except Exception as e:
-            logger.warning(f"[TemplateUpdateWithAttachments] Failed to delete attachment {aid}: {e}")
+            logger.warning(
+                f"[TemplateUpdateWithAttachments] Failed to delete attachment {aid}: {e}"
+            )
 
     # 处理新文件上传
     saved_count = 0
@@ -1149,27 +1244,39 @@ async def update_template_with_attachments(
 
     if files and len(files) > 0:
         # 验证文件数量（考虑剩余容量）
-        current_attachments = await TemplateService.list_template_attachments(db, id, owner_operator_id)
+        current_attachments = await TemplateService.list_template_attachments(
+            db, id, owner_operator_id
+        )
         current_count = len(current_attachments) - deleted_count
         if current_count + len(files) > 5:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="模板最多支持5个附件"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="模板最多支持5个附件"
             )
 
         # 验证文件类型和大小
-        allowed_image_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
-        allowed_video_extensions = {'mp4', 'webm', 'mov'}
+        allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+        allowed_video_extensions = {"mp4", "webm", "mov"}
         max_size = 50 * 1024 * 1024  # 50MB
         for idx, file in enumerate(files):
             if file.filename:
-                ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-                logger.debug(f"[TemplateUpdateWithAttachments] File {idx}: filename={file.filename}, ext={ext}")
-                if ext not in allowed_image_extensions and ext not in allowed_video_extensions:
-                    logger.warning(f"[TemplateUpdateWithAttachments] Unsupported file format: {ext}")
+                ext = (
+                    file.filename.rsplit(".", 1)[-1].lower()
+                    if "." in file.filename
+                    else ""
+                )
+                logger.debug(
+                    f"[TemplateUpdateWithAttachments] File {idx}: filename={file.filename}, ext={ext}"
+                )
+                if (
+                    ext not in allowed_image_extensions
+                    and ext not in allowed_video_extensions
+                ):
+                    logger.warning(
+                        f"[TemplateUpdateWithAttachments] Unsupported file format: {ext}"
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp/mp4/webm/mov"
+                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp/mp4/webm/mov",
                     )
 
         # 保存文件
@@ -1179,18 +1286,22 @@ async def update_template_with_attachments(
                 file_content = await file.read()
 
                 if not file_content:
-                    logger.warning(f"[TemplateUpdateWithAttachments] File {idx} is empty, skipping: filename={file.filename}")
+                    logger.warning(
+                        f"[TemplateUpdateWithAttachments] File {idx} is empty, skipping: filename={file.filename}"
+                    )
                     continue
 
-                logger.info(f"[TemplateUpdateWithAttachments] Processing file {idx}: filename={file.filename}, "
-                           f"size={len(file_content)} bytes")
+                logger.info(
+                    f"[TemplateUpdateWithAttachments] Processing file {idx}: filename={file.filename}, "
+                    f"size={len(file_content)} bytes"
+                )
 
                 # 获取文件扩展名和类型
                 ext = "jpg"
                 file_type = "image"
-                if file.filename and '.' in file.filename:
-                    ext = file.filename.rsplit('.', 1)[-1].lower()
-                    if ext in {'mp4', 'webm', 'mov'}:
+                if file.filename and "." in file.filename:
+                    ext = file.filename.rsplit(".", 1)[-1].lower()
+                    if ext in {"mp4", "webm", "mov"}:
                         file_type = "video"
 
                 original_url = None
@@ -1200,34 +1311,45 @@ async def update_template_with_attachments(
 
                 if file_type == "image":
                     # 保存原图并生成缩略图
-                    original_url, thumbnail_url = await storage.save_template_image_with_thumbnail(
-                        file_content=file_content,
-                        owner_admin_id=template.owner_operator_id,
-                        template_id=template.id,
-                        extension=ext,
+                    original_url, thumbnail_url = (
+                        await storage.save_template_image_with_thumbnail(
+                            file_content=file_content,
+                            owner_admin_id=template.owner_operator_id,
+                            template_id=template.id,
+                            extension=ext,
+                        )
                     )
 
                     # 获取图片尺寸
                     try:
                         from PIL import Image
+
                         img = Image.open(io.BytesIO(file_content))
                         width, height = img.size
                     except Exception:
                         pass
                 else:
                     # 保存视频
-                    original_url, thumbnail_url, duration = await storage.save_template_video(
-                        file_content=file_content,
-                        owner_admin_id=template.owner_operator_id,
-                        template_id=template.id,
-                        extension=ext,
+                    original_url, thumbnail_url, duration = (
+                        await storage.save_template_video(
+                            file_content=file_content,
+                            owner_admin_id=template.owner_operator_id,
+                            template_id=template.id,
+                            extension=ext,
+                        )
                     )
 
                 # 保存附件记录
                 if original_url:
                     # 获取当前最大 sort_order
-                    current_attachments = await TemplateService.list_template_attachments(db, id, owner_operator_id)
-                    max_sort = max([a.sort_order for a in current_attachments], default=-1)
+                    current_attachments = (
+                        await TemplateService.list_template_attachments(
+                            db, id, owner_operator_id
+                        )
+                    )
+                    max_sort = max(
+                        [a.sort_order for a in current_attachments], default=-1
+                    )
 
                     await TemplateService.add_template_attachment(
                         db,
@@ -1251,10 +1373,15 @@ async def update_template_with_attachments(
                 else:
                     failed_count += 1
             except Exception as e:
-                logger.error(f"[TemplateUpdateWithAttachments] Exception processing file {idx}: {e}", exc_info=True)
+                logger.error(
+                    f"[TemplateUpdateWithAttachments] Exception processing file {idx}: {e}",
+                    exc_info=True,
+                )
                 failed_count += 1
 
-        logger.info(f"[TemplateUpdateWithAttachments] File processing complete: saved={saved_count}, failed={failed_count}")
+        logger.info(
+            f"[TemplateUpdateWithAttachments] File processing complete: saved={saved_count}, failed={failed_count}"
+        )
 
     # 更新模板基本信息
     if update_data:
@@ -1264,22 +1391,35 @@ async def update_template_with_attachments(
             owner_operator_id=owner_operator_id,
             **update_data,
         )
-        logger.info(f"[TemplateUpdateWithAttachments] Updated template basic info: template_id={id}")
+        logger.info(
+            f"[TemplateUpdateWithAttachments] Updated template basic info: template_id={id}"
+        )
 
     # 加载关联数据并构建响应
     await db.refresh(template)
     tags = await load_template_tags(db, template.id)
     platform = None
     if template.platform_id:
-        platform = await TemplateService.get_template_platform(db, template.platform_id, template.owner_operator_id)
-    attachments = await TemplateService.list_template_attachments(db, template.id, template.owner_operator_id)
+        platform = await TemplateService.get_template_platform(
+            db, template.platform_id, template.owner_operator_id
+        )
+    attachments = await TemplateService.list_template_attachments(
+        db, template.id, template.owner_operator_id
+    )
 
-    response_data = build_template_response(template, tags, platform, include_owner=is_super_admin, attachments=attachments)
+    response_data = build_template_response(
+        template, tags, platform, include_owner=is_super_admin, attachments=attachments
+    )
 
-    logger.info(f"[TemplateUpdateWithAttachments] Update completed: template_id={id}, deleted={deleted_count}, added={saved_count}")
+    logger.info(
+        f"[TemplateUpdateWithAttachments] Update completed: template_id={id}, deleted={deleted_count}, added={saved_count}"
+    )
 
     if failed_count > 0:
-        return success_response(data=response_data, message=f"更新成功，但有 {failed_count} 个文件上传失败（可能是文件大小超限）")
+        return success_response(
+            data=response_data,
+            message=f"更新成功，但有 {failed_count} 个文件上传失败（可能是文件大小超限）",
+        )
     return success_response(data=response_data, message="更新成功")
 
 
@@ -1301,14 +1441,13 @@ async def delete_template(
 
     try:
         await TemplateService.delete_template(
-            db, template_id=id, owner_operator_id=None if is_super_admin else current_user_id
+            db,
+            template_id=id,
+            owner_operator_id=None if is_super_admin else current_user_id,
         )
         return success_response(message="删除成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 # ============================================
@@ -1338,7 +1477,9 @@ async def batch_delete_templates(
     msg = f"成功删除 {success_count} 个模板"
     if failed_ids:
         msg += f"，{len(failed_ids)} 个失败: {failed_ids}"
-    return success_response(data={"success_count": success_count, "failed_ids": failed_ids}, message=msg)
+    return success_response(
+        data={"success_count": success_count, "failed_ids": failed_ids}, message=msg
+    )
 
 
 @router.post("/batch-status")
@@ -1354,17 +1495,25 @@ async def batch_update_template_status(
     owner_id = None if is_super_admin else current_user_id
 
     if request.status not in ("enabled", "disabled"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="status 必须为 enabled 或 disabled")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="status 必须为 enabled 或 disabled",
+        )
 
     success_count = 0
     for tid in request.template_ids:
         try:
-            await TemplateService.update_template(db, tid, owner_id, status=request.status)
+            await TemplateService.update_template(
+                db, tid, owner_id, status=request.status
+            )
             success_count += 1
         except Exception:
             pass
 
-    return success_response(data={"success_count": success_count}, message=f"成功更新 {success_count} 个模板状态")
+    return success_response(
+        data={"success_count": success_count},
+        message=f"成功更新 {success_count} 个模板状态",
+    )
 
 
 @router.post("/batch-copy")
@@ -1395,7 +1544,11 @@ async def batch_copy_templates(
             new_name = request.new_names[str(tid)]
         try:
             await TemplateService.copy_template(
-                db, tid, target_operator_id, new_name=new_name, tag_ids=request.target_tag_ids
+                db,
+                tid,
+                target_operator_id,
+                new_name=new_name,
+                tag_ids=request.target_tag_ids,
             )
             success_count += 1
         except Exception:
@@ -1404,7 +1557,9 @@ async def batch_copy_templates(
     msg = f"成功复制 {success_count} 个模板"
     if failed_ids:
         msg += f"，{len(failed_ids)} 个失败: {failed_ids}"
-    return success_response(data={"success_count": success_count, "failed_ids": failed_ids}, message=msg)
+    return success_response(
+        data={"success_count": success_count, "failed_ids": failed_ids}, message=msg
+    )
 
 
 @router.post("/batch-transfer")
@@ -1416,10 +1571,14 @@ async def batch_transfer_templates(
     """批量转移模板所有权（超级管理员专用）"""
     user_type = payload.get("user_type")
     if user_type != "super_admin":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="仅超级管理员可执行批量转移")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅超级管理员可执行批量转移"
+        )
 
     if len(request.template_ids) > 100:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="单次最多转移 100 个模板")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="单次最多转移 100 个模板"
+        )
 
     result = await TemplateService.batch_transfer_templates(
         db,
@@ -1472,7 +1631,9 @@ async def batch_migrate_templates(
 # ============================================
 @router.get("/tag-summary")
 async def get_template_tag_summary(
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -1506,15 +1667,19 @@ async def copy_template(
     current_user_id = int(payload.get("sub"))
 
     # 超级管理员可指定目标创作管理员
-    if user_type == "super_admin" and hasattr(request, 'target_operator_id') and request.target_operator_id:
+    if (
+        user_type == "super_admin"
+        and hasattr(request, "target_operator_id")
+        and request.target_operator_id
+    ):
         owner_operator_id = request.target_operator_id
     else:
         owner_operator_id = current_user_id
 
     try:
-        tag_ids = getattr(request, 'target_tag_ids', None)
-        target_platform_id = getattr(request, 'target_platform_id', None)
-        target_category_id = getattr(request, 'target_category_id', None)
+        tag_ids = getattr(request, "target_tag_ids", None)
+        target_platform_id = getattr(request, "target_platform_id", None)
+        target_category_id = getattr(request, "target_category_id", None)
         template = await TemplateService.copy_template(
             db,
             template_id=id,
@@ -1528,18 +1693,21 @@ async def copy_template(
         tags = await load_template_tags(db, template.id)
         platform = None
         if template.platform_id:
-            platform = await TemplateService.get_template_platform(db, template.platform_id, template.owner_operator_id)
+            platform = await TemplateService.get_template_platform(
+                db, template.platform_id, template.owner_operator_id
+            )
 
         # 加载附件
-        attachments = await TemplateService.list_template_attachments(db, template.id, template.owner_operator_id)
+        attachments = await TemplateService.list_template_attachments(
+            db, template.id, template.owner_operator_id
+        )
 
-        response_data = build_template_response(template, tags, platform, include_owner=True, attachments=attachments)
+        response_data = build_template_response(
+            template, tags, platform, include_owner=True, attachments=attachments
+        )
         return success_response(data=response_data, message="复制成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/upload-image", response_model=ApiResponse[dict])
@@ -1554,23 +1722,27 @@ async def upload_template_image(
     - 创作管理员：可上传图片
     - 超级管理员：不可上传图片
     """
-    import io
-    import os
     import hashlib
+    import os
     from datetime import datetime, timezone
+
     from app.services.storage_service import get_storage_service
 
     user_type = payload.get("user_type")
     current_user_id = int(payload.get("sub"))
 
-    logger.info(f"[TemplateUploadImage] Starting upload: user_type={user_type}, current_user_id={current_user_id}, "
-                f"filename={file.filename}")
+    logger.info(
+        f"[TemplateUploadImage] Starting upload: user_type={user_type}, current_user_id={current_user_id}, "
+        f"filename={file.filename}"
+    )
 
     if user_type == "super_admin":
-        logger.warning(f"[TemplateUploadImage] Super admin attempted upload: user_id={current_user_id}")
+        logger.warning(
+            f"[TemplateUploadImage] Super admin attempted upload: user_id={current_user_id}"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能上传图片，请由创作管理员操作"
+            detail="超级管理员不能上传图片，请由创作管理员操作",
         )
 
     owner_operator_id = current_user_id
@@ -1579,19 +1751,18 @@ async def upload_template_image(
     file_content = await file.read()
     if not file_content:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="文件内容为空"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="文件内容为空"
         )
 
     # 验证文件类型
-    allowed_image_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+    allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
     ext = "jpg"
-    if file.filename and '.' in file.filename:
-        ext = file.filename.rsplit('.', 1)[-1].lower()
+    if file.filename and "." in file.filename:
+        ext = file.filename.rsplit(".", 1)[-1].lower()
         if ext not in allowed_image_extensions:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp"
+                detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp",
             )
 
     # 获取存储服务
@@ -1604,10 +1775,7 @@ async def upload_template_image(
 
     # 保存到临时目录：Templates/{owner_admin_id}/temp/
     storage_path = (
-        storage.cos_mount_path
-        / storage.TEMPLATES_DIR
-        / str(owner_operator_id)
-        / "temp"
+        storage.cos_mount_path / storage.TEMPLATES_DIR / str(owner_operator_id) / "temp"
     )
     storage_path.mkdir(parents=True, exist_ok=True)
 
@@ -1634,14 +1802,20 @@ async def upload_template(
     platform_id: Optional[int] = Form(default=None, description="所属平台ID"),
     style_reference: Optional[str] = Form(default=None, description="风格参考"),
     platform_rules_json: Optional[str] = Form(default=None, description="平台规则JSON"),
-    image_size_ratio: Optional[str] = Form(default=None, description="图片尺寸比例：1:1/4:3/16:9/3:4/9:16"),
+    image_size_ratio: Optional[str] = Form(
+        default=None, description="图片尺寸比例：1:1/4:3/16:9/3:4/9:16"
+    ),
     add_watermark: Optional[bool] = Form(default=None, description="是否添加水印"),
     viral_type: Optional[str] = Form(default=None, description="爆款类型"),
-    product_selling_points: Optional[str] = Form(default=None, description="产品卖点描述"),
+    product_selling_points: Optional[str] = Form(
+        default=None, description="产品卖点描述"
+    ),
     opening_seed_id: Optional[str] = Form(default=None, description="开头模式种子ID"),
     emotion_seed_id: Optional[str] = Form(default=None, description="情感基调种子ID"),
     ending_seed_id: Optional[str] = Form(default=None, description="结尾模式种子ID"),
-    files: Optional[List[UploadFile]] = File(default=None, description="文件列表（图片或视频，最多5个）"),
+    files: Optional[List[UploadFile]] = File(
+        default=None, description="文件列表（图片或视频，最多5个）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -1655,19 +1829,24 @@ async def upload_template(
     - 超级管理员：不可创建模板
     """
     import io
+
     from app.services.storage_service import get_storage_service
 
     user_type = payload.get("user_type")
     current_user_id = int(payload.get("sub"))
 
-    logger.info(f"[TemplateUpload] Starting upload: user_type={user_type}, current_user_id={current_user_id}, "
-                f"name={name}, files_count={len(files) if files else 0}")
+    logger.info(
+        f"[TemplateUpload] Starting upload: user_type={user_type}, current_user_id={current_user_id}, "
+        f"name={name}, files_count={len(files) if files else 0}"
+    )
 
     if user_type == "super_admin":
-        logger.warning(f"[TemplateUpload] Super admin attempted upload: user_id={current_user_id}")
+        logger.warning(
+            f"[TemplateUpload] Super admin attempted upload: user_id={current_user_id}"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能上传模板，请由创作管理员操作"
+            detail="超级管理员不能上传模板，请由创作管理员操作",
         )
 
     owner_operator_id = current_user_id
@@ -1677,59 +1856,80 @@ async def upload_template(
     parsed_tag_ids = None
     if tag_ids:
         try:
-            parsed_tag_ids = [int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
+            parsed_tag_ids = [
+                int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
+            ]
             logger.debug(f"[TemplateUpload] Parsed tag_ids: {parsed_tag_ids}")
         except ValueError:
             logger.warning(f"[TemplateUpload] Invalid tag_ids format: {tag_ids}")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="标签ID格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="标签ID格式不正确"
             )
 
     # 验证文件数量
     if files and len(files) > 5:
         logger.warning(f"[TemplateUpload] Too many files: {len(files)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="最多上传5个文件"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="最多上传5个文件"
         )
 
     # 验证文件类型和大小
     if files:
-        allowed_image_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
-        allowed_video_extensions = {'mp4', 'webm', 'mov'}
+        allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+        allowed_video_extensions = {"mp4", "webm", "mov"}
         max_size = 50 * 1024 * 1024  # 50MB
         for idx, file in enumerate(files):
             if file.filename:
-                ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-                logger.debug(f"[TemplateUpload] File {idx}: filename={file.filename}, ext={ext}, "
-                            f"content_type={file.content_type}")
-                if ext not in allowed_image_extensions and ext not in allowed_video_extensions:
+                ext = (
+                    file.filename.rsplit(".", 1)[-1].lower()
+                    if "." in file.filename
+                    else ""
+                )
+                logger.debug(
+                    f"[TemplateUpload] File {idx}: filename={file.filename}, ext={ext}, "
+                    f"content_type={file.content_type}"
+                )
+                if (
+                    ext not in allowed_image_extensions
+                    and ext not in allowed_video_extensions
+                ):
                     logger.warning(f"[TemplateUpload] Unsupported file format: {ext}")
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp/mp4/webm/mov"
+                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp/mp4/webm/mov",
                     )
 
     # 解析 platform_rules_json
     import json
+
     parsed_platform_rules = None
     if platform_rules_json:
         try:
             parsed_platform_rules = json.loads(platform_rules_json)
         except Exception:
-            logger.warning(f"[TemplateUpload] Invalid platform_rules_json format: {platform_rules_json}")
+            logger.warning(
+                f"[TemplateUpload] Invalid platform_rules_json format: {platform_rules_json}"
+            )
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="平台规则JSON格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="平台规则JSON格式不正确"
             )
 
     # 爆款类型：空字符串转为 "auto" 表示随机选择
     _viral_type = viral_type if viral_type else "auto"
     # 转换种子 ID："auto" 或空表示随机选择，否则保持原值（字符串）
-    _opening_seed_id = "auto" if (opening_seed_id == 'auto' or not opening_seed_id) else opening_seed_id
-    _emotion_seed_id = "auto" if (emotion_seed_id == 'auto' or not emotion_seed_id) else emotion_seed_id
-    _ending_seed_id = "auto" if (ending_seed_id == 'auto' or not ending_seed_id) else ending_seed_id
+    _opening_seed_id = (
+        "auto"
+        if (opening_seed_id == "auto" or not opening_seed_id)
+        else opening_seed_id
+    )
+    _emotion_seed_id = (
+        "auto"
+        if (emotion_seed_id == "auto" or not emotion_seed_id)
+        else emotion_seed_id
+    )
+    _ending_seed_id = (
+        "auto" if (ending_seed_id == "auto" or not ending_seed_id) else ending_seed_id
+    )
 
     # 创建模板
     template = await TemplateService.create_template(
@@ -1754,7 +1954,9 @@ async def upload_template(
         emotion_seed_id=_emotion_seed_id,
         ending_seed_id=_ending_seed_id,
     )
-    logger.info(f"[TemplateUpload] Created template: id={template.id}, owner_operator_id={owner_operator_id}")
+    logger.info(
+        f"[TemplateUpload] Created template: id={template.id}, owner_operator_id={owner_operator_id}"
+    )
 
     # 处理文件上传
     if files and template.id:
@@ -1770,18 +1972,22 @@ async def upload_template(
                 file_content = await file.read()
 
                 if not file_content:
-                    logger.warning(f"[TemplateUpload] File {idx} is empty, skipping: filename={file.filename}")
+                    logger.warning(
+                        f"[TemplateUpload] File {idx} is empty, skipping: filename={file.filename}"
+                    )
                     continue
 
-                logger.info(f"[TemplateUpload] Processing file {idx}: filename={file.filename}, "
-                           f"size={len(file_content)} bytes")
+                logger.info(
+                    f"[TemplateUpload] Processing file {idx}: filename={file.filename}, "
+                    f"size={len(file_content)} bytes"
+                )
 
                 # 获取文件扩展名和类型
                 ext = "jpg"
                 file_type = "image"
-                if file.filename and '.' in file.filename:
-                    ext = file.filename.rsplit('.', 1)[-1].lower()
-                    if ext in {'mp4', 'webm', 'mov'}:
+                if file.filename and "." in file.filename:
+                    ext = file.filename.rsplit(".", 1)[-1].lower()
+                    if ext in {"mp4", "webm", "mov"}:
                         file_type = "video"
 
                 original_url = None
@@ -1791,31 +1997,38 @@ async def upload_template(
 
                 if file_type == "image":
                     # 保存原图并生成缩略图
-                    original_url, thumbnail_url = await storage.save_template_image_with_thumbnail(
-                        file_content=file_content,
-                        owner_admin_id=owner_operator_id,
-                        template_id=template.id,
-                        extension=ext,
+                    original_url, thumbnail_url = (
+                        await storage.save_template_image_with_thumbnail(
+                            file_content=file_content,
+                            owner_admin_id=owner_operator_id,
+                            template_id=template.id,
+                            extension=ext,
+                        )
                     )
 
                     # 获取图片尺寸
                     try:
                         from PIL import Image
+
                         img = Image.open(io.BytesIO(file_content))
                         width, height = img.size
                     except Exception:
                         pass
                 else:
                     # 保存视频
-                    original_url, thumbnail_url, duration = await storage.save_template_video(
-                        file_content=file_content,
-                        owner_admin_id=owner_operator_id,
-                        template_id=template.id,
-                        extension=ext,
+                    original_url, thumbnail_url, duration = (
+                        await storage.save_template_video(
+                            file_content=file_content,
+                            owner_admin_id=owner_operator_id,
+                            template_id=template.id,
+                            extension=ext,
+                        )
                     )
 
-                logger.info(f"[TemplateUpload] Storage result for file {idx}: "
-                           f"original_url={original_url}, thumbnail_url={thumbnail_url}, file_type={file_type}")
+                logger.info(
+                    f"[TemplateUpload] Storage result for file {idx}: "
+                    f"original_url={original_url}, thumbnail_url={thumbnail_url}, file_type={file_type}"
+                )
 
                 # 保存附件记录
                 if original_url:
@@ -1833,56 +2046,101 @@ async def upload_template(
                         duration=duration,
                         thumbnail_url=thumbnail_url,
                     )
-                    logger.info(f"[TemplateUpload] Saved attachment: id={attachment.id if attachment else 'None'}, "
-                               f"file_url={original_url}, file_size={len(file_content)}, "
-                               f"width={width}, height={height}, thumbnail_url={thumbnail_url}")
+                    logger.info(
+                        f"[TemplateUpload] Saved attachment: id={attachment.id if attachment else 'None'}, "
+                        f"file_url={original_url}, file_size={len(file_content)}, "
+                        f"width={width}, height={height}, thumbnail_url={thumbnail_url}"
+                    )
                     saved_count += 1
                     if file_type == "image":
                         image_count += 1
                     else:
                         video_count += 1
                 else:
-                    logger.error(f"[TemplateUpload] Failed to save file {idx}: "
-                               f"storage returned (None, None), filename={file.filename}")
+                    logger.error(
+                        f"[TemplateUpload] Failed to save file {idx}: "
+                        f"storage returned (None, None), filename={file.filename}"
+                    )
                     failed_count += 1
             except Exception as e:
-                logger.error(f"[TemplateUpload] Exception processing file {idx}: {e}", exc_info=True)
+                logger.error(
+                    f"[TemplateUpload] Exception processing file {idx}: {e}",
+                    exc_info=True,
+                )
                 failed_count += 1
 
-        logger.info(f"[TemplateUpload] File processing complete: saved={saved_count}, failed={failed_count}")
+        logger.info(
+            f"[TemplateUpload] File processing complete: saved={saved_count}, failed={failed_count}"
+        )
 
         # 更新模板的图片/视频计数
         if image_count > 0 or video_count > 0:
             await TemplateService.update_template(
-                db, template.id, owner_operator_id, image_count=image_count, video_count=video_count
+                db,
+                template.id,
+                owner_operator_id,
+                image_count=image_count,
+                video_count=video_count,
             )
-            logger.info(f"[TemplateUpload] Updated template image_count={image_count}, video_count={video_count} for template_id={template.id}")
+            logger.info(
+                f"[TemplateUpload] Updated template image_count={image_count}, video_count={video_count} for template_id={template.id}"
+            )
 
     # 加载关联数据并构建响应
     tags = await load_template_tags(db, template.id)
     platform = None
     if template.platform_id:
-        platform = await TemplateService.get_template_platform(db, template.platform_id, owner_operator_id)
-    attachments = await TemplateService.list_template_attachments(db, template.id, owner_operator_id)
+        platform = await TemplateService.get_template_platform(
+            db, template.platform_id, owner_operator_id
+        )
+    attachments = await TemplateService.list_template_attachments(
+        db, template.id, owner_operator_id
+    )
 
-    logger.info(f"[TemplateUpload] Loaded for response: template_id={template.id}, "
-                f"attachments_count={len(attachments)}, tags_count={len(tags)}")
+    logger.info(
+        f"[TemplateUpload] Loaded for response: template_id={template.id}, "
+        f"attachments_count={len(attachments)}, tags_count={len(tags)}"
+    )
 
-    response_data = build_template_response(template, tags, platform, include_owner=True, attachments=attachments)
+    response_data = build_template_response(
+        template, tags, platform, include_owner=True, attachments=attachments
+    )
 
     # 记录响应中的文件信息
-    response_attachments = response_data.get("attachments", []) if isinstance(response_data, dict) else getattr(response_data, "attachments", [])
+    response_attachments = (
+        response_data.get("attachments", [])
+        if isinstance(response_data, dict)
+        else getattr(response_data, "attachments", [])
+    )
     if response_attachments:
         for idx, att in enumerate(response_attachments):
-            att_file_url = att.get("file_url") if isinstance(att, dict) else getattr(att, "file_url", None)
-            att_thumb_url = att.get("thumbnail_url") if isinstance(att, dict) else getattr(att, "thumbnail_url", None)
-            att_type = att.get("file_type") if isinstance(att, dict) else getattr(att, "file_type", None)
-            logger.info(f"[TemplateUpload] Response attachment {idx}: file_url={att_file_url}, "
-                       f"thumbnail_url={att_thumb_url}, file_type={att_type}")
+            att_file_url = (
+                att.get("file_url")
+                if isinstance(att, dict)
+                else getattr(att, "file_url", None)
+            )
+            att_thumb_url = (
+                att.get("thumbnail_url")
+                if isinstance(att, dict)
+                else getattr(att, "thumbnail_url", None)
+            )
+            att_type = (
+                att.get("file_type")
+                if isinstance(att, dict)
+                else getattr(att, "file_type", None)
+            )
+            logger.info(
+                f"[TemplateUpload] Response attachment {idx}: file_url={att_file_url}, "
+                f"thumbnail_url={att_thumb_url}, file_type={att_type}"
+            )
     else:
-        logger.warning(f"[TemplateUpload] Response has no attachments: template_id={template.id}")
+        logger.warning(
+            f"[TemplateUpload] Response has no attachments: template_id={template.id}"
+        )
 
-    logger.info(f"[TemplateUpload] Upload completed successfully: template_id={template.id}")
+    logger.info(
+        f"[TemplateUpload] Upload completed successfully: template_id={template.id}"
+    )
     return success_response(data=response_data, message="创建成功")
 
 
@@ -1895,14 +2153,14 @@ async def get_template_category_stats(
     """
     获取模板分类统计信息（模板数量、标签数量）
     """
-    from app.models import TemplateTagRel, TemplateTag, Template
-    from sqlalchemy import func
+
+    from app.models import TemplateTag, TemplateTagRel
 
     # 统计分类下的标签数量
     tag_count_result = await db.execute(
-        select(func.count()).select_from(TemplateTag).where(
-            TemplateTag.category_id == category_id
-        )
+        select(func.count())
+        .select_from(TemplateTag)
+        .where(TemplateTag.category_id == category_id)
     )
     tag_count = tag_count_result.scalar() or 0
 
@@ -1914,11 +2172,14 @@ async def get_template_category_stats(
     )
     template_count = template_count_result.scalar() or 0
 
-    return success_response(data={
-        "category_id": category_id,
-        "template_count": template_count,
-        "tag_count": tag_count,
-    }, message="获取成功")
+    return success_response(
+        data={
+            "category_id": category_id,
+            "template_count": template_count,
+            "tag_count": tag_count,
+        },
+        message="获取成功",
+    )
 
 
 @router.get("/tags/{tag_id}/stats", response_model=ApiResponse[dict])
@@ -1930,17 +2191,20 @@ async def get_template_tag_stats(
     """
     获取模板标签统计信息（模板数量）
     """
+
     from app.models import TemplateTagRel
-    from sqlalchemy import func
 
     template_count_result = await db.execute(
-        select(func.count()).select_from(TemplateTagRel).where(
-            TemplateTagRel.tag_id == tag_id
-        )
+        select(func.count())
+        .select_from(TemplateTagRel)
+        .where(TemplateTagRel.tag_id == tag_id)
     )
     template_count = template_count_result.scalar() or 0
 
-    return success_response(data={
-        "tag_id": tag_id,
-        "template_count": template_count,
-    }, message="获取成功")
+    return success_response(
+        data={
+            "tag_id": tag_id,
+            "template_count": template_count,
+        },
+        message="获取成功",
+    )

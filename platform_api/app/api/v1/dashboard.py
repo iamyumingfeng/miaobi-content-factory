@@ -8,26 +8,22 @@ Date: 2025
 """
 
 import logging
-from typing import Optional, List
-from datetime import datetime, date
+from datetime import datetime
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
-from app.utils.deps import get_token_payload_required
-from app.utils.response import success_response, ApiResponse
-from app.schemas.dashboard import (
-    DashboardStatsResponse,
-    DashboardTrendResponse,
-    DashboardRecentTasksResponse,
-    DashboardFailedTasksResponse,
-    RecentTaskItem,
-    FailedTaskItem,
-    TrendDataPoint,
-    DismissAlertRequest,
-    OperatorOption,
-)
+from app.schemas.dashboard import (DashboardFailedTasksResponse,
+                                   DashboardRecentTasksResponse,
+                                   DashboardStatsResponse,
+                                   DashboardTrendResponse, DismissAlertRequest,
+                                   FailedTaskItem, OperatorOption,
+                                   RecentTaskItem, TrendDataPoint)
 from app.services.dashboard_service import DashboardService
+from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 logger = logging.getLogger(__name__)
 
@@ -48,9 +44,15 @@ def _get_status_text(status: str) -> str:
 
 @router.get("/stats", response_model=ApiResponse[DashboardStatsResponse])
 async def get_dashboard_stats(
-    start_date: Optional[str] = Query(None, description="统计开始日期（YYYY-MM-DD），默认当天"),
-    end_date: Optional[str] = Query(None, description="统计结束日期（YYYY-MM-DD），默认当天"),
-    operator_id: Optional[int] = Query(None, description="筛选创作管理员ID（仅超级管理员）"),
+    start_date: Optional[str] = Query(
+        None, description="统计开始日期（YYYY-MM-DD），默认当天"
+    ),
+    end_date: Optional[str] = Query(
+        None, description="统计结束日期（YYYY-MM-DD），默认当天"
+    ),
+    operator_id: Optional[int] = Query(
+        None, description="筛选创作管理员ID（仅超级管理员）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -85,20 +87,31 @@ async def get_dashboard_stats(
     # 超级管理员可以使用 operator_id 筛选，创作管理员忽略该参数
     filter_operator_id = operator_id if is_super_admin and operator_id else None
 
-    logger.info("[Dashboard API] get_dashboard_stats | user_type=%s | user_id=%s | start_date=%s | end_date=%s | filter_operator_id=%s",
-               user_type, user_id, parsed_start_date, parsed_end_date, filter_operator_id)
+    logger.info(
+        "[Dashboard API] get_dashboard_stats | user_type=%s | user_id=%s | start_date=%s | end_date=%s | filter_operator_id=%s",
+        user_type,
+        user_id,
+        parsed_start_date,
+        parsed_end_date,
+        filter_operator_id,
+    )
 
     # 创作者需要按 sub_user_id 筛选，而不是 operator_id
     if is_sub_user:
-        stats = await DashboardService.get_sub_user_stats(db, user_id, parsed_start_date, parsed_end_date)
+        stats = await DashboardService.get_sub_user_stats(
+            db, user_id, parsed_start_date, parsed_end_date
+        )
     else:
         owner_operator_id = None if is_super_admin else user_id
-        stats = await DashboardService.get_stats(db, owner_operator_id, parsed_start_date, parsed_end_date, filter_operator_id)
+        stats = await DashboardService.get_stats(
+            db,
+            owner_operator_id,
+            parsed_start_date,
+            parsed_end_date,
+            filter_operator_id,
+        )
 
-    return success_response(
-        data=DashboardStatsResponse(**stats),
-        message="获取成功"
-    )
+    return success_response(data=DashboardStatsResponse(**stats), message="获取成功")
 
 
 @router.get("/trend", response_model=ApiResponse[DashboardTrendResponse])
@@ -116,7 +129,12 @@ async def get_dashboard_trend(
     is_super_admin = user_type == "super_admin"
     owner_operator_id = None if is_super_admin else int(payload.get("sub"))
 
-    logger.info("[Dashboard API] get_dashboard_trend | user_type=%s | owner_operator_id=%s | days=%s", user_type, owner_operator_id, days)
+    logger.info(
+        "[Dashboard API] get_dashboard_trend | user_type=%s | owner_operator_id=%s | days=%s",
+        user_type,
+        owner_operator_id,
+        days,
+    )
 
     trend_data = await DashboardService.get_trend_data(db, owner_operator_id, days)
 
@@ -124,7 +142,7 @@ async def get_dashboard_trend(
         data=DashboardTrendResponse(
             data=[TrendDataPoint(**item) for item in trend_data]
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -132,7 +150,9 @@ async def get_dashboard_trend(
 async def get_dashboard_recent_tasks(
     limit: int = Query(10, ge=1, le=50, description="每页数量限制"),
     page: int = Query(1, ge=1, description="页码"),
-    operator_id: Optional[int] = Query(None, description="筛选创作管理员ID（超级管理员使用）"),
+    operator_id: Optional[int] = Query(
+        None, description="筛选创作管理员ID（超级管理员使用）"
+    ),
     start_date: Optional[str] = Query(None, description="开始日期（YYYY-MM-DD）"),
     end_date: Optional[str] = Query(None, description="结束日期（YYYY-MM-DD）"),
     payload: dict = Depends(get_token_payload_required),
@@ -168,11 +188,22 @@ async def get_dashboard_recent_tasks(
     # 超级管理员可以使用 operator_id 筛选，创作管理员忽略该参数
     filter_operator_id = operator_id if is_super_admin and operator_id else None
 
-    logger.info("[Dashboard API] get_dashboard_recent_tasks | user_type=%s | owner_operator_id=%s | limit=%s | page=%s | filter_operator=%s | start=%s | end=%s",
-                user_type, owner_operator_id, limit, page, filter_operator_id, start_date, end_date)
+    logger.info(
+        "[Dashboard API] get_dashboard_recent_tasks | user_type=%s | owner_operator_id=%s | limit=%s | page=%s | filter_operator=%s | start=%s | end=%s",
+        user_type,
+        owner_operator_id,
+        limit,
+        page,
+        filter_operator_id,
+        start_date,
+        end_date,
+    )
 
     tasks, total = await DashboardService.get_recent_tasks(
-        db, owner_operator_id, limit, page,
+        db,
+        owner_operator_id,
+        limit,
+        page,
         filter_operator_id=filter_operator_id,
         start_date=parsed_start_date,
         end_date=parsed_end_date,
@@ -181,19 +212,38 @@ async def get_dashboard_recent_tasks(
     recent_tasks = [
         RecentTaskItem(
             id=task.id,
-            name=task.name or (task.material.title if task.material else f"任务#{task.id}"),
+            name=task.name
+            or (task.material.title if task.material else f"任务#{task.id}"),
             status=_get_status_text(task.status),
             # 优先使用实时聚合计数（从 generation_item 表计算），回退到冗余字段
-            total_count=getattr(task, '_live_counts', {}).get('total_count', task.total_count or 0),
-            queued_count=getattr(task, '_live_counts', {}).get('queued_count', task.queued_count or 0),
-            generating_count=getattr(task, '_live_counts', {}).get('generating_count', task.generating_count or 0),
-            completed_count=getattr(task, '_live_counts', {}).get('completed_count', task.completed_count or 0),
-            failed_count=getattr(task, '_live_counts', {}).get('failed_count', task.failed_count or 0),
-            paused_count=getattr(task, '_live_counts', {}).get('paused_count', task.paused_count or 0),
-            pending_publish_count=getattr(task, '_live_counts', {}).get('pending_publish_count', task.pending_publish_count or 0),
-            published_count=getattr(task, '_live_counts', {}).get('published_count', task.published_count or 0),
+            total_count=getattr(task, "_live_counts", {}).get(
+                "total_count", task.total_count or 0
+            ),
+            queued_count=getattr(task, "_live_counts", {}).get(
+                "queued_count", task.queued_count or 0
+            ),
+            generating_count=getattr(task, "_live_counts", {}).get(
+                "generating_count", task.generating_count or 0
+            ),
+            completed_count=getattr(task, "_live_counts", {}).get(
+                "completed_count", task.completed_count or 0
+            ),
+            failed_count=getattr(task, "_live_counts", {}).get(
+                "failed_count", task.failed_count or 0
+            ),
+            paused_count=getattr(task, "_live_counts", {}).get(
+                "paused_count", task.paused_count or 0
+            ),
+            pending_publish_count=getattr(task, "_live_counts", {}).get(
+                "pending_publish_count", task.pending_publish_count or 0
+            ),
+            published_count=getattr(task, "_live_counts", {}).get(
+                "published_count", task.published_count or 0
+            ),
             owner_admin_id=task.owner_operator.id if task.owner_operator else None,
-            owner_admin_name=task.owner_operator.nickname if task.owner_operator else None,
+            owner_admin_name=(
+                task.owner_operator.nickname if task.owner_operator else None
+            ),
             created_at=task.created_at,
             updated_at=task.updated_at,
         )
@@ -202,7 +252,7 @@ async def get_dashboard_recent_tasks(
 
     return success_response(
         data=DashboardRecentTasksResponse(tasks=recent_tasks, total=total),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -221,9 +271,16 @@ async def get_dashboard_failed_tasks(
     is_super_admin = user_type == "super_admin"
     owner_operator_id = None if is_super_admin else int(payload.get("sub"))
 
-    logger.info("[Dashboard API] get_dashboard_failed_tasks | user_type=%s | owner_operator_id=%s | limit=%s", user_type, owner_operator_id, limit)
+    logger.info(
+        "[Dashboard API] get_dashboard_failed_tasks | user_type=%s | owner_operator_id=%s | limit=%s",
+        user_type,
+        owner_operator_id,
+        limit,
+    )
 
-    failed_tasks_data = await DashboardService.get_failed_tasks(db, owner_operator_id, limit)
+    failed_tasks_data = await DashboardService.get_failed_tasks(
+        db, owner_operator_id, limit
+    )
 
     failed_tasks = [
         FailedTaskItem(
@@ -239,8 +296,7 @@ async def get_dashboard_failed_tasks(
     ]
 
     return success_response(
-        data=DashboardFailedTasksResponse(tasks=failed_tasks),
-        message="获取成功"
+        data=DashboardFailedTasksResponse(tasks=failed_tasks), message="获取成功"
     )
 
 
@@ -264,7 +320,7 @@ async def get_operator_list(
 
     return success_response(
         data=[OperatorOption(id=op["id"], name=op["name"]) for op in operators],
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -282,7 +338,11 @@ async def dismiss_alert(
     user_type = payload.get("user_type")
     is_super_admin = user_type == "super_admin"
 
-    logger.info("[Dashboard API] dismiss_alert | is_super_admin=%s | task_id=%s", is_super_admin, req.task_id)
+    logger.info(
+        "[Dashboard API] dismiss_alert | is_super_admin=%s | task_id=%s",
+        is_super_admin,
+        req.task_id,
+    )
 
     await DashboardService.dismiss_alert(db, req.task_id)
 
@@ -301,7 +361,11 @@ async def dismiss_all_alerts(
     is_super_admin = user_type == "super_admin"
     owner_operator_id = None if is_super_admin else int(payload.get("sub"))
 
-    logger.info("[Dashboard API] dismiss_all_alerts | is_super_admin=%s | owner_operator_id=%s", is_super_admin, owner_operator_id)
+    logger.info(
+        "[Dashboard API] dismiss_all_alerts | is_super_admin=%s | owner_operator_id=%s",
+        is_super_admin,
+        owner_operator_id,
+    )
 
     count = await DashboardService.dismiss_all_alerts(db, owner_operator_id)
 

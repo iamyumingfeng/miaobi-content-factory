@@ -39,7 +39,7 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 
@@ -48,11 +48,10 @@ try:
 except ImportError:
     pyjwt = None
 
-from .params import TextGenParams, ImageGenParams
 from .base import BaseModelAdapter, GenerationResult, ModelConfig
 from .factory import AdapterRegistry
-
 from .image_prompts import enhance_image_prompt, get_negative_prompt
+from .params import ImageGenParams, TextGenParams
 
 logger = logging.getLogger(__name__)
 
@@ -60,9 +59,9 @@ logger = logging.getLogger(__name__)
 KLING_TOKEN_EXPIRE_SECONDS = 1800  # 30 分钟
 
 # 异步任务轮询配置
-KLING_POLL_INTERVAL = 5        # 轮询间隔（秒）
-KLING_POLL_TIMEOUT = 300       # 轮询超时（秒，5 分钟）
-KLING_POLL_MAX_ATTEMPTS = 60   # 最大轮询次数
+KLING_POLL_INTERVAL = 5  # 轮询间隔（秒）
+KLING_POLL_TIMEOUT = 300  # 轮询超时（秒，5 分钟）
+KLING_POLL_MAX_ATTEMPTS = 60  # 最大轮询次数
 
 
 class KlingAdapter(BaseModelAdapter):
@@ -70,7 +69,7 @@ class KlingAdapter(BaseModelAdapter):
     可灵 AI 模型适配器
 
     支持标准图像生成、Omni 全模态生成、多图参考生图。
-    
+
     认证：使用 AccessKey ID + SecretKey 动态生成 JWT Token。
     """
 
@@ -132,9 +131,9 @@ class KlingAdapter(BaseModelAdapter):
         "16:9": "16:9",
         "3:4": "3:4",
         "9:16": "9:16",
-        "3:2": "3:2",      # 可灵额外支持
-        "2:3": "2:3",      # 可灵额外支持
-        "21:9": "21:9",    # 可灵额外支持
+        "3:2": "3:2",  # 可灵额外支持
+        "2:3": "2:3",  # 可灵额外支持
+        "21:9": "21:9",  # 可灵额外支持
     }
 
     # 各模型默认分辨率
@@ -163,7 +162,7 @@ class KlingAdapter(BaseModelAdapter):
     def model_max_pixels(self, model_id: str = None) -> int:
         """
         返回模型支持的较大边最大像素
-        
+
         可灵模型像素限制：
         - kling-v3-omni: 4K (3840px)
         - kling-image-o1: 2K (2048px)
@@ -172,7 +171,7 @@ class KlingAdapter(BaseModelAdapter):
         """
         model = model_id or self.config.model_id
         resolution = self.DEFAULT_RESOLUTIONS.get(model, "2k")
-        
+
         # 分辨率到像素的映射
         pixel_map = {
             "4k": 3840,
@@ -235,10 +234,10 @@ class KlingAdapter(BaseModelAdapter):
     def _get_valid_token(self) -> str:
         """
         获取有效的 JWT Token
-        
+
         优先使用缓存的 Token，过期或不存在时重新生成。
         可灵 API 使用 AccessKey ID + SecretKey 签名生成 JWT。
-        
+
         Returns:
             str: 有效的 Bearer Token
         """
@@ -253,8 +252,11 @@ class KlingAdapter(BaseModelAdapter):
         if new_token:
             self._cached_token = new_token
             self._token_expire_time = now + KLING_TOKEN_EXPIRE_SECONDS
-            logger.debug("[Kling] JWT Token 已刷新 | 有效期 %d 秒 | 过期时间: %.0f",
-                        KLING_TOKEN_EXPIRE_SECONDS, self._token_expire_time)
+            logger.debug(
+                "[Kling] JWT Token 已刷新 | 有效期 %d 秒 | 过期时间: %.0f",
+                KLING_TOKEN_EXPIRE_SECONDS,
+                self._token_expire_time,
+            )
             return new_token
 
         # 回退：如果无法生成 JWT，尝试直接使用 api_key
@@ -263,11 +265,16 @@ class KlingAdapter(BaseModelAdapter):
             return self.config.api_key
 
         # 详细诊断日志
-        logger.error("[Kling] 认证参数缺失 | access_key_id=%s | access_key_secret=%s | api_key=%s | extra_params_keys=%s",
-                    bool(self._access_key_id), bool(self._access_key_secret),
-                    bool(self.config.api_key),
-                    list(self.config.extra_params.keys()) if self.config.extra_params else [])
-        raise ValueError("可灵认证失败：缺少 access_key_id / access_key_secret 或 api_key。请检查模型配置中的认证信息是否正确填写（需要在 config_json 中配置 access_key_id 和 access_key_secret）。")
+        logger.error(
+            "[Kling] 认证参数缺失 | access_key_id=%s | access_key_secret=%s | api_key=%s | extra_params_keys=%s",
+            bool(self._access_key_id),
+            bool(self._access_key_secret),
+            bool(self.config.api_key),
+            list(self.config.extra_params.keys()) if self.config.extra_params else [],
+        )
+        raise ValueError(
+            "可灵认证失败：缺少 access_key_id / access_key_secret 或 api_key。请检查模型配置中的认证信息是否正确填写（需要在 config_json 中配置 access_key_id 和 access_key_secret）。"
+        )
 
     def _generate_jwt_token(self) -> Optional[str]:
         """
@@ -286,11 +293,15 @@ class KlingAdapter(BaseModelAdapter):
             str: JWT Token 字符串，或 None（缺少依赖/配置）
         """
         if not pyjwt:
-            logger.error("[Kling] PyJWT 未安装，无法生成 JWT Token。请执行: pip install PyJWT")
+            logger.error(
+                "[Kling] PyJWT 未安装，无法生成 JWT Token。请执行: pip install PyJWT"
+            )
             return None
 
         if not self._access_key_id or not self._access_key_secret:
-            logger.warning("[Kling] 缺少 access_key_id 或 access_key_secret，无法生成 JWT Token")
+            logger.warning(
+                "[Kling] 缺少 access_key_id 或 access_key_secret，无法生成 JWT Token"
+            )
             return None
 
         try:
@@ -307,13 +318,16 @@ class KlingAdapter(BaseModelAdapter):
                 algorithm="HS256",
                 headers={"alg": "HS256", "typ": "JWT"},
             )
-            
+
             # PyJWT >=2.0 返回 str，<2.0 返回 bytes
             if isinstance(token, bytes):
                 token = token.decode("utf-8")
 
-            logger.debug("[Kling] JWT Token 生成成功 | iss=%s | exp=%s", 
-                       self._access_key_id[:8] + "...", payload["exp"])
+            logger.debug(
+                "[Kling] JWT Token 生成成功 | iss=%s | exp=%s",
+                self._access_key_id[:8] + "...",
+                payload["exp"],
+            )
             return token
 
         except Exception as e:
@@ -340,14 +354,19 @@ class KlingAdapter(BaseModelAdapter):
 
         # Data URI 格式：剥离前缀，提取纯 Base64
         if img.startswith("data:image/"):
-            match = re.match(r'data:image/[^;]+;base64,(.+)', img)
+            match = re.match(r"data:image/[^;]+;base64,(.+)", img)
             if match:
                 clean_b64 = match.group(1)
-                logger.debug("[Image] 已剥离 Data URI 前缀 | 原始长度=%d | 纯Base64长度=%d",
-                            len(img), len(clean_b64))
+                logger.debug(
+                    "[Image] 已剥离 Data URI 前缀 | 原始长度=%d | 纯Base64长度=%d",
+                    len(img),
+                    len(clean_b64),
+                )
                 return {"image": clean_b64}
             else:
-                logger.warning("[Image] 无法解析 Data URI 格式，使用原始值 | length=%d", len(img))
+                logger.warning(
+                    "[Image] 无法解析 Data URI 格式，使用原始值 | length=%d", len(img)
+                )
                 return {"image": img}
 
         # 已经是纯 Base64 或其他格式，直接使用
@@ -385,17 +404,26 @@ class KlingAdapter(BaseModelAdapter):
                         continue  # 此端点不存在，尝试下一个
                     if response.status >= 400:
                         error_body = await response.text()
-                        logger.error("[Image] 可灵任务查询失败 | task_id=%s | url=%s | status=%s | body=%s",
-                                    task_id, url, response.status, error_body[:500])
+                        logger.error(
+                            "[Image] 可灵任务查询失败 | task_id=%s | url=%s | status=%s | body=%s",
+                            task_id,
+                            url,
+                            response.status,
+                            error_body[:500],
+                        )
                         response.raise_for_status()
                     result = await response.json()
-                    logger.debug("[Image] 可灵任务查询成功 | task_id=%s | url=%s", task_id, url)
+                    logger.debug(
+                        "[Image] 可灵任务查询成功 | task_id=%s | url=%s", task_id, url
+                    )
 
                     # 返回 data 节点
                     return result.get("data", {})
 
             # 所有端点都返回 404，回退到列表查询
-            logger.info("[Image] 单任务查询端点均不可用，回退到列表查询 | task_id=%s", task_id)
+            logger.info(
+                "[Image] 单任务查询端点均不可用，回退到列表查询 | task_id=%s", task_id
+            )
             return await self._query_task_from_list(task_id, session, headers)
         finally:
             await self._close_session(session)
@@ -412,13 +440,19 @@ class KlingAdapter(BaseModelAdapter):
         async with session.get(url, headers=headers, params=params) as response:
             if response.status >= 400:
                 error_body = await response.text()
-                logger.error("[Image] 可灵任务列表查询失败 | status=%s | body=%s",
-                            response.status, error_body[:500])
+                logger.error(
+                    "[Image] 可灵任务列表查询失败 | status=%s | body=%s",
+                    response.status,
+                    error_body[:500],
+                )
                 return {"task_status": "unknown", "task_id": task_id}
             result = await response.json()
             tasks = result.get("data", [])
-            logger.info("[Image] 可灵任务列表查询 | 总任务数=%d | 查找 task_id=%s",
-                       len(tasks), task_id)
+            logger.info(
+                "[Image] 可灵任务列表查询 | 总任务数=%d | 查找 task_id=%s",
+                len(tasks),
+                task_id,
+            )
             for task in tasks:
                 if task.get("task_id") == task_id:
                     return task
@@ -450,8 +484,13 @@ class KlingAdapter(BaseModelAdapter):
 
             task_status = task.get("task_status", "")
 
-            logger.debug("[Image] 可灵任务轮询 | task_id=%s | poll#%d | status=%s | elapsed=%.1fs",
-                        task_id, poll_count, task_status, time.time() - start_time)
+            logger.debug(
+                "[Image] 可灵任务轮询 | task_id=%s | poll#%d | status=%s | elapsed=%.1fs",
+                task_id,
+                poll_count,
+                task_status,
+                time.time() - start_time,
+            )
 
             if task_status in ("succeed", "SUCCESS"):
                 # 提取图片 URL（支持 images 和 series_images）
@@ -467,7 +506,11 @@ class KlingAdapter(BaseModelAdapter):
                     elif isinstance(img, str):
                         image_urls.append(img)
 
-                logger.info("[Image] 可灵任务完成 | task_id=%s | 图片数=%d", task_id, len(image_urls))
+                logger.info(
+                    "[Image] 可灵任务完成 | task_id=%s | 图片数=%d",
+                    task_id,
+                    len(image_urls),
+                )
                 return GenerationResult(
                     success=True,
                     image_urls=image_urls if image_urls else None,
@@ -476,8 +519,12 @@ class KlingAdapter(BaseModelAdapter):
 
             elif task_status in ("failed", "FAILED"):
                 # 提取错误信息
-                error_msg = task.get("task_status_msg", "") or task.get("error_message", "任务失败")
-                logger.error("[Image] 可灵任务失败 | task_id=%s | error=%s", task_id, error_msg)
+                error_msg = task.get("task_status_msg", "") or task.get(
+                    "error_message", "任务失败"
+                )
+                logger.error(
+                    "[Image] 可灵任务失败 | task_id=%s | error=%s", task_id, error_msg
+                )
                 return GenerationResult(
                     success=False,
                     error_message=f"Kling task failed: {error_msg}",
@@ -488,12 +535,18 @@ class KlingAdapter(BaseModelAdapter):
                 # 继续轮询
                 await asyncio.sleep(interval)
             else:
-                logger.warning("[Image] 可灵未知任务状态: %s | task_id=%s", task_status, task_id)
+                logger.warning(
+                    "[Image] 可灵未知任务状态: %s | task_id=%s", task_status, task_id
+                )
                 await asyncio.sleep(interval)
 
         # 超时
-        logger.error("[Image] 可灵任务超时 | task_id=%s | elapsed=%.1fs | timeout=%ds",
-                    task_id, time.time() - start_time, timeout)
+        logger.error(
+            "[Image] 可灵任务超时 | task_id=%s | elapsed=%.1fs | timeout=%ds",
+            task_id,
+            time.time() - start_time,
+            timeout,
+        )
         return GenerationResult(
             success=False,
             error_message=f"Kling task timeout after {timeout}s",
@@ -508,14 +561,16 @@ class KlingAdapter(BaseModelAdapter):
         p = params or ImageGenParams()
         p.model_id = p.model_id or self.config.model_id
         model_config = self._resolve_model_config(p.model_id)
-        
+
         ref_images = p.reference_images or []
         n_benchmark = p.benchmark_image_count or 0
-        
+
         # kling-v2 和 kling-v2-1 使用多图参考接口，根据对标图数量分配图片
         # 但如果多图接口不可用（404/500等错误），则回退到 Omni 接口
         if model_config["type"] == "multi" or p.model_id in ["kling-v2", "kling-v2-1"]:
-            logger.info(f"[Kling] 多图参考接口 | model={p.model_id} | 参考图={len(ref_images)}张 | 对标图={n_benchmark}张")
+            logger.info(
+                f"[Kling] 多图参考接口 | model={p.model_id} | 参考图={len(ref_images)}张 | 对标图={n_benchmark}张"
+            )
             result = await self._generate_multi_image(prompt, p)
             # 如果失败（任何错误），回退到 Omni 接口
             if not result.success:
@@ -526,9 +581,11 @@ class KlingAdapter(BaseModelAdapter):
                     error_code = "500"
                 else:
                     error_code = "其他错误"
-                logger.warning(f"[Kling] ⚠️ 多图参考接口失败({error_code})，| error={result.error_message[:100]}")
+                logger.warning(
+                    f"[Kling] ⚠️ 多图参考接口失败({error_code})，| error={result.error_message[:100]}"
+                )
                 return result
-            logger.info(f"[Kling] ✅ 多图参考接口成功，无需回退")
+            logger.info("[Kling] ✅ 多图参考接口成功，无需回退")
             return result
 
         if model_config["type"] == "omni":
@@ -609,24 +666,39 @@ class KlingAdapter(BaseModelAdapter):
 
             # 水印（仅显式启用时添加，默认不加）
             watermark = p.watermark
-            if watermark is True or (isinstance(watermark, str) and watermark.lower() == "true"):
+            if watermark is True or (
+                isinstance(watermark, str) and watermark.lower() == "true"
+            ):
                 payload["watermark_info"] = {"enabled": True}
 
             # callback_url / external_task_id not in ImageGenParams, skip
 
             headers = self._build_common_headers()
 
-            logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            logger.info("[Image] 可灵Standard生成请求 | model=%s | url=%s | n=%s", model_id, url, p.count)
+            logger.info(
+                "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            )
+            logger.info(
+                "[Image] 可灵Standard生成请求 | model=%s | url=%s | n=%s",
+                model_id,
+                url,
+                p.count,
+            )
             # Base64 日志优化：仅替换 Base64 数据为长度标记，其余 payload 完整输出
             # 1) Data URI 前缀格式
             # 2) 纯 Base64 格式（Kling API 不带 data: 前缀，仅匹配 "image" 相关字段的长 Base64）
             payload_str = json.dumps(payload, ensure_ascii=False, indent=2)
-            payload_str = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+',
-                                lambda m: f'<Base64 {len(m.group(0))} chars>',
-                                payload_str)
-            _base64_pat = re.compile(r'("(?:image|subject_image|scene_image|style_image)":\s*")([A-Za-z0-9+/=]{200,})(?=")')
-            payload_str = _base64_pat.sub(lambda m: m.group(1) + f'<Base64 {len(m.group(2))} chars>', payload_str)
+            payload_str = re.sub(
+                r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+",
+                lambda m: f"<Base64 {len(m.group(0))} chars>",
+                payload_str,
+            )
+            _base64_pat = re.compile(
+                r'("(?:image|subject_image|scene_image|style_image)":\s*")([A-Za-z0-9+/=]{200,})(?=")'
+            )
+            payload_str = _base64_pat.sub(
+                lambda m: m.group(1) + f"<Base64 {len(m.group(2))} chars>", payload_str
+            )
             logger.info("[Image] 请求 payload: %s", payload_str)
 
             start_time = time.time()
@@ -638,7 +710,11 @@ class KlingAdapter(BaseModelAdapter):
                     error_body = ""
                     try:
                         error_body = await response.text()
-                        logger.error("[Image] 可灵API错误 | status=%s | body=%s", response.status, error_body[:2000])
+                        logger.error(
+                            "[Image] 可灵API错误 | status=%s | body=%s",
+                            response.status,
+                            error_body[:2000],
+                        )
                     except Exception:
                         pass
                     response.raise_for_status()
@@ -646,23 +722,43 @@ class KlingAdapter(BaseModelAdapter):
                 result = await response.json()
                 elapsed = time.time() - start_time
 
-                logger.info("[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                logger.info("[Image] 可灵Standard响应 | elapsed=%.2fs | model=%s", elapsed, model_id)
-                logger.info("[Image] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                )
+                logger.info(
+                    "[Image] 可灵Standard响应 | elapsed=%.2fs | model=%s",
+                    elapsed,
+                    model_id,
+                )
+                logger.info(
+                    "[Image] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 # 可灵 API 为异步任务，检查任务状态
                 data = result.get("data", {})
                 task_status = data.get("task_status", "")
                 task_id = data.get("task_id")
 
-                if task_id and task_status in ("submitted", "processing", "PENDING", "RUNNING"):
-                    logger.info("[Image] 可灵异步任务 | task_id=%s | status=%s | 开始轮询...", task_id, task_status)
+                if task_id and task_status in (
+                    "submitted",
+                    "processing",
+                    "PENDING",
+                    "RUNNING",
+                ):
+                    logger.info(
+                        "[Image] 可灵异步任务 | task_id=%s | status=%s | 开始轮询...",
+                        task_id,
+                        task_status,
+                    )
                     return await self._poll_task_until_complete(task_id)
 
                 # 同步响应：直接解析结果
                 image_urls = self._parse_generation_result(result)
 
-                logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -781,25 +877,40 @@ class KlingAdapter(BaseModelAdapter):
 
             # 水印（仅显式启用时添加）
             watermark = p.watermark
-            if watermark is True or (isinstance(watermark, str) and watermark.lower() == "true"):
+            if watermark is True or (
+                isinstance(watermark, str) and watermark.lower() == "true"
+            ):
                 payload["watermark_info"] = {"enabled": True}
 
             # callback_url / external_task_id not in ImageGenParams, skip
 
             headers = self._build_common_headers()
 
-            logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            logger.info("[Image] 可灵Omni-Image生成请求 | model=%s | url=%s | n=%s | result_type=%s",
-                       model_id, url, p.count, result_type)
+            logger.info(
+                "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            )
+            logger.info(
+                "[Image] 可灵Omni-Image生成请求 | model=%s | url=%s | n=%s | result_type=%s",
+                model_id,
+                url,
+                p.count,
+                result_type,
+            )
             # Base64 日志优化：仅替换 Base64 数据为长度标记，其余 payload 完整输出
             # 1) Data URI 前缀格式
             # 2) 纯 Base64 格式（Kling API 不带 data: 前缀，仅匹配 "image" 相关字段的长 Base64）
             payload_str = json.dumps(payload, ensure_ascii=False, indent=2)
-            payload_str = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+',
-                                lambda m: f'<Base64 {len(m.group(0))} chars>',
-                                payload_str)
-            _base64_pat = re.compile(r'("(?:image|subject_image|scene_image|style_image)":\s*")([A-Za-z0-9+/=]{200,})(?=")')
-            payload_str = _base64_pat.sub(lambda m: m.group(1) + f'<Base64 {len(m.group(2))} chars>', payload_str)
+            payload_str = re.sub(
+                r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+",
+                lambda m: f"<Base64 {len(m.group(0))} chars>",
+                payload_str,
+            )
+            _base64_pat = re.compile(
+                r'("(?:image|subject_image|scene_image|style_image)":\s*")([A-Za-z0-9+/=]{200,})(?=")'
+            )
+            payload_str = _base64_pat.sub(
+                lambda m: m.group(1) + f"<Base64 {len(m.group(2))} chars>", payload_str
+            )
             logger.info("[Image] 请求 payload: %s", payload_str)
 
             start_time = time.time()
@@ -810,7 +921,11 @@ class KlingAdapter(BaseModelAdapter):
                     error_body = ""
                     try:
                         error_body = await response.text()
-                        logger.error("[Image] 可灵API错误 | status=%s | body=%s", response.status, error_body[:2000])
+                        logger.error(
+                            "[Image] 可灵API错误 | status=%s | body=%s",
+                            response.status,
+                            error_body[:2000],
+                        )
                     except Exception:
                         pass
                     response.raise_for_status()
@@ -818,23 +933,43 @@ class KlingAdapter(BaseModelAdapter):
                 result = await response.json()
                 elapsed = time.time() - start_time
 
-                logger.info("[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                logger.info("[Image] 可灵Omni-Image响应 | elapsed=%.2fs | model=%s", elapsed, model_id)
-                logger.info("[Image] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                )
+                logger.info(
+                    "[Image] 可灵Omni-Image响应 | elapsed=%.2fs | model=%s",
+                    elapsed,
+                    model_id,
+                )
+                logger.info(
+                    "[Image] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 # 可灵 API 为异步任务，检查任务状态
                 data = result.get("data", {})
                 task_status = data.get("task_status", "")
                 task_id = data.get("task_id")
 
-                if task_id and task_status in ("submitted", "processing", "PENDING", "RUNNING"):
-                    logger.info("[Image] 可灵异步任务 | task_id=%s | status=%s | 开始轮询...", task_id, task_status)
+                if task_id and task_status in (
+                    "submitted",
+                    "processing",
+                    "PENDING",
+                    "RUNNING",
+                ):
+                    logger.info(
+                        "[Image] 可灵异步任务 | task_id=%s | status=%s | 开始轮询...",
+                        task_id,
+                        task_status,
+                    )
                     return await self._poll_task_until_complete(task_id)
 
                 # 同步响应：直接解析结果
                 image_urls = self._parse_generation_result(result)
 
-                logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -890,18 +1025,20 @@ class KlingAdapter(BaseModelAdapter):
             # - 无对标图（n_benchmark == 0）：图1、2 → subject_image_list
             ref_images = p.reference_images or []
             n_benchmark = p.benchmark_image_count or 0
-            
+
             if ref_images:
                 # 分离对标图和产品图
                 benchmark_images = ref_images[:n_benchmark] if n_benchmark > 0 else []
-                product_images = ref_images[n_benchmark:] if n_benchmark > 0 else ref_images
-                
+                product_images = (
+                    ref_images[n_benchmark:] if n_benchmark > 0 else ref_images
+                )
+
                 # 场景图：使用第1张对标图（如果有）
                 if benchmark_images:
                     scene_image = self._clean_image_input(benchmark_images[0])
                     payload["scene_image"] = scene_image["image"]
-                    logger.info(f"[Kling Multi] 场景图设置 | 对标图索引=0")
-                
+                    logger.info("[Kling Multi] 场景图设置 | 对标图索引=0")
+
                 # 主体图列表：使用产品图（保持产品特征）
                 if product_images:
                     subject_image_list = []
@@ -909,7 +1046,9 @@ class KlingAdapter(BaseModelAdapter):
                         cleaned = self._clean_image_input(img)
                         subject_image_list.append({"subject_image": cleaned["image"]})
                     payload["subject_image_list"] = subject_image_list
-                    logger.info(f"[Kling Multi] 主体图列表设置 | 产品图数量={len(product_images)}")
+                    logger.info(
+                        f"[Kling Multi] 主体图列表设置 | 产品图数量={len(product_images)}"
+                    )
 
             # 宽高比
             aspect_ratio_raw = p.ratio  # from ImageGenParams
@@ -920,17 +1059,30 @@ class KlingAdapter(BaseModelAdapter):
 
             headers = self._build_common_headers()
 
-            logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            logger.info("[Image] 可灵Multi-Image生成请求 | model=%s | url=%s | n=%s", model_id, url, p.count)
+            logger.info(
+                "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            )
+            logger.info(
+                "[Image] 可灵Multi-Image生成请求 | model=%s | url=%s | n=%s",
+                model_id,
+                url,
+                p.count,
+            )
             # Base64 日志优化：仅替换 Base64 数据为长度标记，其余 payload 完整输出
             # 1) Data URI 前缀格式
             # 2) 纯 Base64 格式（Kling API 不带 data: 前缀，仅匹配 "image" 相关字段的长 Base64）
             payload_str = json.dumps(payload, ensure_ascii=False, indent=2)
-            payload_str = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+',
-                                lambda m: f'<Base64 {len(m.group(0))} chars>',
-                                payload_str)
-            _base64_pat = re.compile(r'("(?:image|subject_image|scene_image|style_image)":\s*")([A-Za-z0-9+/=]{200,})(?=")')
-            payload_str = _base64_pat.sub(lambda m: m.group(1) + f'<Base64 {len(m.group(2))} chars>', payload_str)
+            payload_str = re.sub(
+                r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+",
+                lambda m: f"<Base64 {len(m.group(0))} chars>",
+                payload_str,
+            )
+            _base64_pat = re.compile(
+                r'("(?:image|subject_image|scene_image|style_image)":\s*")([A-Za-z0-9+/=]{200,})(?=")'
+            )
+            payload_str = _base64_pat.sub(
+                lambda m: m.group(1) + f"<Base64 {len(m.group(2))} chars>", payload_str
+            )
             logger.info("[Image] 请求 payload: %s", payload_str)
 
             start_time = time.time()
@@ -941,7 +1093,11 @@ class KlingAdapter(BaseModelAdapter):
                     error_body = ""
                     try:
                         error_body = await response.text()
-                        logger.error("[Image] 可灵API错误 | status=%s | body=%s", response.status, error_body[:2000])
+                        logger.error(
+                            "[Image] 可灵API错误 | status=%s | body=%s",
+                            response.status,
+                            error_body[:2000],
+                        )
                     except Exception:
                         pass
                     response.raise_for_status()
@@ -949,23 +1105,43 @@ class KlingAdapter(BaseModelAdapter):
                 result = await response.json()
                 elapsed = time.time() - start_time
 
-                logger.info("[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                logger.info("[Image] 可灵Multi-Image响应 | elapsed=%.2fs | model=%s", elapsed, model_id)
-                logger.info("[Image] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                )
+                logger.info(
+                    "[Image] 可灵Multi-Image响应 | elapsed=%.2fs | model=%s",
+                    elapsed,
+                    model_id,
+                )
+                logger.info(
+                    "[Image] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 # 可灵 API 为异步任务，检查任务状态
                 data = result.get("data", {})
                 task_status = data.get("task_status", "")
                 task_id = data.get("task_id")
 
-                if task_id and task_status in ("submitted", "processing", "PENDING", "RUNNING"):
-                    logger.info("[Image] 可灵异步任务 | task_id=%s | status=%s | 开始轮询...", task_id, task_status)
+                if task_id and task_status in (
+                    "submitted",
+                    "processing",
+                    "PENDING",
+                    "RUNNING",
+                ):
+                    logger.info(
+                        "[Image] 可灵异步任务 | task_id=%s | status=%s | 开始轮询...",
+                        task_id,
+                        task_status,
+                    )
                     return await self._poll_task_until_complete(task_id)
 
                 # 同步响应：直接解析结果
                 image_urls = self._parse_generation_result(result)
 
-                logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -1020,8 +1196,17 @@ class KlingAdapter(BaseModelAdapter):
                 elif isinstance(img, str):
                     image_urls.append(img)
 
-            logger.info("[Image] 可灵生成成功 | status=%s | 图片数=%d", task_status, len(image_urls))
-        elif task_status and task_status not in ("submitted", "processing", "PENDING", "RUNNING"):
+            logger.info(
+                "[Image] 可灵生成成功 | status=%s | 图片数=%d",
+                task_status,
+                len(image_urls),
+            )
+        elif task_status and task_status not in (
+            "submitted",
+            "processing",
+            "PENDING",
+            "RUNNING",
+        ):
             logger.warning("[Image] 可灵任务异常状态: %s", task_status)
 
         return image_urls
@@ -1050,7 +1235,11 @@ class KlingAdapter(BaseModelAdapter):
         except Exception as e:
             error_msg = str(e)
             # 脱敏处理
-            for sensitive in [self.config.api_key, self._access_key_id, self._access_key_secret]:
+            for sensitive in [
+                self.config.api_key,
+                self._access_key_id,
+                self._access_key_secret,
+            ]:
                 if sensitive and sensitive in error_msg:
                     error_msg = error_msg.replace(sensitive, "[REDACTED]")
             logger.warning(f"[Kling] Availability check failed: {error_msg}")
@@ -1058,6 +1247,7 @@ class KlingAdapter(BaseModelAdapter):
         finally:
             if session:
                 await self._close_session(session)
+
 
 # 注册适配器
 AdapterRegistry.register("kling", KlingAdapter)

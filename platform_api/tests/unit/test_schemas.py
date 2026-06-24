@@ -21,15 +21,9 @@ from app.schemas.common import (
 from app.schemas.auth import (
     LoginRequest,
     UsernamePasswordLoginRequest,
-    WechatQRLoginRequest,
-    WechatBindRequest,
-    BindWechatRequest,
-    UnbindWechatRequest,
     TokenResponse,
     UserInfo,
     LoginResponse,
-    WechatQRResponse,
-    WechatQRStatusResponse,
     ChangePasswordRequest,
     UpdateDisplayNameRequest,
     RefreshTokenRequest,
@@ -164,36 +158,6 @@ class TestAuthSchemas:
         assert request.userid == "test_user"
         assert request.password == "test_pass"
 
-    def test_wechat_qr_login_request(self) -> None:
-        """测试微信扫码登录请求"""
-        request = WechatQRLoginRequest(code="auth_code", state="random_state")
-        assert request.code == "auth_code"
-        assert request.state == "random_state"
-
-    def test_wechat_bind_request(self) -> None:
-        """测试微信绑定请求"""
-        request = WechatBindRequest(
-            code="auth_code",
-            state="random_state",
-            userid="test_user",
-            password="test_pass"
-        )
-        assert request.code == "auth_code"
-        assert request.state == "random_state"
-        assert request.userid == "test_user"
-        assert request.password == "test_pass"
-
-    def test_bind_wechat_request(self) -> None:
-        """测试绑定微信请求"""
-        request = BindWechatRequest(code="auth_code", state="random_state")
-        assert request.code == "auth_code"
-        assert request.state == "random_state"
-
-    def test_unbind_wechat_request(self) -> None:
-        """测试解绑微信请求"""
-        request = UnbindWechatRequest(password="verify_password")
-        assert request.password == "verify_password"
-
     def test_token_response(self) -> None:
         """测试令牌响应"""
         response = TokenResponse(
@@ -217,15 +181,13 @@ class TestAuthSchemas:
             userid="test_user",
             nickname="昵称",
             display_name="自定义昵称",
-            role="operator",
-            wechat_bound=True
+            role="operator"
         )
         assert info.id == 1
         assert info.userid == "test_user"
         assert info.nickname == "昵称"
         assert info.display_name == "自定义昵称"
         assert info.role == "operator"
-        assert info.wechat_bound is True
 
     def test_user_info_optional_fields(self) -> None:
         """测试用户信息可选字段"""
@@ -236,7 +198,6 @@ class TestAuthSchemas:
         )
         assert info.nickname is None
         assert info.display_name is None
-        assert info.wechat_bound is False
 
     def test_login_response(self) -> None:
         """测试登录响应"""
@@ -247,50 +208,18 @@ class TestAuthSchemas:
         )
         response = LoginResponse(
             access_token="test_token",
+            refresh_token="refresh_token",
             token_type="bearer",
             expires_in=3600,
+            refresh_expires_in=86400,
             user=user_info
         )
         assert response.access_token == "test_token"
+        assert response.refresh_token == "refresh_token"
         assert response.token_type == "bearer"
         assert response.expires_in == 3600
+        assert response.refresh_expires_in == 86400
         assert response.user == user_info
-
-    def test_wechat_qr_response(self) -> None:
-        """测试微信二维码响应"""
-        response = WechatQRResponse(
-            qr_url="https://example.com/qr.png",
-            state="random_state",
-            expires_in=180
-        )
-        assert response.qr_url == "https://example.com/qr.png"
-        assert response.state == "random_state"
-        assert response.expires_in == 180
-
-    def test_wechat_qr_response_default_expires(self) -> None:
-        """测试默认过期时间"""
-        response = WechatQRResponse(
-            qr_url="https://example.com/qr.png",
-            state="random_state"
-        )
-        assert response.expires_in == 180
-
-    def test_wechat_qr_status_response_pending(self) -> None:
-        """测试待处理状态响应"""
-        response = WechatQRStatusResponse(status="pending")
-        assert response.status == "pending"
-        assert response.bind_token is None
-        assert response.user is None
-        assert response.access_token is None
-
-    def test_wechat_qr_status_response_with_bind_token(self) -> None:
-        """测试带绑定令牌的状态响应"""
-        response = WechatQRStatusResponse(
-            status="scanning",
-            bind_token="bind_token_123"
-        )
-        assert response.status == "scanning"
-        assert response.bind_token == "bind_token_123"
 
     def test_change_password_request_valid(self) -> None:
         """测试有效修改密码请求"""

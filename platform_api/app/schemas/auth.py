@@ -8,6 +8,7 @@ Date: 2025
 """
 
 from typing import Optional
+
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -15,6 +16,7 @@ class LoginRequest(BaseModel):
     """
     登录请求
     """
+
     userid: str = Field(..., description="用户ID", min_length=1, max_length=64)
     password: str = Field(..., description="密码", min_length=1, max_length=128)
 
@@ -23,6 +25,7 @@ class UsernamePasswordLoginRequest(BaseModel):
     """
     账号密码登录请求
     """
+
     userid: str = Field(..., description="用户ID", min_length=1, max_length=64)
     password: str = Field(..., description="密码", min_length=1, max_length=128)
 
@@ -31,6 +34,7 @@ class TokenResponse(BaseModel):
     """
     令牌响应
     """
+
     access_token: str = Field(..., description="访问令牌")
     token_type: str = Field(default="bearer", description="令牌类型")
     expires_in: int = Field(..., description="过期时间（秒）")
@@ -40,6 +44,7 @@ class UserInfo(BaseModel):
     """
     用户信息
     """
+
     id: int = Field(..., description="用户ID")
     userid: str = Field(..., description="登录用户ID")
     nickname: Optional[str] = Field(default=None, description="昵称")
@@ -51,6 +56,7 @@ class LoginResponse(BaseModel):
     """
     登录响应
     """
+
     access_token: str = Field(..., description="访问令牌")
     refresh_token: str = Field(..., description="刷新令牌")
     token_type: str = Field(default="bearer", description="令牌类型")
@@ -63,6 +69,7 @@ class RefreshTokenResponse(BaseModel):
     """
     刷新令牌响应
     """
+
     access_token: str = Field(..., description="新的访问令牌")
     token_type: str = Field(default="bearer", description="令牌类型")
     expires_in: int = Field(..., description="过期时间（秒）")
@@ -72,6 +79,7 @@ class ChangePasswordRequest(BaseModel):
     """
     修改密码请求
     """
+
     old_password: str = Field(..., description="原密码", min_length=1, max_length=128)
     new_password: str = Field(..., description="新密码", min_length=6, max_length=128)
     confirm_password: str = Field(..., description="确认新密码")
@@ -90,6 +98,7 @@ class UpdateDisplayNameRequest(BaseModel):
     """
     更新自定义昵称请求
     """
+
     display_name: Optional[str] = Field(None, description="自定义昵称", max_length=100)
 
     @field_validator("display_name")
@@ -105,4 +114,5 @@ class RefreshTokenRequest(BaseModel):
     """
     刷新令牌请求
     """
+
     refresh_token: str = Field(..., description="刷新令牌", min_length=1)

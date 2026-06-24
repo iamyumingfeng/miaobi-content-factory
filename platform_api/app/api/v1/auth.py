@@ -9,28 +9,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
-from app.services.token_service import TokenService
-from app.core.exceptions import (
-    InvalidCredentialsError,
-    UserNotFoundError,
-    OldPasswordError,
-    PasswordSameError,
-    UseridNotFoundError,
-    PasswordIncorrectError,
-    AccountLockedError,
-)
-from app.utils.response import success_response, ApiResponse
-from app.utils.deps import get_token_payload_required
+from app.core.exceptions import (AccountLockedError, InvalidCredentialsError,
+                                 OldPasswordError, PasswordIncorrectError,
+                                 PasswordSameError, UseridNotFoundError,
+                                 UserNotFoundError)
+from app.schemas.auth import (ChangePasswordRequest, LoginRequest,
+                              LoginResponse, RefreshTokenRequest,
+                              RefreshTokenResponse, UpdateDisplayNameRequest,
+                              UserInfo)
 from app.services.auth_service import AuthService
-from app.schemas.auth import (
-    LoginRequest,
-    LoginResponse,
-    UserInfo,
-    ChangePasswordRequest,
-    UpdateDisplayNameRequest,
-    RefreshTokenRequest,
-    RefreshTokenResponse,
-)
+from app.services.token_service import TokenService
+from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 
@@ -53,23 +43,17 @@ async def login(
 
         # 生成令牌并创建登录响应
         login_response = await TokenService.create_login_response(
-            db=db,
-            user=user,
-            user_type=user_type
+            db=db, user=user, user_type=user_type
         )
 
         return success_response(data=login_response, message="登录成功")
 
     except (UseridNotFoundError, PasswordIncorrectError, InvalidCredentialsError):
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="用户名或密码错误"
         )
     except AccountLockedError as e:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=e.message
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=e.message)
 
 
 @router.post("/refresh", response_model=ApiResponse[RefreshTokenResponse])
@@ -85,23 +69,19 @@ async def refresh_token(
     """
     try:
         refresh_response, error = await TokenService.refresh_access_token(
-            db=db,
-            refresh_token_str=request.refresh_token
+            db=db, refresh_token_str=request.refresh_token
         )
 
         if error or not refresh_response:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail=error or "无效的 refresh token"
+                detail=error or "无效的 refresh token",
             )
 
         return success_response(data=refresh_response, message="刷新成功")
 
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
 
 
 @router.post("/change-password", response_model=ApiResponse[dict])
@@ -131,19 +111,14 @@ async def change_password(
         return success_response(message="密码修改成功，请重新登录")
 
     except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
     except OldPasswordError:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="原密码错误"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="原密码错误"
         )
     except PasswordSameError:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="新密码不能与原密码相同"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="新密码不能与原密码相同"
         )
 
 
@@ -170,10 +145,7 @@ async def update_display_name(
         return success_response(message="昵称更新成功")
 
     except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
 
 
 @router.get("/me", response_model=ApiResponse[UserInfo])
@@ -191,10 +163,7 @@ async def get_current_user(
 
     user = await AuthService.get_user_by_id(db, user_id, user_type)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在")
 
     user_info = UserInfo(
         id=user.id,
@@ -226,7 +195,7 @@ async def logout(
         db=db,
         user_id=user_id,
         user_type=user_type,
-        refresh_token_str=request.refresh_token
+        refresh_token_str=request.refresh_token,
     )
 
     return success_response(message="退出成功")

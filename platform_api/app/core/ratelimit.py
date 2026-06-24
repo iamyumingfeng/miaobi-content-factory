@@ -7,13 +7,12 @@ Author: Claude Code
 Date: 2025
 """
 
-import time
 import asyncio
 import logging
-from typing import Dict, Optional
+import time
 from dataclasses import dataclass
+from typing import Dict, Optional
 
-from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TokenBucketConfig:
     """令牌桶配置"""
+
     rate: float  # 每秒生成令牌数 (QPS)
     capacity: float  # 桶容量（最大突发量）
     initial_tokens: float = 0.0  # 初始令牌数

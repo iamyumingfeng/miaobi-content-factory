@@ -14,16 +14,16 @@ Date: 2026
 import json
 import logging
 import random
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import CreativeSeed
 from app.adapters.base import GenerationResult
-from app.adapters.params import TextGenParams, ImageGenParams
-from app.adapters.factory import ModelAdapterFactory
 from app.adapters.config import get_model_config_manager
+from app.adapters.factory import ModelAdapterFactory
+from app.adapters.params import TextGenParams
+from app.models import CreativeSeed
 from app.services.creative_seeds import get_creative_seeds_for_generation_async
 
 logger = logging.getLogger(__name__)
@@ -89,103 +89,103 @@ class OptimizedContentGenerator:
         "seeding": {
             "name": "种草安利型",
             "structure": "痛点 → 发现 → 体验 → 安利",
-            "tips": "强调使用前后的对比、细节场景、个人真实感受"
+            "tips": "强调使用前后的对比、细节场景、个人真实感受",
         },
         "review": {
             "name": "测评对比型",
             "structure": "横向对比 → 优缺点分析 → 选购建议",
-            "tips": "客观中立、有数据/事实支撑、给出明确适用人群"
+            "tips": "客观中立、有数据/事实支撑、给出明确适用人群",
         },
         "tutorial": {
             "name": "教程攻略型",
             "structure": "问题 → 步骤讲解 → 避坑指南 → 效果展示",
-            "tips": "清晰易懂、有步骤感、实用可操作"
+            "tips": "清晰易懂、有步骤感、实用可操作",
         },
         "sharing": {
             "name": "好物分享型",
             "structure": "日常场景 → 偶遇好物 → 深度体验 → 推荐理由",
-            "tips": "自然随意、像朋友圈分享、有生活感"
+            "tips": "自然随意、像朋友圈分享、有生活感",
         },
         "pain_point": {
             "name": "痛点解决方案型",
             "structure": "戳中痛点 → 痛苦场景 → 解决方案 → 使用反馈",
-            "tips": "痛点要具体、场景要真实、方案要可信"
+            "tips": "痛点要具体、场景要真实、方案要可信",
         },
         "story": {
             "name": "故事叙述型",
             "structure": "背景故事 → 转折发现 → 使用历程 → 现状",
-            "tips": "有情节、有情感、有细节、让人想听完"
+            "tips": "有情节、有情感、有细节、让人想听完",
         },
         "lifestyle": {
             "name": "生活场景型",
             "structure": "日常片段 → 好物融入 → 生活改变 → 态度表达",
-            "tips": "有画面感、生活气息浓、体现生活态度"
+            "tips": "有画面感、生活气息浓、体现生活态度",
         },
         "before_after": {
             "name": "前后对比型",
             "structure": "之前状态 → 使用中 → 之后变化 → 总结",
-            "tips": "对比要明显、真实可信、细节具体"
+            "tips": "对比要明显、真实可信、细节具体",
         },
         "unboxing": {
             "name": "开箱体验型",
             "structure": "快递开箱 → 第一印象 → 细节发现 → 使用初体验",
-            "tips": "有仪式感、细节描写、真实情绪流露"
+            "tips": "有仪式感、细节描写、真实情绪流露",
         },
         "faq": {
             "name": "答疑解惑型",
             "structure": "常见疑问 → 逐一解答 → 总结推荐",
-            "tips": "问题精准、解答专业、态度诚恳"
+            "tips": "问题精准、解答专业、态度诚恳",
         },
         "daily": {
             "name": "日常记录型",
             "structure": "时间线 → 当日片段 → 好物出镜 → 自然植入",
-            "tips": "真实自然、不刻意、像流水账但有重点"
+            "tips": "真实自然、不刻意、像流水账但有重点",
         },
         "collection": {
             "name": "合集盘点型",
             "structure": "主题引入 → 逐一盘点 → 对比总结 → 选购指南",
-            "tips": "信息密度高、有观点、有个人偏好"
+            "tips": "信息密度高、有观点、有个人偏好",
         },
         "hidden_gem": {
             "name": "宝藏发现型",
             "structure": "偶然发现 → 不看好 → 惊艳体验 → 宝藏推荐",
-            "tips": "有反差感、强调小众/不为人知、推荐有说服力"
+            "tips": "有反差感、强调小众/不为人知、推荐有说服力",
         },
         "guide": {
             "name": "新手指南型",
             "structure": "新手困境 → 从零开始 → 心得总结 → 避坑建议",
-            "tips": "共情新手、语言接地气、有可操作性"
+            "tips": "共情新手、语言接地气、有可操作性",
         },
         "transform": {
             "name": "改造焕新型",
             "structure": "改造前 → 改造过程 → 改造后 → 心得",
-            "tips": "视觉感强、有过程、有成就感"
+            "tips": "视觉感强、有过程、有成就感",
         },
         "hack": {
             "name": "小妙招型",
             "structure": "问题困扰 → 发现妙招 → 实践验证 → 效果展示",
-            "tips": "巧妙实用、有智慧感、可复制"
+            "tips": "巧妙实用、有智慧感、可复制",
         },
         "wishlist": {
             "name": "许愿清单型",
             "structure": "种草背景 → 清单内容 → 逐个分析 → 选购规划",
-            "tips": "有期待感、有理有据、引发共鸣"
+            "tips": "有期待感、有理有据、引发共鸣",
         },
         "comparison": {
             "name": "横评选购型",
             "structure": "选购标准 → 逐个分析 → 适用人群 → 最终推荐",
-            "tips": "维度清晰、立场客观、给出明确建议"
+            "tips": "维度清晰、立场客观、给出明确建议",
         },
         "diary": {
             "name": "日记打卡型",
             "structure": "第1天 → 第N天 → 变化过程 → 总结",
-            "tips": "有时间线、真实记录、有成长感"
+            "tips": "有时间线、真实记录、有成长感",
         },
         "trend": {
             "name": "热门趋势型",
             "structure": "趋势介绍 → 趋势分析 → 个人体验 → 建议",
-            "tips": "有前瞻性、有观点、有个人判断"
-        }
+            "tips": "有前瞻性、有观点、有个人判断",
+        },
     }
 
     @classmethod
@@ -224,9 +224,15 @@ class OptimizedContentGenerator:
 
         # 步骤 1: 获取并构建所有配置
         config = await cls._build_generation_config(
-            db, template, material, sub_user, benchmark_material,
-            owner_operator_id, image_count, creative_seed_override,
-            dedup_diversity_hint
+            db,
+            template,
+            material,
+            sub_user,
+            benchmark_material,
+            owner_operator_id,
+            image_count,
+            creative_seed_override,
+            dedup_diversity_hint,
         )
 
         # 步骤 2: 构建主提示词（整合所有要求）
@@ -234,8 +240,7 @@ class OptimizedContentGenerator:
 
         # 步骤 3: 调用 LLM 一次性生成
         result = await cls._call_llm_directly(
-            db, system_prompt, user_prompt,
-            model_platform, model_id, owner_operator_id
+            db, system_prompt, user_prompt, model_platform, model_id, owner_operator_id
         )
 
         if not result.success or not result.text:
@@ -253,7 +258,9 @@ class OptimizedContentGenerator:
         # 步骤 4: 解析结果
         parsed = cls._parse_combined_result(result.text)
 
-        logger.info(f"[OptimizedGenerator] 直接生成完成 | title_len={len(parsed.get('title', ''))} | text_len={len(parsed.get('content', ''))}")
+        logger.info(
+            f"[OptimizedGenerator] 直接生成完成 | title_len={len(parsed.get('title', ''))} | text_len={len(parsed.get('content', ''))}"
+        )
 
         return {
             "success": True,
@@ -286,9 +293,14 @@ class OptimizedContentGenerator:
 
         # 内容平台（从模板平台推断）
         platform_name = "小红书"
-        if template and hasattr(template, 'platform_id') and template.platform_id:
+        if template and hasattr(template, "platform_id") and template.platform_id:
             from app.models import TemplatePlatform
-            tp_result = await db.execute(select(TemplatePlatform).where(TemplatePlatform.id == template.platform_id))
+
+            tp_result = await db.execute(
+                select(TemplatePlatform).where(
+                    TemplatePlatform.id == template.platform_id
+                )
+            )
             tp = tp_result.scalar_one_or_none()
             if tp:
                 platform_name = tp.name
@@ -309,7 +321,9 @@ class OptimizedContentGenerator:
                 # 随机选择一个爆款类型
                 viral_type = random.choice(list(cls.VIRAL_TYPE_CONFIGS.keys()))
                 viral_config = cls.VIRAL_TYPE_CONFIGS.get(viral_type)
-                logger.debug(f"[OptimizedGenerator] 爆款类型设置为 auto，随机选择: {viral_type}")
+                logger.debug(
+                    f"[OptimizedGenerator] 爆款类型设置为 auto，随机选择: {viral_type}"
+                )
             else:
                 viral_type = template.viral_type
                 viral_config = cls.VIRAL_TYPE_CONFIGS.get(viral_type)
@@ -318,7 +332,11 @@ class OptimizedContentGenerator:
 
         # 产品卖点（新增字段）
         product_selling_points = None
-        if template and hasattr(template, "product_selling_points") and template.product_selling_points:
+        if (
+            template
+            and hasattr(template, "product_selling_points")
+            and template.product_selling_points
+        ):
             product_selling_points = template.product_selling_points
         config["product_selling_points"] = product_selling_points
 
@@ -348,15 +366,27 @@ class OptimizedContentGenerator:
                         # seed_id 为 "auto" 表示随机选择，为数字字符串表示指定种子ID
                         if seed_id == "auto":
                             use_random = True
-                            logger.debug(f"[OptimizedGenerator] {seed_type} 种子设置为 auto，将随机选择")
+                            logger.debug(
+                                f"[OptimizedGenerator] {seed_type} 种子设置为 auto，将随机选择"
+                            )
                         elif seed_id:
                             # 指定了具体种子ID，查询数据库
                             try:
-                                seed_id_int = int(seed_id) if isinstance(seed_id, str) else seed_id
-                                seed_result = await db.execute(select(CreativeSeed).where(CreativeSeed.id == seed_id_int))
+                                seed_id_int = (
+                                    int(seed_id)
+                                    if isinstance(seed_id, str)
+                                    else seed_id
+                                )
+                                seed_result = await db.execute(
+                                    select(CreativeSeed).where(
+                                        CreativeSeed.id == seed_id_int
+                                    )
+                                )
                                 specified_seed = seed_result.scalar_one_or_none()
                             except (ValueError, TypeError):
-                                logger.warning(f"[OptimizedGenerator] 无效的种子ID: {seed_id}，将随机选择")
+                                logger.warning(
+                                    f"[OptimizedGenerator] 无效的种子ID: {seed_id}，将随机选择"
+                                )
                                 use_random = True
 
                     if specified_seed and specified_seed.status == "enabled":
@@ -367,13 +397,21 @@ class OptimizedContentGenerator:
 
                     if use_random:
                         # 随机选择一个
-                        category = getattr(template, "category", "通用") if template else "通用"
-                        seeds = await get_creative_seeds_for_generation_async(db, seed_type, category, owner_operator_id)
+                        category = (
+                            getattr(template, "category", "通用")
+                            if template
+                            else "通用"
+                        )
+                        seeds = await get_creative_seeds_for_generation_async(
+                            db, seed_type, category, owner_operator_id
+                        )
                         if seeds:
                             selected = random.choice(seeds)
                             creative_seeds[seed_type] = selected
                             seed_ids.append(str(selected.id))
-                            logger.debug(f"[OptimizedGenerator] {seed_type} 随机选择种子 ID={selected.id}")
+                            logger.debug(
+                                f"[OptimizedGenerator] {seed_type} 随机选择种子 ID={selected.id}"
+                            )
 
         config["creative_seeds"] = creative_seeds
         config["creative_seed_ids"] = seed_ids
@@ -392,12 +430,24 @@ class OptimizedContentGenerator:
             }
 
         # 模板指令
-        config["prompt_creative"] = template.description if template and hasattr(template, "description") else ""
-        config["template_instruction"] = template.prompt_template if template and hasattr(template, "prompt_template") else ""
+        config["prompt_creative"] = (
+            template.description
+            if template and hasattr(template, "description")
+            else ""
+        )
+        config["template_instruction"] = (
+            template.prompt_template
+            if template and hasattr(template, "prompt_template")
+            else ""
+        )
 
         # 图片参数
         config["image_count"] = image_count
-        config["image_size_ratio"] = template.image_size_ratio if template and hasattr(template, "image_size_ratio") else "3:4"
+        config["image_size_ratio"] = (
+            template.image_size_ratio
+            if template and hasattr(template, "image_size_ratio")
+            else "3:4"
+        )
 
         # 去重多样性提示
         config["dedup_diversity_hint"] = dedup_diversity_hint
@@ -413,6 +463,7 @@ class OptimizedContentGenerator:
         - System Prompt: 角色、规则、输出格式（不变的约束）
         - User Prompt: 具体任务、素材、创意配置（每次请求变化的部分）
         """
+
         # 安全读取字段（兼容 dict 和对象属性两种访问方式）
         def _safe_getattr(obj, key):
             if isinstance(obj, dict):
@@ -428,9 +479,11 @@ class OptimizedContentGenerator:
         system_prompt_parts = []
 
         # 1. 角色定位
-        system_prompt_parts.append(f"""你是一位资深的{platform}自媒体创作者，专注于{content_type}内容创作。
+        system_prompt_parts.append(
+            f"""你是一位资深的{platform}自媒体创作者，专注于{content_type}内容创作。
 你的目标是写出让普通用户看了想点赞、收藏、评论、被种草的真实内容。
-""")
+"""
+        )
 
         # 2. 平台合规
         system_prompt_parts.append(cls.PLATFORM_COMPLIANCE_RULES)
@@ -442,17 +495,22 @@ class OptimizedContentGenerator:
         # 获取模板指令和提示词模板，用于在image_prompts中指导LLM
         template_instruction = config.get("template_instruction", "")
         template_prompt = config.get("template_prompt", "")
-        
+
         image_prompt_instruction = ""
         if template_instruction or template_prompt:
-            image_prompt_instruction = "\n【重要】生成image_prompts时，必须考虑以下模板指令和提示词模板：\n"
+            image_prompt_instruction = (
+                "\n【重要】生成image_prompts时，必须考虑以下模板指令和提示词模板：\n"
+            )
             if template_instruction:
                 image_prompt_instruction += f"- 创作方向：{template_instruction}\n"
             if template_prompt:
                 image_prompt_instruction += f"- 提示词模板：{template_prompt}\n"
-            image_prompt_instruction += "确保生成的图片符合产品外观一致性要求，避免改变产品外观。\n"
-        
-        system_prompt_parts.append(f"""
+            image_prompt_instruction += (
+                "确保生成的图片符合产品外观一致性要求，避免改变产品外观。\n"
+            )
+
+        system_prompt_parts.append(
+            f"""
 【输出格式 - 严格JSON】
 请以以下JSON格式输出，不要任何其他内容：
 ```json
@@ -468,7 +526,8 @@ class OptimizedContentGenerator:
   ]
 }}{image_prompt_instruction}
 ```
-""")
+"""
+        )
 
         system_prompt = "\n".join(system_prompt_parts)
 
@@ -482,7 +541,9 @@ class OptimizedContentGenerator:
         if material:
             user_prompt_parts.append("\n## 参考素材（创作基础）")
             _title = _safe_getattr(material, "title")
-            _text = _safe_getattr(material, "text_content") or _safe_getattr(material, "content")
+            _text = _safe_getattr(material, "text_content") or _safe_getattr(
+                material, "content"
+            )
             _topic = _safe_getattr(material, "topic")
             if _title:
                 user_prompt_parts.append(f"标题：{_title}")
@@ -495,10 +556,16 @@ class OptimizedContentGenerator:
         benchmark_material = config.get("benchmark_material")
         if benchmark_material:
             user_prompt_parts.append("\n## 对标素材（参考学习，禁止抄袭）")
-            user_prompt_parts.append("⚠️ 重要：以下是对标素材，用于学习文案风格、结构、表达方式。")
-            user_prompt_parts.append("请参考其写作思路，但不要抄袭内容，最终文案要围绕你的产品来写。")
+            user_prompt_parts.append(
+                "⚠️ 重要：以下是对标素材，用于学习文案风格、结构、表达方式。"
+            )
+            user_prompt_parts.append(
+                "请参考其写作思路，但不要抄袭内容，最终文案要围绕你的产品来写。"
+            )
             _title = _safe_getattr(benchmark_material, "title")
-            _text = _safe_getattr(benchmark_material, "text_content") or _safe_getattr(benchmark_material, "content")
+            _text = _safe_getattr(benchmark_material, "text_content") or _safe_getattr(
+                benchmark_material, "content"
+            )
             if _title:
                 user_prompt_parts.append(f"标题：{_title}")
             if _text:
@@ -521,23 +588,27 @@ class OptimizedContentGenerator:
             positioning = sub_user_profile.get("account_positioning", "")
             style = sub_user_profile.get("content_style", "")
             if persona or positioning or style:
-                user_prompt_parts.append(f"""
+                user_prompt_parts.append(
+                    f"""
 ## 创作者账号定位 - 内容要适配
 粉丝画像：{persona}
 账号定位：{positioning}
 内容风格：{style}
 
 💡 关键：你的语气、视角、专业度要完全符合这个账号的人设！
-""")
+"""
+                )
 
         # 6. 爆款类型配置
         viral_config = config.get("viral_config")
         if viral_config:
-            user_prompt_parts.append(f"""
+            user_prompt_parts.append(
+                f"""
 ## 爆款类型：{viral_config['name']}
 结构要求：{viral_config['structure']}
 创作要点：{viral_config['tips']}
-""")
+"""
+            )
 
         # 7. 创意种子配置
         creative_seeds = config.get("creative_seeds", {})
@@ -550,32 +621,40 @@ class OptimizedContentGenerator:
         # 8. 产品信息（这是你要推广的产品）
         product_name = config.get("product_name", "")
         product_selling_points = config.get("product_selling_points")
-        
+
         if product_name or product_selling_points:
-            user_prompt_parts.append(f"""
-## 产品信息 - 这是你要推广的产品！""")
+            user_prompt_parts.append(
+                """
+## 产品信息 - 这是你要推广的产品！"""
+            )
             if product_name:
                 user_prompt_parts.append(f"产品名称：{product_name}")
             if product_selling_points:
-                user_prompt_parts.append(f"""
+                user_prompt_parts.append(
+                    f"""
 产品核心卖点（可以随机选择组合多个卖点）：
-{product_selling_points}""")
-            user_prompt_parts.append("""
+{product_selling_points}"""
+                )
+            user_prompt_parts.append(
+                """
 ⚠️ 关键：
 1. 文案内容必须围绕这个产品来写，不要写成对标素材里的产品
 2. 不要单独罗列卖点，要把卖点融入具体使用场景和故事中
 3. 图片提示词中的产品外观要参考产品图，不要参考对标素材的产品
-""")
+"""
+            )
 
         # 9. 去重多样性提示
         dedup_hint = config.get("dedup_diversity_hint")
         if dedup_hint:
-            user_prompt_parts.append(f"""
+            user_prompt_parts.append(
+                f"""
 ## 多样性要求（重要！）
 这是重新生成的版本，请务必做到：
 {dedup_hint}
 ⚠️ 不要和之前的版本在结构、用词、视角上重复！
-""")
+"""
+            )
 
         # 10. 图片生成要求
         benchmark_image_enabled = config.get("benchmark_image_enabled", False)
@@ -592,20 +671,20 @@ class OptimizedContentGenerator:
 4. 构图建议
 5. 质量要求（真实自然，无AI痕迹）
 """
-        
+
         if benchmark_image_enabled:
-            image_instruction += f"""
+            image_instruction += """
 ⚠️ 图片生成特别说明：
 - 对标素材图：用于学习构图、风格、光影，但产品外观不要参考它
 - 产品图：用于参考产品外观，图片中的产品要保持与产品图一致（轮廓、比例、样式、色彩、纹理、材质、细节等）
 - 如果模板指令提到"参考对标素材图"，是指参考其构图和风格，而不是参考其产品外观
 """
         else:
-            image_instruction += f"""
+            image_instruction += """
 ⚠️ 图片生成特别说明：
 - 产品图：用于参考产品外观，图片中的产品要保持与产品图一致（轮廓、比例、样式、色彩、纹理、材质、细节等）
 """
-        
+
         user_prompt_parts.append(image_instruction)
 
         user_prompt = "\n".join(user_prompt_parts)
@@ -633,26 +712,34 @@ class OptimizedContentGenerator:
 
         # 如果指定了平台和模型ID，查找对应配置
         if model_platform and model_id:
-            configs = await model_config_manager.get_configs_by_platform(db, model_platform.lower(), model_type="llm")
+            configs = await model_config_manager.get_configs_by_platform(
+                db, model_platform.lower(), model_type="llm"
+            )
             for cfg in configs:
                 if cfg.model_id == model_id:
                     config = cfg
                     platform = model_platform.lower()
                     break
             if not config:
-                logger.warning(f"[OptimizedGenerator] 未找到指定模型配置，回退默认")
+                logger.warning("[OptimizedGenerator] 未找到指定模型配置，回退默认")
 
         # 如果没有找到指定配置，使用平台默认配置
         if not config:
             result = await model_config_manager.get_default_config_with_platform(
-                db, platform=model_platform.lower() if model_platform else None, model_type="llm"
+                db,
+                platform=model_platform.lower() if model_platform else None,
+                model_type="llm",
             )
             if result:
                 config, platform = result
             else:
-                return GenerationResult(success=False, error_message="No LLM model available")
+                return GenerationResult(
+                    success=False, error_message="No LLM model available"
+                )
 
-        logger.info(f"[OptimizedGenerator] 使用模型 | platform={platform} | model_id={config.model_id}")
+        logger.info(
+            f"[OptimizedGenerator] 使用模型 | platform={platform} | model_id={config.model_id}"
+        )
         adapter = ModelAdapterFactory.create_adapter(platform, config)
 
         # 构建 TextGenParams，从 config 读取配置
@@ -662,12 +749,15 @@ class OptimizedContentGenerator:
             max_tokens=extra_params.get("max_tokens", 32000),
             temperature=extra_params.get("temperature", 0.7),
             top_p=extra_params.get("top_p", 0.8),
-            enable_thinking=(platform.lower() == "bailian") and extra_params.get("enable_thinking", True),
+            enable_thinking=(platform.lower() == "bailian")
+            and extra_params.get("enable_thinking", True),
         )
 
         # 在调用之前完成变量替换（OptimizedGenerator 不使用变量，所以传入 None）
         formatted_user = adapter.format_prompt(user_prompt, None)
-        formatted_system = adapter.format_prompt(system_prompt, None) if system_prompt else None
+        formatted_system = (
+            adapter.format_prompt(system_prompt, None) if system_prompt else None
+        )
 
         return await adapter.generate_text(
             user_prompt=formatted_user,
@@ -692,7 +782,9 @@ class OptimizedContentGenerator:
         if json_block_match:
             try:
                 parsed = json.loads(json_block_match)
-                logger.debug(f"[OptimizedGenerator] JSON解析成功 | keys={list(parsed.keys())}")
+                logger.debug(
+                    f"[OptimizedGenerator] JSON解析成功 | keys={list(parsed.keys())}"
+                )
                 return parsed
             except json.JSONDecodeError as e:
                 logger.warning(f"[OptimizedGenerator] JSON解析失败: {str(e)[:100]}")
@@ -701,7 +793,9 @@ class OptimizedContentGenerator:
                 if repaired:
                     try:
                         parsed = json.loads(repaired)
-                        logger.info(f"[OptimizedGenerator] JSON修复成功 | keys={list(parsed.keys())}")
+                        logger.info(
+                            f"[OptimizedGenerator] JSON修复成功 | keys={list(parsed.keys())}"
+                        )
                         return parsed
                     except json.JSONDecodeError:
                         pass
@@ -709,7 +803,9 @@ class OptimizedContentGenerator:
         # 尝试直接解析
         try:
             parsed = json.loads(raw_text.strip())
-            logger.debug(f"[OptimizedGenerator] 直接解析成功 | keys={list(parsed.keys())}")
+            logger.debug(
+                f"[OptimizedGenerator] 直接解析成功 | keys={list(parsed.keys())}"
+            )
             return parsed
         except json.JSONDecodeError:
             pass
@@ -741,7 +837,7 @@ class OptimizedContentGenerator:
 
             if last_complete > 0:
                 # 从最后一个完整位置截取
-                json_text = json_text[:last_complete + 1]
+                json_text = json_text[: last_complete + 1]
             else:
                 # 尝试补全
                 open_braces = json_text.count("{") - json_text.count("}")
@@ -757,12 +853,7 @@ class OptimizedContentGenerator:
         """
         import re
 
-        result = {
-            "title": "",
-            "content": "",
-            "topics": [],
-            "image_prompts": []
-        }
+        result = {"title": "", "content": "", "topics": [], "image_prompts": []}
 
         # 使用正则提取标题 - 匹配 "title": "..."
         title_pattern = r'"title"\s*:\s*"([^"]+)"'
@@ -778,10 +869,10 @@ class OptimizedContentGenerator:
             # 处理转义字符
             content_text = content_match.group(1)
             # 基本的转义处理
-            content_text = content_text.replace('\\n', '\n')
-            content_text = content_text.replace('\\r', '')
+            content_text = content_text.replace("\\n", "\n")
+            content_text = content_text.replace("\\r", "")
             content_text = content_text.replace('\\"', '"')
-            content_text = content_text.replace('\\\\', '\\')
+            content_text = content_text.replace("\\\\", "\\")
             result["content"] = content_text.strip()
 
         # 使用正则提取 topics - 匹配数组
@@ -800,9 +891,13 @@ class OptimizedContentGenerator:
             prompts_str = prompts_match.group(1)
             # 提取每个提示词
             prompt_items = re.findall(r'"(.+?)"', prompts_str, re.DOTALL)
-            result["image_prompts"] = [p.replace('\\n', '\n').strip() for p in prompt_items]
+            result["image_prompts"] = [
+                p.replace("\\n", "\n").strip() for p in prompt_items
+            ]
 
-        logger.info(f"[OptimizedGenerator] 修复解析结果 | title_len={len(result['title'])} | text_len={len(result['content'])} | topics={len(result['topics'])} | prompts={len(result['image_prompts'])}")
+        logger.info(
+            f"[OptimizedGenerator] 修复解析结果 | title_len={len(result['title'])} | text_len={len(result['content'])} | topics={len(result['topics'])} | prompts={len(result['image_prompts'])}"
+        )
 
         return result
 
@@ -819,7 +914,9 @@ class OptimizedContentGenerator:
         """
         hints = []
 
-        hints.append(f"本次相似度阈值是 {1 - similarity_level:.2%}，请完全避开以下重复：")
+        hints.append(
+            f"本次相似度阈值是 {1 - similarity_level:.2%}，请完全避开以下重复："
+        )
 
         if previous_seed_ids:
             hints.append(f"- 不要使用创意种子 ID: {', '.join(previous_seed_ids)}")
@@ -828,7 +925,9 @@ class OptimizedContentGenerator:
             hints.append(f"- 避免使用 '{previous_viral_type}' 爆款类型结构")
 
         if failed_segments and len(failed_segments) > 0:
-            hints.append(f"- 特别注意这些段落要彻底改写: {', '.join([str(s.get('index', '')) for s in failed_segments])}")
+            hints.append(
+                f"- 特别注意这些段落要彻底改写: {', '.join([str(s.get('index', '')) for s in failed_segments])}"
+            )
 
         hints.append("\n请：")
         hints.append("1. 完全换一个写作视角和切入点")

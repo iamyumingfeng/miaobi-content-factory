@@ -7,41 +7,22 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import List, Optional
-from datetime import datetime, timezone
 import secrets
-from sqlalchemy import select, and_, func, delete, update
+from datetime import datetime, timezone
+from typing import List, Optional
+
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import get_password_hash, generate_userid
-from app.core.exceptions import (
-    UserNotFoundError,
-)
-from app.models import (
-    SuperAdmin,
-    Operator,
-    SubUser,
-    UserTag,
-    UserTagRel,
-    CreativeSeed,
-    MaterialPlatform,
-    MaterialCategory,
-    MaterialAttachment,
-    MaterialTag,
-    MaterialTagRel,
-    MaterialFavorite,
-    Material,
-    TemplatePlatform,
-    TemplateCategory,
-    TemplateTag,
-    TemplateTagRel,
-    Template,
-    ContentEmbedding,
-    GenerationTask,
-    GenerationItem,
-    Distribution,
-    OperationLog,
-)
+from app.core.exceptions import UserNotFoundError
+from app.core.security import generate_userid, get_password_hash
+from app.models import (ContentEmbedding, CreativeSeed, Distribution,
+                        GenerationItem, GenerationTask, Material,
+                        MaterialAttachment, MaterialCategory, MaterialFavorite,
+                        MaterialPlatform, MaterialTag, MaterialTagRel,
+                        OperationLog, Operator, SubUser, SuperAdmin, Template,
+                        TemplateCategory, TemplatePlatform, TemplateTag,
+                        TemplateTagRel, UserTag, UserTagRel)
 
 
 class UserService:
@@ -254,12 +235,15 @@ class UserService:
 
         # 检查是否正在禁用
         new_status = kwargs.get("status")
-        is_disabling = (new_status == "disabled" and operator.status != "disabled")
+        is_disabling = new_status == "disabled" and operator.status != "disabled"
 
         # 更新字段
         allowed_fields = [
-            "nickname", "display_name", "status",
-            "user_positioning", "user_category"
+            "nickname",
+            "display_name",
+            "status",
+            "user_positioning",
+            "user_category",
         ]
         for field, value in kwargs.items():
             if field in allowed_fields and value is not None:
@@ -395,7 +379,7 @@ class UserService:
                 and_(
                     UserTagRel.user_id == SubUser.id,
                     UserTagRel.tag_id == tag_id,
-                )
+                ),
             )
 
         # 获取总数
@@ -441,16 +425,18 @@ class UserService:
                         for rel in tag_rels_by_user[user.id]:
                             if rel.tag_id in tags_by_id:
                                 tag = tags_by_id[rel.tag_id]
-                                user_tags.append({
-                                    "id": tag.id,
-                                    "name": tag.name,
-                                    "tag_type": tag.tag_type,
-                                    "description": tag.description,
-                                    "color": tag.color,
-                                    "created_by": tag.created_by,
-                                    "created_at": tag.created_at,
-                                    "updated_at": tag.updated_at,
-                                })
+                                user_tags.append(
+                                    {
+                                        "id": tag.id,
+                                        "name": tag.name,
+                                        "tag_type": tag.tag_type,
+                                        "description": tag.description,
+                                        "color": tag.color,
+                                        "created_by": tag.created_by,
+                                        "created_at": tag.created_at,
+                                        "updated_at": tag.updated_at,
+                                    }
+                                )
                     # 动态添加 tags 属性
                     user.tags = user_tags
 
@@ -536,10 +522,7 @@ class UserService:
 
         # 统计每个标签下的创作者数量
         query = (
-            select(
-                UserTagRel.tag_id,
-                func.count(UserTagRel.user_id).label('count')
-            )
+            select(UserTagRel.tag_id, func.count(UserTagRel.user_id).label("count"))
             .select_from(UserTagRel)
             .join(SubUser, UserTagRel.user_id == SubUser.id)
             .where(SubUser.owner_operator_id == owner_operator_id)
@@ -559,7 +542,9 @@ class UserService:
         """
         获取超级管理员详情
         """
-        result = await db.execute(select(SuperAdmin).where(SuperAdmin.id == super_admin_id))
+        result = await db.execute(
+            select(SuperAdmin).where(SuperAdmin.id == super_admin_id)
+        )
         return result.scalar_one_or_none()
 
     @staticmethod
@@ -571,7 +556,9 @@ class UserService:
         """
         更新超级管理员
         """
-        result = await db.execute(select(SuperAdmin).where(SuperAdmin.id == super_admin_id))
+        result = await db.execute(
+            select(SuperAdmin).where(SuperAdmin.id == super_admin_id)
+        )
         super_admin = result.scalar_one_or_none()
         if not super_admin:
             raise UserNotFoundError()
@@ -596,7 +583,9 @@ class UserService:
         """
         删除超级管理员
         """
-        result = await db.execute(select(SuperAdmin).where(SuperAdmin.id == super_admin_id))
+        result = await db.execute(
+            select(SuperAdmin).where(SuperAdmin.id == super_admin_id)
+        )
         super_admin = result.scalar_one_or_none()
         if not super_admin:
             raise UserNotFoundError()
@@ -624,7 +613,9 @@ class UserService:
         # 检查是否有关联的创作者
         sub_user_count = await UserService.count_sub_users(db, operator_id)
         if sub_user_count > 0:
-            raise ValueError(f"无法删除：该创作管理员下还有 {sub_user_count} 个创作者，请先转移或删除这些创作者")
+            raise ValueError(
+                f"无法删除：该创作管理员下还有 {sub_user_count} 个创作者，请先转移或删除这些创作者"
+            )
 
         # ============================================
         # 第一步：将 created_by/operator_id 可空字段设为 NULL
@@ -737,10 +728,14 @@ class UserService:
             delete(MaterialTag).where(MaterialTag.owner_operator_id == operator_id)
         )
         await db.execute(
-            delete(MaterialCategory).where(MaterialCategory.owner_operator_id == operator_id)
+            delete(MaterialCategory).where(
+                MaterialCategory.owner_operator_id == operator_id
+            )
         )
         await db.execute(
-            delete(MaterialPlatform).where(MaterialPlatform.owner_operator_id == operator_id)
+            delete(MaterialPlatform).where(
+                MaterialPlatform.owner_operator_id == operator_id
+            )
         )
 
         # 模板相关（先删除附件、标签关联，再删除模板本体）
@@ -751,7 +746,9 @@ class UserService:
         await db.execute(
             delete(TemplateTagRel).where(
                 TemplateTagRel.tag_id.in_(
-                    select(TemplateTag.id).where(TemplateTag.owner_operator_id == operator_id)
+                    select(TemplateTag.id).where(
+                        TemplateTag.owner_operator_id == operator_id
+                    )
                 )
             )
         )
@@ -759,45 +756,61 @@ class UserService:
             delete(TemplateTag).where(TemplateTag.owner_operator_id == operator_id)
         )
         await db.execute(
-            delete(TemplateCategory).where(TemplateCategory.owner_operator_id == operator_id)
+            delete(TemplateCategory).where(
+                TemplateCategory.owner_operator_id == operator_id
+            )
         )
         await db.execute(
-            delete(TemplatePlatform).where(TemplatePlatform.owner_operator_id == operator_id)
+            delete(TemplatePlatform).where(
+                TemplatePlatform.owner_operator_id == operator_id
+            )
         )
 
         # 内容嵌入
         await db.execute(
-            delete(ContentEmbedding).where(ContentEmbedding.owner_operator_id == operator_id)
+            delete(ContentEmbedding).where(
+                ContentEmbedding.owner_operator_id == operator_id
+            )
         )
 
         # 生成任务相关（先删除分发记录，再删除子任务，最后删除任务）
         # 先查询需要删除的 ID，避免子查询列名问题
         gen_item_ids_result = await db.execute(
-            select(GenerationItem.id).where(GenerationItem.owner_operator_id == operator_id)
+            select(GenerationItem.id).where(
+                GenerationItem.owner_operator_id == operator_id
+            )
         )
         gen_item_ids = [row[0] for row in gen_item_ids_result.all()]
-        
+
         if gen_item_ids:
             await db.execute(
-                delete(Distribution).where(Distribution.generation_item_id.in_(gen_item_ids))
+                delete(Distribution).where(
+                    Distribution.generation_item_id.in_(gen_item_ids)
+                )
             )
-        
+
         await db.execute(
-            delete(GenerationItem).where(GenerationItem.owner_operator_id == operator_id)
+            delete(GenerationItem).where(
+                GenerationItem.owner_operator_id == operator_id
+            )
         )
-        
+
         gen_task_ids_result = await db.execute(
-            select(GenerationTask.id).where(GenerationTask.owner_operator_id == operator_id)
+            select(GenerationTask.id).where(
+                GenerationTask.owner_operator_id == operator_id
+            )
         )
         gen_task_ids = [row[0] for row in gen_task_ids_result.all()]
-        
+
         if gen_task_ids:
             await db.execute(
                 delete(Distribution).where(Distribution.task_id.in_(gen_task_ids))
             )
-        
+
         await db.execute(
-            delete(GenerationTask).where(GenerationTask.owner_operator_id == operator_id)
+            delete(GenerationTask).where(
+                GenerationTask.owner_operator_id == operator_id
+            )
         )
 
         # ============================================
@@ -830,13 +843,19 @@ class UserService:
             raise UserNotFoundError()
 
         # 提取 tag_ids 单独处理
-        tag_ids = kwargs.pop('tag_ids', None)
+        tag_ids = kwargs.pop("tag_ids", None)
 
         # 更新字段
         allowed_fields = [
-            "nickname", "display_name", "status",
-            "fan_profile", "user_positioning", "user_category",
-            "content_style", "account_type", "managed_by"
+            "nickname",
+            "display_name",
+            "status",
+            "fan_profile",
+            "user_positioning",
+            "user_category",
+            "content_style",
+            "account_type",
+            "managed_by",
         ]
         for field, value in kwargs.items():
             if field in allowed_fields and value is not None:
@@ -874,7 +893,7 @@ class UserService:
         query = select(SubUser).where(
             and_(
                 SubUser.id == sub_user_id,
-                SubUser.owner_operator_id == owner_operator_id
+                SubUser.owner_operator_id == owner_operator_id,
             )
         )
         result = await db.execute(query)
@@ -896,10 +915,7 @@ class UserService:
         更新用户标签
         """
         query = select(UserTag).where(
-            and_(
-                UserTag.id == tag_id,
-                UserTag.created_by == created_by
-            )
+            and_(UserTag.id == tag_id, UserTag.created_by == created_by)
         )
         result = await db.execute(query)
         tag = result.scalar_one_or_none()
@@ -927,10 +943,7 @@ class UserService:
         删除用户标签
         """
         query = select(UserTag).where(
-            and_(
-                UserTag.id == tag_id,
-                UserTag.created_by == created_by
-            )
+            and_(UserTag.id == tag_id, UserTag.created_by == created_by)
         )
         result = await db.execute(query)
         tag = result.scalar_one_or_none()
@@ -999,7 +1012,9 @@ class UserService:
         """
         重置超级管理员密码
         """
-        result = await db.execute(select(SuperAdmin).where(SuperAdmin.id == super_admin_id))
+        result = await db.execute(
+            select(SuperAdmin).where(SuperAdmin.id == super_admin_id)
+        )
         super_admin = result.scalar_one_or_none()
         if not super_admin:
             raise UserNotFoundError("超级管理员不存在")
@@ -1034,12 +1049,16 @@ class UserService:
         count = 0
 
         # 验证目标创作管理员存在
-        to_result = await db.execute(select(Operator).where(Operator.id == to_operator_id))
+        to_result = await db.execute(
+            select(Operator).where(Operator.id == to_operator_id)
+        )
         if not to_result.scalar_one_or_none():
             raise UserNotFoundError("目标创作管理员不存在")
 
         # 验证源创作管理员存在
-        from_result = await db.execute(select(Operator).where(Operator.id == from_operator_id))
+        from_result = await db.execute(
+            select(Operator).where(Operator.id == from_operator_id)
+        )
         if not from_result.scalar_one_or_none():
             raise UserNotFoundError("源创作管理员不存在")
 
@@ -1047,7 +1066,7 @@ class UserService:
         query = select(SubUser).where(
             and_(
                 SubUser.id.in_(sub_user_ids),
-                SubUser.owner_operator_id == from_operator_id
+                SubUser.owner_operator_id == from_operator_id,
             )
         )
         result = await db.execute(query)
@@ -1078,7 +1097,7 @@ class UserService:
             target_tags_query = select(UserTag).where(
                 and_(
                     UserTag.created_by == to_operator_id,
-                    UserTag.tag_type == "subuser_tag"
+                    UserTag.tag_type == "subuser_tag",
                 )
             )
             target_tags_result = await db.execute(target_tags_query)
@@ -1090,7 +1109,9 @@ class UserService:
             for source_tag_id, source_tag in source_tags_by_id.items():
                 if source_tag.name in target_tags_by_name:
                     # 标签已存在，使用现有标签
-                    new_tag_mapping[source_tag_id] = target_tags_by_name[source_tag.name].id
+                    new_tag_mapping[source_tag_id] = target_tags_by_name[
+                        source_tag.name
+                    ].id
                 else:
                     # 创建新标签
                     new_tag = UserTag(
@@ -1108,7 +1129,9 @@ class UserService:
             # 第六步：删除旧的标签关联
             if user_tag_rels:
                 await db.execute(
-                    delete(UserTagRel).where(UserTagRel.id.in_([rel.id for rel in user_tag_rels]))
+                    delete(UserTagRel).where(
+                        UserTagRel.id.in_([rel.id for rel in user_tag_rels])
+                    )
                 )
 
             # 第七步：更新用户的 owner_operator_id 并创建新的标签关联
@@ -1119,7 +1142,9 @@ class UserService:
                 sub_user.updated_at = datetime.utcnow()
 
                 # 为该用户创建新的标签关联
-                user_old_tag_rels = [rel for rel in user_tag_rels if rel.user_id == sub_user.id]
+                user_old_tag_rels = [
+                    rel for rel in user_tag_rels if rel.user_id == sub_user.id
+                ]
                 for old_rel in user_old_tag_rels:
                     if old_rel.tag_id in new_tag_mapping:
                         new_rel = UserTagRel(
@@ -1143,7 +1168,9 @@ class UserService:
         统计创作管理员的创作者数量
         """
         query = select(func.count()).select_from(
-            select(SubUser).where(SubUser.owner_operator_id == owner_operator_id).subquery()
+            select(SubUser)
+            .where(SubUser.owner_operator_id == owner_operator_id)
+            .subquery()
         )
         result = await db.execute(query)
         return result.scalar() or 0

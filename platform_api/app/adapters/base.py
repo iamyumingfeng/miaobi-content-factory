@@ -8,23 +8,29 @@ Date: 2025
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from .params import TextGenParams, ImageGenParams
+from .params import ImageGenParams, TextGenParams
+
 
 @dataclass
 class GenerationResult:
     """
     生成结果数据类
     """
+
     success: bool
     text: Optional[str] = None
     image_urls: Optional[List[str]] = None
-    image_base64_list: Optional[List[str]] = None  # Base64 编码的图片列表（Gemini 等返回）
+    image_base64_list: Optional[List[str]] = (
+        None  # Base64 编码的图片列表（Gemini 等返回）
+    )
     video_url: Optional[str] = None
     error_message: Optional[str] = None
-    error_type: Optional[str] = None  # "server_error" / "client_error" / "network_error" / None
+    error_type: Optional[str] = (
+        None  # "server_error" / "client_error" / "network_error" / None
+    )
     raw_response: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None  # 扩展元数据
 
@@ -34,6 +40,7 @@ class BatchChatResult:
     """
     批量聊天结果数据类
     """
+
     success: bool
     batch_id: Optional[str] = None
     status: Optional[str] = None
@@ -46,6 +53,7 @@ class ModelConfig:
     """
     模型配置数据类
     """
+
     platform: str
     model_id: str
     api_key: str
@@ -129,16 +137,6 @@ class BaseModelAdapter(ABC):
         """
         pass
 
-    @abstractmethod
-    async def get_concurrent_limit(self) -> int:
-        """
-        获取当前平台的并发限制
-
-        Returns:
-            int: 最大并发数
-        """
-        return self.config.max_concurrency
-
     @staticmethod
     def classify_http_error(error: Exception) -> str:
         """
@@ -150,13 +148,16 @@ class BaseModelAdapter(ABC):
             "network_error" — 连接/超时等网络层错误（可重试）
         """
         import aiohttp
+
         if isinstance(error, aiohttp.ClientResponseError):
-            status = getattr(error, 'status', 0)
+            status = getattr(error, "status", 0)
             if 500 <= status < 600:
                 return "server_error"
             elif 400 <= status < 500:
                 return "client_error"
-        if isinstance(error, (aiohttp.ClientConnectorError, aiohttp.ClientConnectionError)):
+        if isinstance(
+            error, (aiohttp.ClientConnectorError, aiohttp.ClientConnectionError)
+        ):
             return "network_error"
         if isinstance(error, aiohttp.ClientError):
             return "network_error"
@@ -184,9 +185,12 @@ class BaseModelAdapter(ABC):
         # 默认 2K
         return 2048
 
-    def convert_ratio_to_size(self, ratio: str, model_id: str = None, separator: str = "x") -> str:
+    def convert_ratio_to_size(
+        self, ratio: str, model_id: str = None, separator: str = "x"
+    ) -> str:
         """根据模型能力将比例转为像素尺寸"""
         from .params import calc_pixel_size
+
         max_px = self.model_max_pixels(model_id)
         return calc_pixel_size(ratio, max_px, separator)
 
@@ -197,17 +201,17 @@ class BaseModelAdapter(ABC):
     ) -> str:
         """
         格式化提示词模板
-        
+
         Args:
             prompt_template: 提示词模板
             variables: 变量字典
-            
+
         Returns:
             str: 格式化后的提示词
         """
         if not variables:
             return prompt_template
-        
+
         try:
             return prompt_template.format(**variables)
         except KeyError:
@@ -235,8 +239,8 @@ class BaseModelAdapter(ABC):
         """
         error_msg = str(error)
         # 过滤可能包含 API key 的敏感信息
-        if hasattr(self, 'config') and hasattr(self.config, 'api_key'):
-            api_key = getattr(self.config, 'api_key', '')
+        if hasattr(self, "config") and hasattr(self.config, "api_key"):
+            api_key = getattr(self.config, "api_key", "")
             if api_key:
                 error_msg = error_msg.replace(api_key, "[REDACTED]")
         error_type = self.classify_http_error(error)

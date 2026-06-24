@@ -11,10 +11,11 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import List, Optional
-from pathlib import Path
-from pydantic_settings import BaseSettings
 from functools import lru_cache
+from pathlib import Path
+from typing import List, Optional
+
+from pydantic_settings import BaseSettings
 
 
 def get_version() -> str:
@@ -61,8 +62,8 @@ class Settings(BaseSettings):
     # - 总最大连接数 = pool_size + max_overflow = 80
     # 注意：MySQL max_connections 需要设置为 >= 100
     database_url: str = "mysql+aiomysql://root:password@localhost:3306/aigc_platform"
-    database_pool_size: int = 50      # 增加核心连接数（原 20）
-    database_max_overflow: int = 30   # 增加溢出连接数（原 10）
+    database_pool_size: int = 50  # 增加核心连接数（原 20）
+    database_max_overflow: int = 30  # 增加溢出连接数（原 10）
     database_pool_pre_ping: bool = True
     database_echo: bool = False
     # 连接回收时间（秒），防止连接长时间闲置被 MySQL 断开
@@ -128,7 +129,9 @@ class Settings(BaseSettings):
     celery_task_soft_time_limit: int = 300
     celery_task_time_limit: int = 600
     celery_concurrency: int = 32  # Celery Worker 并发数
-    task_queue_max_concurrent: int = 64  # 任务队列最大并发数（建议为 Worker 并发数的 2 倍）
+    task_queue_max_concurrent: int = (
+        64  # 任务队列最大并发数（建议为 Worker 并发数的 2 倍）
+    )
 
     # ============================================
     # 日志配置
@@ -140,12 +143,17 @@ class Settings(BaseSettings):
     # ============================================
     # CORS 配置
     # ============================================
-    cors_origins: str = "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173"
+    cors_origins: str = (
+        "http://localhost,http://localhost:80,http://localhost:3000,http://localhost:5173"
+    )
 
     @property
     def cors_origins_list(self) -> List[str]:
         """获取 CORS origins 列表"""
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return [
+            origin.strip() for origin in self.cors_origins.split(",") if origin.strip()
+        ]
+
     cors_allow_credentials: bool = True
     cors_allow_methods: List[str] = ["*"]
     cors_allow_headers: List[str] = ["*"]
@@ -241,11 +249,21 @@ class Settings(BaseSettings):
     def get_all_platform_model_types(self) -> dict:
         """
         获取所有平台的模型类型配置
-        
+
         Returns:
             dict: { platform_id: [model_types] }
         """
-        platforms = ["bailian", "volcano", "jimeng", "kling", "zhipu", "moonshot", "deepseek", "lingyaai", "4sapi"]
+        platforms = [
+            "bailian",
+            "volcano",
+            "jimeng",
+            "kling",
+            "zhipu",
+            "moonshot",
+            "deepseek",
+            "lingyaai",
+            "4sapi",
+        ]
         result = {}
         for platform in platforms:
             types = self.get_platform_model_types(platform)

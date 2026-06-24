@@ -8,7 +8,8 @@ Date: 2025
 """
 
 from celery import Celery
-from celery.signals import worker_process_init, task_prerun, task_postrun
+from celery.signals import task_postrun, task_prerun, worker_process_init
+
 from app.core.config import get_settings
 
 settings = get_settings()
@@ -78,10 +79,12 @@ def on_worker_process_init(**kwargs):
     """
     import logging
     import os
+
     logger = logging.getLogger(__name__)
     pid = os.getpid()
     try:
         from app.core.database import _invalidate_process_async_engine
+
         _invalidate_process_async_engine()
         logger.info("[Celery] worker_process_init ok | pid=%s", pid)
     except Exception as e:
@@ -96,11 +99,13 @@ def on_worker_process_init(**kwargs):
 # 延迟导入，避免循环导入
 _task_queue_manager = None
 
+
 def _get_task_queue_manager():
     """延迟加载任务队列管理器"""
     global _task_queue_manager
     if _task_queue_manager is None:
         from app.services.task_queue_manager import task_queue_manager
+
         _task_queue_manager = task_queue_manager
     return _task_queue_manager
 
@@ -109,27 +114,30 @@ def _get_task_queue_manager():
 def on_task_prerun(sender=None, task_id=None, task=None, **kwargs):
     """
     任务开始执行前触发
-    
+
     将任务添加到活跃任务集合
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         # 只处理 generation 相关的任务
-        if task and 'generation' in task.name:
+        if task and "generation" in task.name:
             item_id = None
             owner_operator_id = None
-            
+
             # 从任务参数中提取 item_id
-            args = kwargs.get('args', [])
+            args = kwargs.get("args", [])
             if args and len(args) > 0:
                 item_id = args[0]  # 第一个参数通常是 item_id
-            
+
             if item_id:
                 queue_mgr = _get_task_queue_manager()
                 queue_mgr.add_active_task(item_id, task_id)
-                logger.info("[Celery] 任务开始 | item_id=%s | celery_id=%s", item_id, task_id)
+                logger.info(
+                    "[Celery] 任务开始 | item_id=%s | celery_id=%s", item_id, task_id
+                )
     except Exception as e:
         logger.error("[Celery] on_task_prerun 失败 | error=%s", e)
 
@@ -138,34 +146,39 @@ def on_task_prerun(sender=None, task_id=None, task=None, **kwargs):
 def on_task_postrun(sender=None, task_id=None, task=None, retval=None, **kwargs):
     """
     任务执行完成后触发
-    
+
     从活跃任务集合移除，并尝试调度下一个等待任务
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    
+
     try:
         # 只处理 generation 相关的任务
-        if task and 'generation' in task.name:
+        if task and "generation" in task.name:
             item_id = None
-            
+
             # 从任务参数中提取 item_id
-            args = kwargs.get('args', [])
+            args = kwargs.get("args", [])
             if args and len(args) > 0:
                 item_id = args[0]  # 第一个参数通常是 item_id
-            
+
             if item_id:
                 queue_mgr = _get_task_queue_manager()
                 queue_mgr.remove_active_task(item_id)
-                logger.info("[Celery] 任务完成 | item_id=%s | celery_id=%s", item_id, task_id)
-                
+                logger.info(
+                    "[Celery] 任务完成 | item_id=%s | celery_id=%s", item_id, task_id
+                )
+
                 # 尝试调度下一个等待任务
-                from app.tasks.generation_tasks import _dispatch_tasks_from_queue
+                from app.tasks.generation_tasks import \
+                    _dispatch_tasks_from_queue
+
                 # 使用任务参数中的 owner_operator_id
                 owner_operator_id = None
                 if args and len(args) > 1:
                     owner_operator_id = args[1]
-                
+
                 if owner_operator_id:
                     _dispatch_tasks_from_queue(owner_operator_id, max_dispatch=1)
     except Exception as e:

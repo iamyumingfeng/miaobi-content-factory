@@ -18,14 +18,14 @@ Date: 2025
 import json
 import logging
 import time
-from typing import Dict, Any, Optional
+from typing import Optional
 
 import aiohttp
 
-from .params import TextGenParams, ImageGenParams
 from .base import GenerationResult
-from .openai_compatible import OpenAICompatibleAdapter
 from .factory import AdapterRegistry
+from .openai_compatible import OpenAICompatibleAdapter
+from .params import ImageGenParams, TextGenParams
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +47,15 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
     MODEL_PARAMS = {
         # kimi-k2.6: 大部分参数不可修改（API 强制固定值）
         "kimi-k2.6": {
-            "temperature": 1,        # 不可改，只能为1
-            "top_p": 0.95,           # 不可改
+            "temperature": 1,  # 不可改，只能为1
+            "top_p": 0.95,  # 不可改
             "max_tokens": 32000,
             "thinking_support": True,
         },
         # kimi-k2 系列（kimi-k2.5 等前代模型）
         "kimi-k2.5": {
-            "temperature": 0.6,      # 可修改
-            "top_p": 1.0,             # 可修改
+            "temperature": 0.6,  # 可修改
+            "top_p": 1.0,  # 可修改
             "max_tokens": 16384,
             "thinking_support": False,
         },
@@ -68,14 +68,14 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
         },
         # kimi-k2-thinking 系列（思考模式）
         "kimi-k2-thinking": {
-            "temperature": 1.0,      # 固定值
+            "temperature": 1.0,  # 固定值
             "top_p": 1.0,
             "max_tokens": 8192,
             "thinking_support": True,
         },
         # moonshot-v1 经典系列
         "moonshot-v1": {
-            "temperature": 0.0,      # 固定值
+            "temperature": 0.0,  # 固定值
             "top_p": 1.0,
             "max_tokens": 4096,
             "thinking_support": False,
@@ -129,13 +129,24 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
             # token 限制
             max_tokens = params.max_tokens if params else 32000
             if max_tokens > model_params["max_tokens"]:
-                logger.warning("[LLM] max_tokens=%d 超过模型 %s 的建议值 %d，自动调整", max_tokens, model_id, model_params["max_tokens"])
+                logger.warning(
+                    "[LLM] max_tokens=%d 超过模型 %s 的建议值 %d，自动调整",
+                    max_tokens,
+                    model_id,
+                    model_params["max_tokens"],
+                )
                 max_tokens = model_params["max_tokens"]
 
             # 使用模型固定值（API 强制限制，忽略外部传入的 temperature/top_p）
             temperature = model_params["temperature"]
             top_p = model_params["top_p"]
-            logger.debug("[LLM] Moonshot 参数适配 | model=%s | temperature=%s | top_p=%s | max_tokens=%s", model_id, temperature, top_p, max_tokens)
+            logger.debug(
+                "[LLM] Moonshot 参数适配 | model=%s | temperature=%s | top_p=%s | max_tokens=%s",
+                model_id,
+                temperature,
+                top_p,
+                max_tokens,
+            )
 
             # Moonshot 使用 max_completion_tokens（max_tokens 已弃用）
             # 根据是否有 system_prompt 构建 messages
@@ -146,7 +157,7 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
                 ]
             else:
                 messages = [{"role": "user", "content": user_prompt}]
-            
+
             payload = {
                 "model": model_id,
                 "messages": messages,
@@ -160,10 +171,17 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
                 "Content-Type": "application/json",
             }
 
-            logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            logger.info(
+                "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            )
             logger.info("[LLM] Moonshot文案生成请求 | model=%s | url=%s", model_id, url)
-            logger.info("[LLM] 请求 payload: %s", json.dumps(payload, ensure_ascii=False, indent=2))
-            logger.info("[LLM] 请求头: Authorization=Bearer [REDACTED], Content-Type=application/json")
+            logger.info(
+                "[LLM] 请求 payload: %s",
+                json.dumps(payload, ensure_ascii=False, indent=2),
+            )
+            logger.info(
+                "[LLM] 请求头: Authorization=Bearer [REDACTED], Content-Type=application/json"
+            )
 
             start_time = time.time()
 
@@ -174,7 +192,11 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
                     error_body = ""
                     try:
                         error_body = await response.text()
-                        logger.error("[LLM] Moonshot API 错误响应 | status=%s | body=%s", response.status, error_body[:2000])
+                        logger.error(
+                            "[LLM] Moonshot API 错误响应 | status=%s | body=%s",
+                            response.status,
+                            error_body[:2000],
+                        )
                     except Exception:
                         pass
                     response.raise_for_status()
@@ -182,9 +204,18 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
                 result = await response.json()
 
                 elapsed = time.time() - start_time
-                logger.info("[LLM] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                logger.info("[LLM] Moonshot文案生成响应 | elapsed=%.2fs | model=%s", elapsed, model_id)
-                logger.info("[LLM] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[LLM] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                )
+                logger.info(
+                    "[LLM] Moonshot文案生成响应 | elapsed=%.2fs | model=%s",
+                    elapsed,
+                    model_id,
+                )
+                logger.info(
+                    "[LLM] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 # 提取生成的文本
                 choices = result.get("choices", [])
@@ -198,9 +229,21 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
                     )
 
                 generated_text = choices[0].get("message", {}).get("content", "")
-                logger.info("[LLM] 生成的文案长度: %d 字符", len(generated_text) if generated_text else 0)
-                logger.info("[LLM] 生成的文案内容: %s", (generated_text[:1024] + "...") if generated_text and len(generated_text) > 1024 else (generated_text or ""))
-                logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[LLM] 生成的文案长度: %d 字符",
+                    len(generated_text) if generated_text else 0,
+                )
+                logger.info(
+                    "[LLM] 生成的文案内容: %s",
+                    (
+                        (generated_text[:1024] + "...")
+                        if generated_text and len(generated_text) > 1024
+                        else (generated_text or "")
+                    ),
+                )
+                logger.info(
+                    "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -224,7 +267,9 @@ class MoonshotAdapter(OpenAICompatibleAdapter):
         params: Optional[ImageGenParams] = None,
     ) -> GenerationResult:
         """月之暗面暂不支持图片生成"""
-        return GenerationResult(success=False, error_message="moonshot does not support image generation")
+        return GenerationResult(
+            success=False, error_message="moonshot does not support image generation"
+        )
 
     async def generate_video(
         self,

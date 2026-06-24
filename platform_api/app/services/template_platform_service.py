@@ -7,26 +7,22 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import List, Optional, Dict, Any
 from datetime import datetime
-from sqlalchemy import select, and_, or_, func
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import NotFoundError, DuplicateResourceError
-from app.models import (
-    TemplatePlatform,
-    TemplateCategory,
-    TemplateTag,
-    TemplateTagRel,
-    Template,
-)
+from app.core.exceptions import DuplicateResourceError, NotFoundError
+from app.models import (Template, TemplateCategory, TemplatePlatform,
+                        TemplateTag, TemplateTagRel)
 
 
 class TemplatePlatformService:
     """
     模板库平台服务类
-    
+
     管理模板库3层分类标签体系的顶层：
     TemplatePlatform -> TemplateCategory -> TemplateTag -> Template
     """
@@ -49,7 +45,7 @@ class TemplatePlatformService:
     ) -> TemplatePlatform:
         """
         创建模板平台
-        
+
         检查同一创作管理员下是否已有同名平台
         """
         # 检查重复
@@ -85,7 +81,7 @@ class TemplatePlatformService:
     ) -> List[TemplatePlatform]:
         """
         获取模板平台列表
-        
+
         Args:
             owner_operator_id: 创作管理员ID，None表示查询所有（仅超级管理员可用）
             keyword: 搜索关键词（匹配名称或描述）
@@ -116,7 +112,7 @@ class TemplatePlatformService:
     ) -> Optional[TemplatePlatform]:
         """
         获取模板平台详情
-        
+
         Args:
             platform_id: 平台ID
             owner_operator_id: 创作管理员ID，None表示超级管理员（可查看所有）
@@ -130,14 +126,11 @@ class TemplatePlatformService:
         return result.scalar_one_or_none()
 
     async def update_platform(
-        self,
-        platform_id: int,
-        owner_operator_id: Optional[int] = None,
-        **kwargs
+        self, platform_id: int, owner_operator_id: Optional[int] = None, **kwargs
     ) -> TemplatePlatform:
         """
         更新模板平台
-        
+
         Args:
             platform_id: 平台ID
             owner_operator_id: 创作管理员ID，None表示超级管理员
@@ -153,7 +146,8 @@ class TemplatePlatformService:
                 select(TemplatePlatform).where(
                     and_(
                         TemplatePlatform.name == kwargs["name"],
-                        TemplatePlatform.owner_operator_id == platform.owner_operator_id,
+                        TemplatePlatform.owner_operator_id
+                        == platform.owner_operator_id,
                         TemplatePlatform.id != platform_id,
                     )
                 )
@@ -161,7 +155,14 @@ class TemplatePlatformService:
             if existing.scalar_one_or_none():
                 raise DuplicateResourceError(f"该平台名称 '{kwargs['name']}' 已存在")
 
-        allowed_fields = ["name", "description", "color", "platform_code", "sort_order", "rules_config_json"]
+        allowed_fields = [
+            "name",
+            "description",
+            "color",
+            "platform_code",
+            "sort_order",
+            "rules_config_json",
+        ]
         for field, value in kwargs.items():
             if field in allowed_fields and value is not None:
                 setattr(platform, field, value)
@@ -178,7 +179,7 @@ class TemplatePlatformService:
     ) -> bool:
         """
         删除模板平台（级联删除关联的分类和标签）
-        
+
         删除前检查：
         - 分类下是否有模板关联
         """
@@ -239,6 +240,7 @@ class TemplatePlatformService:
         }
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         # 加载平台数据
@@ -250,8 +252,9 @@ class TemplatePlatformService:
             # 尝试加载关联数据
             try:
                 query = query.options(
-                    selectinload(TemplatePlatform.categories)
-                    .selectinload(TemplateCategory.tags)
+                    selectinload(TemplatePlatform.categories).selectinload(
+                        TemplateCategory.tags
+                    )
                 )
             except Exception as e:
                 logger.warning(f"加载关联数据失败: {e}")
@@ -261,10 +264,7 @@ class TemplatePlatformService:
             platforms = result.scalars().all()
         except Exception as e:
             logger.error(f"加载平台数据失败: {e}")
-            return {
-                "platforms": [],
-                "template_total": 0
-            }
+            return {"platforms": [], "template_total": 0}
 
         # 获取所有标签的关联数量统计
         template_tag_counts = await self._get_template_tag_counts(owner_operator_id)
@@ -330,21 +330,20 @@ class TemplatePlatformService:
     ) -> Dict[int, int]:
         """获取模板标签关联数量统计"""
         try:
-            query = select(
-                TemplateTagRel.tag_id,
-                func.count().label("count")
-            ).group_by(TemplateTagRel.tag_id)
+            query = select(TemplateTagRel.tag_id, func.count().label("count")).group_by(
+                TemplateTagRel.tag_id
+            )
 
             if owner_operator_id is not None:
                 query = query.join(
-                    Template,
-                    Template.id == TemplateTagRel.template_id
+                    Template, Template.id == TemplateTagRel.template_id
                 ).where(Template.owner_operator_id == owner_operator_id)
 
             result = await self.db.execute(query)
             return {row[0]: row[1] for row in result.all()}
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).warning(f"获取模板标签统计失败: {e}")
             return {}
 
@@ -358,7 +357,7 @@ class TemplatePlatformService:
     ) -> Dict[str, Any]:
         """
         获取模板平台统计信息
-        
+
         Returns:
             {
                 "platform_id": int,
@@ -378,12 +377,15 @@ class TemplatePlatformService:
         tag_count = sum(len(cat.tags) for cat in platform.categories)
 
         # 统计关联内容数量
-        total_templates = await self.db.scalar(
-            select(func.count(func.distinct(TemplateTagRel.template_id)))
-            .join(TemplateTag, TemplateTagRel.tag_id == TemplateTag.id)
-            .join(TemplateCategory, TemplateTag.category_id == TemplateCategory.id)
-            .where(TemplateCategory.template_platform_id == platform_id)
-        ) or 0
+        total_templates = (
+            await self.db.scalar(
+                select(func.count(func.distinct(TemplateTagRel.template_id)))
+                .join(TemplateTag, TemplateTagRel.tag_id == TemplateTag.id)
+                .join(TemplateCategory, TemplateTag.category_id == TemplateCategory.id)
+                .where(TemplateCategory.template_platform_id == platform_id)
+            )
+            or 0
+        )
 
         return {
             "platform_id": platform_id,

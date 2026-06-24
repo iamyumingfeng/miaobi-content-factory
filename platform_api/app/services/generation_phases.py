@@ -13,28 +13,27 @@ Author: Claude Code
 Date: 2026-05-10
 """
 
-import logging
 import asyncio
 import hashlib
 import json
+import logging
 import random
 import traceback
-from datetime import datetime, timezone
-from typing import Optional, Dict, Any, Tuple, List
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import select, and_, or_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import selectinload
 
+from app.adapters.base import GenerationResult
+from app.adapters.params import ImageGenParams, TextGenParams
 from app.core.database import async_session_maker
 from app.core.retry import NonRetryableError
-from app.models import (
-    GenerationTask, GenerationItem, Template, Material, SubUser,
-    ContentEmbedding, CreativeSeed, GenerationItemExecutionLog
-)
-from app.services.generation_context import GenerationInputData, GenerationOutputData
-from app.adapters.base import GenerationResult
-from app.adapters.params import TextGenParams, ImageGenParams
+from app.models import (CreativeSeed, GenerationItem,
+                        GenerationItemExecutionLog, GenerationTask, Material,
+                        SubUser, Template)
+from app.services.generation_context import (GenerationInputData,
+                                             GenerationOutputData)
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +42,7 @@ logger = logging.getLogger(__name__)
 # 执行日志记录辅助函数
 # ============================================
 
+
 async def log_execution_node(
     item_id: int,
     node_name: str,
@@ -50,11 +50,11 @@ async def log_execution_node(
     input_data: Optional[Dict[str, Any]] = None,
     output_data: Optional[Dict[str, Any]] = None,
     error_data: Optional[Dict[str, Any]] = None,
-    duration_ms: Optional[int] = None
+    duration_ms: Optional[int] = None,
 ):
     """
     记录执行日志节点
-    
+
     Args:
         item_id: 子任务ID
         node_name: 节点名称（prompt_build / llm_call / image_call / save_result）
@@ -75,13 +75,17 @@ async def log_execution_node(
                 error_data=error_data,
                 duration_ms=duration_ms,
                 started_at=datetime.utcnow(),
-                completed_at=datetime.utcnow()
+                completed_at=datetime.utcnow(),
             )
             db.add(log)
             await db.commit()
-            logger.debug(f"[ExecutionLog] 记录节点 | item_id={item_id} | node={node_name} | status={node_status}")
+            logger.debug(
+                f"[ExecutionLog] 记录节点 | item_id={item_id} | node={node_name} | status={node_status}"
+            )
     except Exception as e:
-        logger.warning(f"[ExecutionLog] 记录失败 | item_id={item_id} | error={str(e)[:100]}")
+        logger.warning(
+            f"[ExecutionLog] 记录失败 | item_id={item_id} | error={str(e)[:100]}"
+        )
 
 
 # ============================================
@@ -203,7 +207,6 @@ PLATFORM_COMPLIANCE_RULES = {
 - 禁止拉踩、贬低竞品
 - 禁止蹭敏感社会热点
 - 配图避免过度修图导致失真""",
-
     # 抖音
     "抖音": """
 【抖音平台合规要求 — 必须遵守】
@@ -220,7 +223,6 @@ PLATFORM_COMPLIANCE_RULES = {
 3. 商业合规
 - 带货内容需确保商品信息真实
 - 功效型产品不得夸大承诺""",
-
     # 微信公众号
     "微信公众号": """
 【微信公众号平台合规要求 — 必须遵守】
@@ -237,7 +239,6 @@ PLATFORM_COMPLIANCE_RULES = {
 3. 版权要求
 - 引用他人内容需注明出处
 - 图片素材需确保版权合规""",
-
     # 微博
     "微博": """
 【微博平台合规要求 — 必须遵守】
@@ -250,7 +251,6 @@ PLATFORM_COMPLIANCE_RULES = {
 2. 商业合规
 - 商业推广需符合微博商业内容管理规范
 - 转发抽奖等活动需明确规则""",
-
     # 快手
     "快手": """
 【快手平台合规要求 — 必须遵守】
@@ -263,7 +263,6 @@ PLATFORM_COMPLIANCE_RULES = {
 2. 商业合规
 - 电商推广需符合快手小店的商品发布规范
 - 功效型产品不得虚假宣传""",
-
     # B站
     "B站": """
 【B站平台合规要求 — 必须遵守】
@@ -276,7 +275,6 @@ PLATFORM_COMPLIANCE_RULES = {
 2. 商业合规
 - 商业推广需遵守B站商业内容规范
 - 合作推广需标注「创作推广」等标签""",
-
     # 今日头条
     "今日头条": """
 【今日头条平台合规要求 — 必须遵守】
@@ -331,7 +329,10 @@ def get_platform_compliance_rules(platform_name: str) -> str:
 
     # 未匹配到具体平台，返回通用合规
     return GENERAL_COMPLIANCE_RULES
+
+
 # ============================================
+
 
 async def phase1_load_input_data(
     task_id: int,
@@ -367,7 +368,9 @@ async def phase1_load_input_data(
         task = task_result.scalar_one_or_none()
         if not task:
             # 数据孤儿问题：父任务不存在，不应重试
-            raise NonRetryableError(f"Orphaned item: Task {task_id} not found for item {item_id}")
+            raise NonRetryableError(
+                f"Orphaned item: Task {task_id} not found for item {item_id}"
+            )
 
         # 查询子任务
         item_result = await db.execute(
@@ -389,23 +392,32 @@ async def phase1_load_input_data(
             owner_operator_id=owner_operator_id,
             sub_user_id=item.sub_user_id,
             content_type="text",  # 默认值，后续根据模板更新
-            image_count=getattr(task, 'image_count', 4),
+            image_count=getattr(task, "image_count", 4),
             model_platform=task.model_platform,
             model_id=task.model_id,
-            image_model_platform=getattr(task, 'image_model_platform', None),
-            image_model_id=getattr(task, 'image_model_id', None),
-            dedup_enabled=getattr(task, 'dedup_enabled', False),
-            dedup_threshold=getattr(task, 'dedup_threshold', 0.9),
-            dedup_retry_count=getattr(task, 'dedup_retry_count', 3),
+            image_model_platform=getattr(task, "image_model_platform", None),
+            image_model_id=getattr(task, "image_model_id", None),
+            dedup_enabled=getattr(task, "dedup_enabled", False),
+            dedup_threshold=getattr(task, "dedup_threshold", 0.9),
+            dedup_retry_count=getattr(task, "dedup_retry_count", 3),
             dedup_scope=task.dedup_scope or ["subuser_history"],
-            image_dedup_enabled=getattr(task, 'image_dedup_enabled', False),
-            image_dedup_threshold=getattr(task, 'image_dedup_threshold', 0.9),
-            image_dedup_retry_count=getattr(task, 'image_dedup_retry_count', 3),
+            image_dedup_enabled=getattr(task, "image_dedup_enabled", False),
+            image_dedup_threshold=getattr(task, "image_dedup_threshold", 0.9),
+            image_dedup_retry_count=getattr(task, "image_dedup_retry_count", 3),
             image_dedup_scope=task.image_dedup_scope or ["subuser_image_history"],
             variable_values=task.variable_values_json or {},
-            benchmark_text_enabled=item.input_benchmark_text_enabled if item.input_benchmark_text_enabled is not None else False,
-            benchmark_image_enabled=item.input_benchmark_image_enabled if item.input_benchmark_image_enabled is not None else False,
-            benchmark_image_reference_options=item.input_benchmark_image_reference_options or None,
+            benchmark_text_enabled=(
+                item.input_benchmark_text_enabled
+                if item.input_benchmark_text_enabled is not None
+                else False
+            ),
+            benchmark_image_enabled=(
+                item.input_benchmark_image_enabled
+                if item.input_benchmark_image_enabled is not None
+                else False
+            ),
+            benchmark_image_reference_options=item.input_benchmark_image_reference_options
+            or None,
             benchmark_image_roles=item.input_benchmark_image_roles_json or [],
             template_product_mapping=item.input_template_product_mapping_json or {},
         )
@@ -414,13 +426,17 @@ async def phase1_load_input_data(
         template = None  # 初始化模板变量，供后续回退逻辑使用
         if item.template_id:
             # 使用 selectinload 加载 platform 关系
-            template_query = select(Template).options(
-                selectinload(Template.platform),
-                selectinload(Template.attachments),
-            ).where(
-                and_(
-                    Template.id == item.template_id,
-                    Template.owner_operator_id == owner_operator_id,
+            template_query = (
+                select(Template)
+                .options(
+                    selectinload(Template.platform),
+                    selectinload(Template.attachments),
+                )
+                .where(
+                    and_(
+                        Template.id == item.template_id,
+                        Template.owner_operator_id == owner_operator_id,
+                    )
                 )
             )
             template_result = await db.execute(template_query)
@@ -433,13 +449,19 @@ async def phase1_load_input_data(
                 input_data.template_instruction = template.description
                 input_data.template_content_type = template.content_type
                 # 平台名称：通过关系获取
-                input_data.template_platform = template.platform.name if template.platform else None
+                input_data.template_platform = (
+                    template.platform.name if template.platform else None
+                )
                 # 风格参考：使用正确的字段名
                 input_data.template_style = template.style_reference
                 # 图片比例
                 input_data.template_image_size_ratio = template.image_size_ratio
                 # 水印设置
-                input_data.template_add_watermark = getattr(template, 'add_watermark', False) if getattr(template, 'add_watermark', None) is not None else False
+                input_data.template_add_watermark = (
+                    getattr(template, "add_watermark", False)
+                    if getattr(template, "add_watermark", None) is not None
+                    else False
+                )
                 # 爆款类型
                 input_data.viral_type = template.viral_type
                 # 产品名称（必填字段）
@@ -448,17 +470,26 @@ async def phase1_load_input_data(
                 if template.product_selling_points:
                     try:
                         import json
+
                         points = json.loads(template.product_selling_points)
-                        input_data.template_product_selling_points = points if isinstance(points, list) else [points]
+                        input_data.template_product_selling_points = (
+                            points if isinstance(points, list) else [points]
+                        )
                     except (json.JSONDecodeError, TypeError):
                         # 如果不是JSON，按行分割
                         input_data.template_product_selling_points = [
-                            line.strip() for line in template.product_selling_points.split('\n') if line.strip()
+                            line.strip()
+                            for line in template.product_selling_points.split("\n")
+                            if line.strip()
                         ]
                 else:
                     input_data.template_product_selling_points = []
                 # 创意种子：从关联关系中获取
-                input_data.template_seeds = template.get_creative_seed_config() if hasattr(template, 'get_creative_seed_config') else {}
+                input_data.template_seeds = (
+                    template.get_creative_seed_config()
+                    if hasattr(template, "get_creative_seed_config")
+                    else {}
+                )
                 # 加载创意种子的实际内容（名称+模板示例）
                 # 注意：seed_id 可能是 'auto'（随机）或数字字符串
                 import random as _random
@@ -472,12 +503,12 @@ async def phase1_load_input_data(
                     "ending": template.ending_seed_id,
                 }
                 for seed_type, sid in seed_id_map.items():
-                    if sid and sid != 'auto':
+                    if sid and sid != "auto":
                         try:
                             seed_ids.append(int(sid))
                         except (ValueError, TypeError):
                             pass
-                    elif sid == 'auto':
+                    elif sid == "auto":
                         auto_seed_types.append(seed_type)
 
                 if seed_ids or auto_seed_types:
@@ -487,7 +518,7 @@ async def phase1_load_input_data(
                         or_(
                             CreativeSeed.owner_operator_id == owner_operator_id,
                             CreativeSeed.is_system == True,
-                        )
+                        ),
                     ]
                     if seed_ids and auto_seed_types:
                         conditions.append(
@@ -514,7 +545,7 @@ async def phase1_load_input_data(
                             # 缓存所有候选项（去重重试时重新随机用）
                             # 保存完整信息，包括模板列表、示例列表、描述、避免表达等
                             import json as _json
-                            
+
                             def safe_json_parse(value, default=None):
                                 """安全解析 JSON，兼容旧格式（单个字符串）和新格式（数组）"""
                                 if not value:
@@ -534,14 +565,18 @@ async def phase1_load_input_data(
                                     if isinstance(value, str):
                                         return [value]
                                     return default or []
-                            
+
                             seed_candidates_cache[seed_type] = [
                                 {
                                     "name": s.name,
                                     "template": safe_json_parse(s.template, []),
-                                    "example_phrases": safe_json_parse(s.example_phrases, []),
+                                    "example_phrases": safe_json_parse(
+                                        s.example_phrases, []
+                                    ),
                                     "description": s.description or "",
-                                    "avoid_phrases": safe_json_parse(s.avoid_phrases, []),
+                                    "avoid_phrases": safe_json_parse(
+                                        s.avoid_phrases, []
+                                    ),
                                 }
                                 for s in candidates
                             ]
@@ -550,7 +585,9 @@ async def phase1_load_input_data(
                             # 更新 seed_id_map 以正确填充 template_seeds
                             seed_id_map[seed_type] = str(chosen.id)
                     # 存入 input_data 供 Phase2 去重重试时重新随机
-                    input_data.seed_candidates_for_auto = seed_candidates_cache if seed_candidates_cache else None
+                    input_data.seed_candidates_for_auto = (
+                        seed_candidates_cache if seed_candidates_cache else None
+                    )
 
                     # 将种子内容填充到 template_seeds 中
                     # 保存完整的种子对象，供 Phase2 使用
@@ -560,18 +597,26 @@ async def phase1_load_input_data(
                         ("ending", "ending_seed_content"),
                     ]:
                         sid = seed_id_map.get(seed_type)
-                        if sid and sid != 'auto':
+                        if sid and sid != "auto":
                             try:
                                 sid_int = int(sid)
                                 if sid_int in seed_records:
                                     # 直接保存种子对象，Phase2 会调用其 to_prompt 方法
-                                    input_data.template_seeds[seed_type] = seed_records[sid_int]
+                                    input_data.template_seeds[seed_type] = seed_records[
+                                        sid_int
+                                    ]
                             except (ValueError, TypeError):
                                 pass
 
-                    loaded_keys = [k for k in input_data.template_seeds if k.endswith('_content')]
-                    logger.info("[Phase1] 创意种子内容已加载 | seeds=%s | auto_types=%s | keys=%s",
-                              len(seed_records), auto_seed_types, loaded_keys)
+                    loaded_keys = [
+                        k for k in input_data.template_seeds if k.endswith("_content")
+                    ]
+                    logger.info(
+                        "[Phase1] 创意种子内容已加载 | seeds=%s | auto_types=%s | keys=%s",
+                        len(seed_records),
+                        auto_seed_types,
+                        loaded_keys,
+                    )
 
                 # 无论种子是否加载，始终存储原始种子配置
                 input_data.raw_seed_config = {
@@ -583,30 +628,41 @@ async def phase1_load_input_data(
 
                 # 根据模板内容类型更新生成内容类型
                 input_data.content_type = template.content_type or "text"
-                logger.debug("[Phase1] 模板已加载 | template_id=%s | name=%s", template.id, template.name)
+                logger.debug(
+                    "[Phase1] 模板已加载 | template_id=%s | name=%s",
+                    template.id,
+                    template.name,
+                )
 
         # 加载产品图（优先使用子任务快照数据）
         # input_template_images_json 存储了任务创建时的产品图URL列表
         if item.input_template_images_json:
             input_data.template_product_images = item.input_template_images_json
-            logger.debug("[Phase1] 产品图快照已加载 | count=%s", len(input_data.template_product_images))
+            logger.debug(
+                "[Phase1] 产品图快照已加载 | count=%s",
+                len(input_data.template_product_images),
+            )
         elif item.template_id and template and template.attachments:
             # 回退：从模板附件加载（兼容旧数据）
             input_data.template_product_images = [
-                att.file_url for att in template.attachments
-                if att.file_type == "image"
+                att.file_url for att in template.attachments if att.file_type == "image"
             ]
-            logger.debug("[Phase1] 产品图已加载（从模板附件）| count=%s", len(input_data.template_product_images))
+            logger.debug(
+                "[Phase1] 产品图已加载（从模板附件）| count=%s",
+                len(input_data.template_product_images),
+            )
 
         # 加载素材
         if task.material_id:
             # 使用 selectinload 加载附件关系
-            material_query = select(Material).options(
-                selectinload(Material.attachments)
-            ).where(
-                and_(
-                    Material.id == task.material_id,
-                    Material.owner_operator_id == owner_operator_id,
+            material_query = (
+                select(Material)
+                .options(selectinload(Material.attachments))
+                .where(
+                    and_(
+                        Material.id == task.material_id,
+                        Material.owner_operator_id == owner_operator_id,
+                    )
                 )
             )
             material_result = await db.execute(material_query)
@@ -618,11 +674,20 @@ async def phase1_load_input_data(
                 # 素材没有直接关联平台，使用None
                 input_data.material_platform = None
                 # 从附件中提取图片URL
-                input_data.material_images = [
-                    att.file_url for att in material.attachments
-                    if att.file_type == "image"
-                ] if material.attachments else []
-                logger.debug("[Phase1] 素材已加载 | material_id=%s | title=%s", material.id, material.title)
+                input_data.material_images = (
+                    [
+                        att.file_url
+                        for att in material.attachments
+                        if att.file_type == "image"
+                    ]
+                    if material.attachments
+                    else []
+                )
+                logger.debug(
+                    "[Phase1] 素材已加载 | material_id=%s | title=%s",
+                    material.id,
+                    material.title,
+                )
 
         # 加载对标素材（优先使用快照数据，避免素材被修改导致的不一致）
         if item.input_benchmark_title or item.input_benchmark_content:
@@ -630,18 +695,29 @@ async def phase1_load_input_data(
             input_data.benchmark_material_id = task.benchmark_material_id
             input_data.benchmark_material_title = item.input_benchmark_title
             input_data.benchmark_material_text = item.input_benchmark_content
-            input_data.benchmark_material_images = item.input_benchmark_images_json or []
-            logger.debug("[Phase1] 对标素材快照已加载 | benchmark_id=%s | title=%s | content_len=%s", 
-                        task.benchmark_material_id, item.input_benchmark_title, 
-                        len(item.input_benchmark_content) if item.input_benchmark_content else 0)
+            input_data.benchmark_material_images = (
+                item.input_benchmark_images_json or []
+            )
+            logger.debug(
+                "[Phase1] 对标素材快照已加载 | benchmark_id=%s | title=%s | content_len=%s",
+                task.benchmark_material_id,
+                item.input_benchmark_title,
+                (
+                    len(item.input_benchmark_content)
+                    if item.input_benchmark_content
+                    else 0
+                ),
+            )
         elif task.benchmark_material_id:
             # 如果快照数据不存在，从数据库加载（兼容旧数据）
-            benchmark_query = select(Material).options(
-                selectinload(Material.attachments)
-            ).where(
-                and_(
-                    Material.id == task.benchmark_material_id,
-                    Material.owner_operator_id == owner_operator_id,
+            benchmark_query = (
+                select(Material)
+                .options(selectinload(Material.attachments))
+                .where(
+                    and_(
+                        Material.id == task.benchmark_material_id,
+                        Material.owner_operator_id == owner_operator_id,
+                    )
                 )
             )
             benchmark_result = await db.execute(benchmark_query)
@@ -650,12 +726,21 @@ async def phase1_load_input_data(
                 input_data.benchmark_material_id = benchmark.id
                 input_data.benchmark_material_title = benchmark.title
                 input_data.benchmark_material_text = benchmark.content
-                input_data.benchmark_material_images = [
-                    att.file_url for att in benchmark.attachments
-                    if att.file_type == "image"
-                ] if benchmark.attachments else []
-                logger.debug("[Phase1] 对标素材已加载（从数据库）| benchmark_id=%s | title=%s | content_len=%s", 
-                            benchmark.id, benchmark.title, len(benchmark.content) if benchmark.content else 0)
+                input_data.benchmark_material_images = (
+                    [
+                        att.file_url
+                        for att in benchmark.attachments
+                        if att.file_type == "image"
+                    ]
+                    if benchmark.attachments
+                    else []
+                )
+                logger.debug(
+                    "[Phase1] 对标素材已加载（从数据库）| benchmark_id=%s | title=%s | content_len=%s",
+                    benchmark.id,
+                    benchmark.title,
+                    len(benchmark.content) if benchmark.content else 0,
+                )
 
         # 加载创作者信息
         if item.sub_user_id:
@@ -666,9 +751,15 @@ async def phase1_load_input_data(
             if sub_user:
                 input_data.sub_user_nickname = sub_user.nickname
                 input_data.sub_user_follower_profile = sub_user.fan_profile  # 粉丝画像
-                input_data.sub_user_account_positioning = sub_user.user_positioning  # 账号定位
+                input_data.sub_user_account_positioning = (
+                    sub_user.user_positioning
+                )  # 账号定位
                 input_data.sub_user_content_style = sub_user.content_style
-                logger.debug("[Phase1] 创作者已加载 | sub_user_id=%s | nickname=%s", sub_user.id, sub_user.nickname)
+                logger.debug(
+                    "[Phase1] 创作者已加载 | sub_user_id=%s | nickname=%s",
+                    sub_user.id,
+                    sub_user.nickname,
+                )
 
         # 加载历史参考（用于去重提示）
         if input_data.dedup_enabled and "subuser_history" in input_data.dedup_scope:
@@ -679,7 +770,9 @@ async def phase1_load_input_data(
                         and_(
                             GenerationItem.sub_user_id == item.sub_user_id,
                             GenerationItem.owner_operator_id == owner_operator_id,
-                            GenerationItem.distribution_status.in_(['distributed', 'pending_publish', 'published']),
+                            GenerationItem.distribution_status.in_(
+                                ["distributed", "pending_publish", "published"]
+                            ),
                             GenerationItem.generated_text.isnot(None),
                         )
                     )
@@ -691,7 +784,11 @@ async def phase1_load_input_data(
 
                 for hist_item in hist_items:
                     if hist_item.generated_text:
-                        preview = hist_item.generated_text[:300] if len(hist_item.generated_text) > 300 else hist_item.generated_text
+                        preview = (
+                            hist_item.generated_text[:300]
+                            if len(hist_item.generated_text) > 300
+                            else hist_item.generated_text
+                        )
                         input_data.historical_texts.append(
                             f"【历史内容】标题：{hist_item.generated_title or '无标题'}\n内容：{preview}"
                         )
@@ -702,9 +799,10 @@ async def phase1_load_input_data(
         # 预加载模型配置（避免 Phase2 重新打开数据库连接）
         # 强制刷新确保拿到最新的配置（特别是 api_key）
         try:
+            import random
+
             from app.adapters.config import ModelConfigManager
             from app.models import UserDefaultModel
-            import random
 
             config_manager = ModelConfigManager()
             await config_manager.load_all_configs(db, force_refresh=True)
@@ -724,8 +822,10 @@ async def phase1_load_input_data(
             # 辅助函数：获取所有指定类型的活跃模型
             def _get_all_configs_by_type(model_type: str):
                 return [
-                    cfg for cfg in config_manager._cache.values()
-                    if cfg.platform and cfg.model_id
+                    cfg
+                    for cfg in config_manager._cache.values()
+                    if cfg.platform
+                    and cfg.model_id
                     and config_manager._db_configs.get(cfg.id)
                     and config_manager._db_configs[cfg.id].model_type == model_type
                     and config_manager._db_configs[cfg.id].status == "active"
@@ -750,7 +850,9 @@ async def phase1_load_input_data(
                 llm_default = user_defaults.get("llm")
                 if llm_default and llm_default.model_config_id:
                     # 用户有指定默认 LLM 模型
-                    input_data.text_model_config = config_manager._cache.get(llm_default.model_config_id)
+                    input_data.text_model_config = config_manager._cache.get(
+                        llm_default.model_config_id
+                    )
                 if not input_data.text_model_config:
                     # 无默认或默认=auto：从所有活跃 LLM 中随机选
                     all_llm = _get_all_configs_by_type("llm")
@@ -762,15 +864,28 @@ async def phase1_load_input_data(
                 input_data.model_id = input_data.text_model_config.model_id
                 # 调试日志：验证 api_key 是否正确传递
                 api_key_status = "有" if input_data.text_model_config.api_key else "无"
-                logger.info("[Phase1] 文本模型已选定 | platform=%s | model_id=%s | mode=%s | api_key=%s",
-                           input_data.model_platform, input_data.model_id,
-                           "指定" if (input_data.model_platform and input_data.model_platform != "auto") else "自动",
-                           api_key_status)
+                logger.info(
+                    "[Phase1] 文本模型已选定 | platform=%s | model_id=%s | mode=%s | api_key=%s",
+                    input_data.model_platform,
+                    input_data.model_id,
+                    (
+                        "指定"
+                        if (
+                            input_data.model_platform
+                            and input_data.model_platform != "auto"
+                        )
+                        else "自动"
+                    ),
+                    api_key_status,
+                )
             else:
                 logger.warning("[Phase1] 未找到可用的文本模型")
 
             # ===== 图片模型选择 =====
-            if input_data.image_model_platform and input_data.image_model_platform != "auto":
+            if (
+                input_data.image_model_platform
+                and input_data.image_model_platform != "auto"
+            ):
                 # 用户指定了具体图片模型平台
                 image_configs = await config_manager.get_configs_by_platform(
                     db, input_data.image_model_platform
@@ -787,7 +902,9 @@ async def phase1_load_input_data(
                 # 自动模式：查用户默认图片模型设置
                 image_default = user_defaults.get("image")
                 if image_default and image_default.model_config_id:
-                    input_data.image_model_config = config_manager._cache.get(image_default.model_config_id)
+                    input_data.image_model_config = config_manager._cache.get(
+                        image_default.model_config_id
+                    )
                 if not input_data.image_model_config:
                     # 无默认图片模型或默认=auto：从所有活跃 image 模型中随机选
                     all_image = _get_all_configs_by_type("image")
@@ -799,10 +916,20 @@ async def phase1_load_input_data(
                 input_data.image_model_id = input_data.image_model_config.model_id
                 # 调试日志：验证 api_key 是否正确传递
                 api_key_status = "有" if input_data.image_model_config.api_key else "无"
-                logger.info("[Phase1] 图片模型已选定 | platform=%s | model_id=%s | mode=%s | api_key=%s",
-                           input_data.image_model_platform, input_data.image_model_id,
-                           "指定" if (input_data.image_model_platform and input_data.image_model_platform != "auto") else "自动",
-                           api_key_status)
+                logger.info(
+                    "[Phase1] 图片模型已选定 | platform=%s | model_id=%s | mode=%s | api_key=%s",
+                    input_data.image_model_platform,
+                    input_data.image_model_id,
+                    (
+                        "指定"
+                        if (
+                            input_data.image_model_platform
+                            and input_data.image_model_platform != "auto"
+                        )
+                        else "自动"
+                    ),
+                    api_key_status,
+                )
             else:
                 logger.warning("[Phase1] 未找到可用的图片生成模型")
 
@@ -810,7 +937,9 @@ async def phase1_load_input_data(
             logger.warning("[Phase1] 预加载模型配置失败 | error=%s", str(e)[:100])
 
     elapsed = (datetime.utcnow() - start_time).total_seconds()
-    logger.info("[Phase1] 输入数据加载完成 | elapsed=%.2fs | item_id=%s", elapsed, item_id)
+    logger.info(
+        "[Phase1] 输入数据加载完成 | elapsed=%.2fs | item_id=%s", elapsed, item_id
+    )
 
     return input_data
 
@@ -819,8 +948,10 @@ async def phase1_load_input_data(
 # 阶段2：AI生成
 # ============================================
 
+
 class _AttrDict:
     """通用属性字典，使 OptimizedContentGenerator 可通过 .text_content 等属性访问字段"""
+
     def __init__(self, **kwargs):
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -831,7 +962,15 @@ class _SeedPromptWrapper:
 
     强调：参考风格思路，不要直接套用模板
     """
-    def __init__(self, name: str, templates: list, examples: list, description: str = "", avoids: list = None):
+
+    def __init__(
+        self,
+        name: str,
+        templates: list,
+        examples: list,
+        description: str = "",
+        avoids: list = None,
+    ):
         self._name = name
         self._templates = templates if isinstance(templates, list) else [templates]
         self._examples = examples if isinstance(examples, list) else [examples]
@@ -843,21 +982,27 @@ class _SeedPromptWrapper:
         import random
 
         prompt_parts = [f"【{self._name}】"]
-        prompt_parts.append("⚠️ 重要：以下为参考示例，请理解其风格和思路，根据具体场景灵活创作，不要直接套用！")
+        prompt_parts.append(
+            "⚠️ 重要：以下为参考示例，请理解其风格和思路，根据具体场景灵活创作，不要直接套用！"
+        )
 
         if self._description:
             prompt_parts.append(f"创作思路：{self._description}")
 
         # 随机选择1-2个模板作为参考
         if self._templates:
-            selected_templates = random.sample(self._templates, min(2, len(self._templates)))
+            selected_templates = random.sample(
+                self._templates, min(2, len(self._templates))
+            )
             prompt_parts.append("参考风格示例（仅供参考，请灵活变化）：")
             for i, tmpl in enumerate(selected_templates, 1):
                 prompt_parts.append(f"  {i}. {tmpl}")
 
         # 随机选择3-5个示例
         if self._examples:
-            selected_examples = random.sample(self._examples, min(5, len(self._examples)))
+            selected_examples = random.sample(
+                self._examples, min(5, len(self._examples))
+            )
             prompt_parts.append("参考表达方式（请学习其风格，不要照搬）：")
             for i, ex in enumerate(selected_examples, 1):
                 prompt_parts.append(f"  {i}. {ex}")
@@ -866,7 +1011,9 @@ class _SeedPromptWrapper:
         if self._avoids:
             prompt_parts.append(f"避免以下表达方式：{', '.join(self._avoids)}")
 
-        prompt_parts.append("\n💡 提示：以上示例仅供参考，请根据具体产品、场景、用户画像灵活调整，创作出符合风格但内容新颖的文案。")
+        prompt_parts.append(
+            "\n💡 提示：以上示例仅供参考，请根据具体产品、场景、用户画像灵活调整，创作出符合风格但内容新颖的文案。"
+        )
 
         return "\n".join(prompt_parts)
 
@@ -898,8 +1045,11 @@ class Phase2Generator:
 
         注意：embedding 在去重检测后直接异步保存
         """
-        logger.info("[Phase2] 开始AI生成 | item_id=%s | content_type=%s",
-                   input_data.item_id, input_data.content_type)
+        logger.info(
+            "[Phase2] 开始AI生成 | item_id=%s | content_type=%s",
+            input_data.item_id,
+            input_data.content_type,
+        )
 
         output_data = GenerationOutputData(
             task_id=input_data.task_id,
@@ -912,8 +1062,12 @@ class Phase2Generator:
             # ========== 步骤1：使用 OptimizedContentGenerator 构建提示词 ==========
             prompt_build_start = datetime.utcnow()
             config = self._build_optimized_config(input_data)
-            from app.services.prompt_generator_optimized import OptimizedContentGenerator
-            system_prompt, text_prompt = OptimizedContentGenerator._build_combined_prompts(config)
+            from app.services.prompt_generator_optimized import \
+                OptimizedContentGenerator
+
+            system_prompt, text_prompt = (
+                OptimizedContentGenerator._build_combined_prompts(config)
+            )
             # 追加历史参考（OptimizedContentGenerator 不处理历史）
             if input_data.historical_texts:
                 text_prompt += "\n\n## 历史参考（禁止重复和高相似度）\n"
@@ -924,10 +1078,12 @@ class Phase2Generator:
                 image_prompts = self._construct_image_prompts(input_data)
             output_data.output_system_text_prompt = system_prompt
             output_data.output_user_text_prompt = text_prompt
-            
+
             # 记录提示词构建日志
             prompt_build_end = datetime.utcnow()
-            prompt_build_duration = int((prompt_build_end - prompt_build_start).total_seconds() * 1000)
+            prompt_build_duration = int(
+                (prompt_build_end - prompt_build_start).total_seconds() * 1000
+            )
             await log_execution_node(
                 item_id=input_data.item_id,
                 node_name="prompt_build",
@@ -942,31 +1098,42 @@ class Phase2Generator:
                     "user_prompt_length": len(text_prompt),
                     "image_prompts_count": len(image_prompts),
                 },
-                duration_ms=prompt_build_duration
+                duration_ms=prompt_build_duration,
             )
 
             # ========== 步骤2：生成文案（带去重重试） ==========
-            max_dedup_retries = input_data.dedup_retry_count if input_data.dedup_enabled else 1
+            max_dedup_retries = (
+                input_data.dedup_retry_count if input_data.dedup_enabled else 1
+            )
 
             for retry_round in range(max_dedup_retries):
                 # 步骤2a：LLM 生成文案（去重重试时逐步提高 temperature）
                 # temperature 逐步提高：0.7 -> 0.85 -> 0.9 -> 0.95
-                retry_temperature = 0.7 + min(retry_round * 0.15, 0.25) if retry_round > 0 else None
-                
+                retry_temperature = (
+                    0.7 + min(retry_round * 0.15, 0.25) if retry_round > 0 else None
+                )
+
                 # 记录文案生成开始
                 llm_call_start = datetime.utcnow()
-                
+
                 text_result = await self._generate_text_with_retry(
-                    text_prompt, input_data, output_data, system_prompt=system_prompt,
-                    temperature=retry_temperature
+                    text_prompt,
+                    input_data,
+                    output_data,
+                    system_prompt=system_prompt,
+                    temperature=retry_temperature,
                 )
-                
+
                 llm_call_end = datetime.utcnow()
-                llm_call_duration = int((llm_call_end - llm_call_start).total_seconds() * 1000)
+                llm_call_duration = int(
+                    (llm_call_end - llm_call_start).total_seconds() * 1000
+                )
 
                 if not text_result.success:
                     output_data.success = False
-                    output_data.error_message = text_result.error_message or "Text generation failed"
+                    output_data.error_message = (
+                        text_result.error_message or "Text generation failed"
+                    )
                     # 记录文案生成失败
                     await log_execution_node(
                         item_id=input_data.item_id,
@@ -981,7 +1148,7 @@ class Phase2Generator:
                         error_data={
                             "error_message": text_result.error_message,
                         },
-                        duration_ms=llm_call_duration
+                        duration_ms=llm_call_duration,
                     )
                     return output_data
 
@@ -991,7 +1158,7 @@ class Phase2Generator:
                 output_data.generated_text = parsed.get("content")
                 output_data.generated_topics = parsed.get("topics", [])
                 output_data.llm_calls_count += 1
-                
+
                 # 记录文案生成成功
                 await log_execution_node(
                     item_id=input_data.item_id,
@@ -1004,11 +1171,15 @@ class Phase2Generator:
                         "temperature": retry_temperature,
                     },
                     output_data={
-                        "title": output_data.generated_title[:100] if output_data.generated_title else None,
+                        "title": (
+                            output_data.generated_title[:100]
+                            if output_data.generated_title
+                            else None
+                        ),
                         "content_length": len(output_data.generated_text or ""),
                         "topics_count": len(output_data.generated_topics or []),
                     },
-                    duration_ms=llm_call_duration
+                    duration_ms=llm_call_duration,
                 )
 
                 # 步骤2c：对于 image_text，提取 LLM 生成的 image_prompts
@@ -1019,16 +1190,21 @@ class Phase2Generator:
                         if isinstance(p, str) and p.strip():
                             extracted_prompts.append(p.strip())
                     if extracted_prompts:
-                        image_prompts = extracted_prompts[:input_data.image_count]
-                        
+                        image_prompts = extracted_prompts[: input_data.image_count]
+
                         # 在LLM生成的提示词中加入模板指令和提示词模板
                         template_instruction = input_data.template_instruction or ""
                         template_prompt = input_data.template_prompt or ""
                         if template_instruction.strip() in ("无", "暂无", "无创意", ""):
                             template_instruction = ""
-                        if template_prompt.strip() in ("无", "暂无", "", "无提示词模板"):
+                        if template_prompt.strip() in (
+                            "无",
+                            "暂无",
+                            "",
+                            "无提示词模板",
+                        ):
                             template_prompt = ""
-                        
+
                         if template_instruction or template_prompt:
                             enhanced_prompts = []
                             for p in image_prompts:
@@ -1039,10 +1215,16 @@ class Phase2Generator:
                                     parts.append(f"生图要求：{template_prompt}")
                                 enhanced_prompts.append("，".join(parts))
                             image_prompts = enhanced_prompts
-                            logger.info("[Phase2] 已为LLM生成的提示词加入模板指令 | count=%s", len(image_prompts))
-                        
+                            logger.info(
+                                "[Phase2] 已为LLM生成的提示词加入模板指令 | count=%s",
+                                len(image_prompts),
+                            )
+
                         output_data.aigc_image_prompts = extracted_prompts
-                        logger.info("[Phase2] 使用LLM生成的配图提示词 | count=%s", len(image_prompts))
+                        logger.info(
+                            "[Phase2] 使用LLM生成的配图提示词 | count=%s",
+                            len(image_prompts),
+                        )
 
                 # 步骤2d：去重检测
                 dedup_passed = True
@@ -1051,29 +1233,43 @@ class Phase2Generator:
                     if not dedup_passed:
                         logger.warning(
                             "[Phase2] 去重检测未通过 | item_id=%s | similarity=%.2f | retry=%s/%s",
-                            input_data.item_id, output_data.dedup_similarity,
-                            retry_round + 1, max_dedup_retries
+                            input_data.item_id,
+                            output_data.dedup_similarity,
+                            retry_round + 1,
+                            max_dedup_retries,
                         )
                         if retry_round < max_dedup_retries - 1:
                             # 去重重试：重新随机爆款类型和创意种子 + 附加相似度高的历史文案 + 去重警告
-                            retry_config = self._build_optimized_config(input_data, retry_round=retry_round + 1)
-                            text_prompt = OptimizedContentGenerator._build_combined_prompts(retry_config)[1]
+                            retry_config = self._build_optimized_config(
+                                input_data, retry_round=retry_round + 1
+                            )
+                            text_prompt = (
+                                OptimizedContentGenerator._build_combined_prompts(
+                                    retry_config
+                                )[1]
+                            )
 
                             # 追加相似度高的历史文案（从去重检测结果中提取，而非泛泛的历史记录）
                             if output_data.dedup_references:
                                 text_prompt += "\n\n## ⚠️ 高相似度历史文案（必须避免）\n"
-                                for idx, ref in enumerate(output_data.dedup_references[:3], 1):  # 最多显示前3个
-                                    similarity = ref.get('similarity', 0)
-                                    content_preview = ref.get('content_preview', '')
-                                    source = ref.get('source', '历史内容')
-                                    text_prompt += f"\n### 相似度 {similarity:.0%} - {source}\n"
+                                for idx, ref in enumerate(
+                                    output_data.dedup_references[:3], 1
+                                ):  # 最多显示前3个
+                                    similarity = ref.get("similarity", 0)
+                                    content_preview = ref.get("content_preview", "")
+                                    source = ref.get("source", "历史内容")
+                                    text_prompt += (
+                                        f"\n### 相似度 {similarity:.0%} - {source}\n"
+                                    )
                                     text_prompt += f"{content_preview}\n"
                                 text_prompt += "\n⚠️ 以上为与当前生成内容高度相似的历史文案，请务必创作完全不同的内容"
 
                             # 追加历史参考（首次生成时的历史文案）
                             if input_data.historical_texts:
                                 text_prompt += "\n\n## 历史参考（禁止重复和高相似度）\n"
-                                text_prompt += "\n\n---\n".join(input_data.historical_texts[:2])  # 限制数量
+                                text_prompt += "\n\n---\n".join(
+                                    input_data.historical_texts[:2]
+                                )  # 限制数量
                                 text_prompt += "\n\n⚠️ 以上为已发布的历史内容，请确保新内容在选题角度、表达方式、核心观点上有明显差异"
 
                             # 追加去重警告
@@ -1089,79 +1285,119 @@ class Phase2Generator:
                             text_prompt += dedup_warning
                             logger.info(
                                 "[Phase2] 去重重试：已重新随机爆款类型和创意种子 | item_id=%s | round=%s/%s | high_sim_refs=%s",
-                                input_data.item_id, retry_round + 1, max_dedup_retries, len(output_data.dedup_references)
+                                input_data.item_id,
+                                retry_round + 1,
+                                max_dedup_retries,
+                                len(output_data.dedup_references),
                             )
                             continue
                         else:
                             logger.warning(
                                 "[Phase2] 去重重试耗尽 | item_id=%s | max_retries=%s",
-                                input_data.item_id, max_dedup_retries
+                                input_data.item_id,
+                                max_dedup_retries,
                             )
                             output_data.dedup_passed = False
 
                 if dedup_passed:
                     if input_data.dedup_enabled:
-                        logger.info("[Phase2] 去重通过 | item_id=%s | round=%s",
-                                   input_data.item_id, retry_round + 1)
+                        logger.info(
+                            "[Phase2] 去重通过 | item_id=%s | round=%s",
+                            input_data.item_id,
+                            retry_round + 1,
+                        )
                     break
 
             # ========== 步骤3：生成图片（仅 image_text） ==========
             if input_data.content_type == "image_text" and image_prompts:
-                logger.info("[Phase2] 开始生成图片 | prompt_count=%s", len(image_prompts))
-                
+                logger.info(
+                    "[Phase2] 开始生成图片 | prompt_count=%s", len(image_prompts)
+                )
+
                 # 记录图片生成开始
                 image_call_start = datetime.utcnow()
                 image_result = await self._generate_images(image_prompts, input_data)
                 image_call_end = datetime.utcnow()
-                image_call_duration = int((image_call_end - image_call_start).total_seconds() * 1000)
-                
+                image_call_duration = int(
+                    (image_call_end - image_call_start).total_seconds() * 1000
+                )
+
                 output_data.generated_image_urls = image_result.get("images", [])
-                output_data.generated_image_thumbnail_urls = image_result.get("thumbnails", [])
+                output_data.generated_image_thumbnail_urls = image_result.get(
+                    "thumbnails", []
+                )
                 output_data.image_calls_count = len(image_prompts)
 
                 # 下载图片到本地COS并生成缩略图
                 # 模型平台返回的URL可能是临时的，需要保存到本地COS
                 if output_data.generated_image_urls:
                     try:
-                        from app.services.storage_service import get_storage_service
+                        from app.services.storage_service import \
+                            get_storage_service
+
                         storage_service = get_storage_service()
 
-                        logger.info("[Phase2] 开始下载URL图片到本地COS | count=%s", len(output_data.generated_image_urls))
-                        original_urls, thumbnail_urls = await storage_service.save_generated_images_with_thumbnails(
-                            output_data.generated_image_urls,
-                            input_data.owner_operator_id,
-                            input_data.task_id,
-                            input_data.item_id,
+                        logger.info(
+                            "[Phase2] 开始下载URL图片到本地COS | count=%s",
+                            len(output_data.generated_image_urls),
+                        )
+                        original_urls, thumbnail_urls = (
+                            await storage_service.save_generated_images_with_thumbnails(
+                                output_data.generated_image_urls,
+                                input_data.owner_operator_id,
+                                input_data.task_id,
+                                input_data.item_id,
+                            )
                         )
                         output_data.generated_image_urls = original_urls
                         output_data.generated_image_thumbnail_urls = thumbnail_urls
-                        logger.info("[Phase2] URL图片下载完成 | originals=%s | thumbnails=%s",
-                                   len(original_urls), len([t for t in thumbnail_urls if t]))
+                        logger.info(
+                            "[Phase2] URL图片下载完成 | originals=%s | thumbnails=%s",
+                            len(original_urls),
+                            len([t for t in thumbnail_urls if t]),
+                        )
                     except Exception as e:
-                        logger.warning("[Phase2] URL图片下载失败，使用原始URL | error=%s", str(e)[:100])
-                
+                        logger.warning(
+                            "[Phase2] URL图片下载失败，使用原始URL | error=%s",
+                            str(e)[:100],
+                        )
+
                 # 保存 base64 图片到本地COS
                 base64_images = image_result.get("base64_images", [])
                 if base64_images:
                     try:
-                        from app.services.storage_service import get_storage_service
+                        from app.services.storage_service import \
+                            get_storage_service
+
                         storage_service = get_storage_service()
 
-                        logger.info("[Phase2] 开始保存Base64图片到本地COS | count=%s", len(base64_images))
-                        saved_urls, saved_thumbnails = await storage_service.save_base64_images_with_thumbnails(
-                            base64_images,
-                            input_data.owner_operator_id,
-                            input_data.task_id,
-                            input_data.item_id,
+                        logger.info(
+                            "[Phase2] 开始保存Base64图片到本地COS | count=%s",
+                            len(base64_images),
+                        )
+                        saved_urls, saved_thumbnails = (
+                            await storage_service.save_base64_images_with_thumbnails(
+                                base64_images,
+                                input_data.owner_operator_id,
+                                input_data.task_id,
+                                input_data.item_id,
+                            )
                         )
                         # 合并到最终结果
                         output_data.generated_image_urls.extend(saved_urls)
-                        output_data.generated_image_thumbnail_urls.extend(saved_thumbnails)
-                        logger.info("[Phase2] Base64图片保存完成 | saved=%s | thumbnails=%s",
-                                   len(saved_urls), len([t for t in saved_thumbnails if t]))
+                        output_data.generated_image_thumbnail_urls.extend(
+                            saved_thumbnails
+                        )
+                        logger.info(
+                            "[Phase2] Base64图片保存完成 | saved=%s | thumbnails=%s",
+                            len(saved_urls),
+                            len([t for t in saved_thumbnails if t]),
+                        )
                     except Exception as e:
-                        logger.warning("[Phase2] Base64图片保存失败 | error=%s", str(e)[:100])
-                
+                        logger.warning(
+                            "[Phase2] Base64图片保存失败 | error=%s", str(e)[:100]
+                        )
+
                 # 记录图片生成结果
                 await log_execution_node(
                     item_id=input_data.item_id,
@@ -1177,7 +1413,7 @@ class Phase2Generator:
                         "images_count": len(image_result.get("images", [])),
                         "thumbnails_count": len(image_result.get("thumbnails", [])),
                     },
-                    duration_ms=image_call_duration
+                    duration_ms=image_call_duration,
                 )
 
                 # 图片去重检测（使用独立的图片去重开关）
@@ -1186,27 +1422,43 @@ class Phase2Generator:
 
             # ========== 完成 ==========
             # 如果是图文任务且所有图片生成都失败了，标记为失败（支持重试）
-            if input_data.content_type == "image_text" and image_prompts and not output_data.generated_image_urls:
+            if (
+                input_data.content_type == "image_text"
+                and image_prompts
+                and not output_data.generated_image_urls
+            ):
                 output_data.success = False
-                output_data.error_message = f"图片生成全部失败 | prompts={len(image_prompts)} | generated=0"
-                logger.error("[Phase2] 图片生成全部失败 | item_id=%s | prompts=%s",
-                           input_data.item_id, len(image_prompts))
+                output_data.error_message = (
+                    f"图片生成全部失败 | prompts={len(image_prompts)} | generated=0"
+                )
+                logger.error(
+                    "[Phase2] 图片生成全部失败 | item_id=%s | prompts=%s",
+                    input_data.item_id,
+                    len(image_prompts),
+                )
             else:
                 output_data.success = True
             output_data.execution_completed_at = datetime.utcnow()
 
-            logger.info("[Phase2] AI生成完成 | item_id=%s | success=%s | title_len=%s | text_len=%s | images=%s",
-                       input_data.item_id, output_data.success,
-                       len(output_data.generated_title or ""),
-                       len(output_data.generated_text or ""),
-                       len(output_data.generated_image_urls))
+            logger.info(
+                "[Phase2] AI生成完成 | item_id=%s | success=%s | title_len=%s | text_len=%s | images=%s",
+                input_data.item_id,
+                output_data.success,
+                len(output_data.generated_title or ""),
+                len(output_data.generated_text or ""),
+                len(output_data.generated_image_urls),
+            )
 
         except Exception as e:
             tb = traceback.format_exc()
             output_data.success = False
             output_data.error_message = f"{str(e)[:400]}\n---\n{tb[-500:]}"
-            logger.error("[Phase2] AI生成失败 | item_id=%s | error=%s\n%s",
-                       input_data.item_id, str(e)[:200], tb)
+            logger.error(
+                "[Phase2] AI生成失败 | item_id=%s | error=%s\n%s",
+                input_data.item_id,
+                str(e)[:200],
+                tb,
+            )
 
         return output_data
 
@@ -1218,11 +1470,17 @@ class Phase2Generator:
         - User Prompt: 具体任务、素材、创意配置（使用 OptimizedContentGenerator 构建）
         """
         config = self._build_optimized_config(input_data)
-        from app.services.prompt_generator_optimized import OptimizedContentGenerator
-        system_prompt, user_prompt = OptimizedContentGenerator._build_combined_prompts(config)
+        from app.services.prompt_generator_optimized import \
+            OptimizedContentGenerator
+
+        system_prompt, user_prompt = OptimizedContentGenerator._build_combined_prompts(
+            config
+        )
         return system_prompt, user_prompt
 
-    def _build_optimized_config(self, input_data: GenerationInputData, retry_round: int = 0) -> Dict[str, Any]:
+    def _build_optimized_config(
+        self, input_data: GenerationInputData, retry_round: int = 0
+    ) -> Dict[str, Any]:
         """
         从 GenerationInputData 构建 OptimizedContentGenerator 所需的 config dict
 
@@ -1239,8 +1497,10 @@ class Phase2Generator:
         config["content_type"] = ct_map.get(input_data.content_type, "内容")
 
         # 图片配置
-        image_count = getattr(input_data, 'image_count', 4) or 4
-        image_size_ratio = getattr(input_data, 'template_image_size_ratio', None) or "3:4"
+        image_count = getattr(input_data, "image_count", 4) or 4
+        image_size_ratio = (
+            getattr(input_data, "template_image_size_ratio", None) or "3:4"
+        )
         config["image_count"] = image_count
         config["image_size_ratio"] = image_size_ratio
 
@@ -1266,7 +1526,10 @@ class Phase2Generator:
             )
 
         # 模板创意 / 创作方向
-        if input_data.template_instruction and input_data.template_instruction.strip() not in ("无", "暂无", ""):
+        if (
+            input_data.template_instruction
+            and input_data.template_instruction.strip() not in ("无", "暂无", "")
+        ):
             config["prompt_creative"] = input_data.template_instruction
 
         # 模板指令 / 具体要求
@@ -1282,7 +1545,9 @@ class Phase2Generator:
         # 产品卖点
         if input_data.template_product_selling_points:
             try:
-                points_text = "、".join(str(p) for p in input_data.template_product_selling_points)
+                points_text = "、".join(
+                    str(p) for p in input_data.template_product_selling_points
+                )
             except Exception:
                 points_text = str(input_data.template_product_selling_points)
             if points_text:
@@ -1293,7 +1558,9 @@ class Phase2Generator:
         if input_data.sub_user_follower_profile:
             sub_user_profile["fan_persona"] = input_data.sub_user_follower_profile
         if input_data.sub_user_account_positioning:
-            sub_user_profile["account_positioning"] = input_data.sub_user_account_positioning
+            sub_user_profile["account_positioning"] = (
+                input_data.sub_user_account_positioning
+            )
         if input_data.sub_user_content_style:
             sub_user_profile["content_style"] = input_data.sub_user_content_style
         if sub_user_profile:
@@ -1303,7 +1570,9 @@ class Phase2Generator:
         seeds = input_data.template_seeds or {}
         raw_seed_config = input_data.raw_seed_config or {}
         import random as _random
-        from app.services.prompt_generator_optimized import OptimizedContentGenerator
+
+        from app.services.prompt_generator_optimized import \
+            OptimizedContentGenerator
 
         viral_type = seeds.get("viral_type")
         if not viral_type:
@@ -1311,11 +1580,19 @@ class Phase2Generator:
         # 原始配置为 "auto" 时，每次调用都重新随机选取（包括去重重试时）
         raw_viral_type = raw_seed_config.get("viral_type")
         if raw_viral_type == "auto":
-            viral_type = _random.choice(list(OptimizedContentGenerator.VIRAL_TYPE_CONFIGS.keys()))
+            viral_type = _random.choice(
+                list(OptimizedContentGenerator.VIRAL_TYPE_CONFIGS.keys())
+            )
             if retry_round > 0:
-                logger.info("[Phase2 config] 去重重试第%s轮，重新随机爆款类型: %s", retry_round, viral_type)
+                logger.info(
+                    "[Phase2 config] 去重重试第%s轮，重新随机爆款类型: %s",
+                    retry_round,
+                    viral_type,
+                )
             else:
-                logger.debug("[Phase2 config] 爆款类型为 auto，随机选择: %s", viral_type)
+                logger.debug(
+                    "[Phase2 config] 爆款类型为 auto，随机选择: %s", viral_type
+                )
         viral_config = OptimizedContentGenerator.VIRAL_TYPE_CONFIGS.get(viral_type)
         config["viral_type"] = viral_type
         config["viral_config"] = viral_config
@@ -1323,7 +1600,11 @@ class Phase2Generator:
         # 创意种子（创建 wrapper 使 OptimizedContentGenerator 可消费）
         # 去重重试时，对原本是 "auto" 的种子类型从候选池中重新随机选取
         creative_seeds = {}
-        seed_type_labels = {"opening": "开头模式", "emotion": "情感基调", "ending": "结尾方式"}
+        seed_type_labels = {
+            "opening": "开头模式",
+            "emotion": "情感基调",
+            "ending": "结尾方式",
+        }
         candidates_cache = input_data.seed_candidates_for_auto or {}
 
         for seed_type in ("opening", "emotion", "ending"):
@@ -1338,16 +1619,16 @@ class Phase2Generator:
 
                     # 构建完整的种子信息（包括模板列表、示例列表等）
                     # chosen 包含: name, template (list), example_phrases (list), description, avoid_phrases (list)
-                    templates = chosen.get('template', [])
+                    templates = chosen.get("template", [])
                     if isinstance(templates, str):
                         templates = [templates]
 
-                    examples = chosen.get('example_phrases', [])
+                    examples = chosen.get("example_phrases", [])
                     if isinstance(examples, str):
                         examples = [examples]
 
-                    description = chosen.get('description', '')
-                    avoids = chosen.get('avoid_phrases', [])
+                    description = chosen.get("description", "")
+                    avoids = chosen.get("avoid_phrases", [])
                     if isinstance(avoids, str):
                         avoids = [avoids]
 
@@ -1357,27 +1638,49 @@ class Phase2Generator:
                         templates=templates,
                         examples=examples,
                         description=description,
-                        avoids=avoids
+                        avoids=avoids,
                     )
 
                     if retry_round > 0:
-                        logger.info("[Phase2 config] 去重重试第%s轮，重新随机%s: %s | templates=%s | examples=%s",
-                                   retry_round, seed_type, chosen['name'], len(templates), len(examples))
+                        logger.info(
+                            "[Phase2 config] 去重重试第%s轮，重新随机%s: %s | templates=%s | examples=%s",
+                            retry_round,
+                            seed_type,
+                            chosen["name"],
+                            len(templates),
+                            len(examples),
+                        )
             else:
                 # 非 auto 的种子，直接用 Phase1 加载的内容
                 # seeds 包含: opening_seed_content, emotion_seed_content, ending_seed_content
                 # 这些是数据库查询的种子对象，需要提取完整信息
                 seed_obj = seeds.get(seed_type)
-                if seed_obj and hasattr(seed_obj, 'to_prompt'):
+                if seed_obj and hasattr(seed_obj, "to_prompt"):
                     # 如果是数据库对象，直接使用
                     creative_seeds[seed_type] = seed_obj
                 elif seed_obj:
                     # 如果是字典或其他格式，尝试提取信息
                     label = seed_type_labels.get(seed_type, seed_type)
-                    templates = seed_obj.get('template', []) if isinstance(seed_obj, dict) else []
-                    examples = seed_obj.get('example_phrases', []) if isinstance(seed_obj, dict) else []
-                    description = seed_obj.get('description', '') if isinstance(seed_obj, dict) else ''
-                    avoids = seed_obj.get('avoid_phrases', []) if isinstance(seed_obj, dict) else []
+                    templates = (
+                        seed_obj.get("template", [])
+                        if isinstance(seed_obj, dict)
+                        else []
+                    )
+                    examples = (
+                        seed_obj.get("example_phrases", [])
+                        if isinstance(seed_obj, dict)
+                        else []
+                    )
+                    description = (
+                        seed_obj.get("description", "")
+                        if isinstance(seed_obj, dict)
+                        else ""
+                    )
+                    avoids = (
+                        seed_obj.get("avoid_phrases", [])
+                        if isinstance(seed_obj, dict)
+                        else []
+                    )
 
                     if templates or examples:
                         creative_seeds[seed_type] = _SeedPromptWrapper(
@@ -1385,14 +1688,19 @@ class Phase2Generator:
                             templates=templates,
                             examples=examples,
                             description=description,
-                            avoids=avoids
+                            avoids=avoids,
                         )
 
         if creative_seeds:
             config["creative_seeds"] = creative_seeds
-            logger.debug("[Phase2 config] 创意种子已注入 | %s", list(creative_seeds.keys()))
+            logger.debug(
+                "[Phase2 config] 创意种子已注入 | %s", list(creative_seeds.keys())
+            )
         else:
-            logger.debug("[Phase2 config] 创意种子为空 | seeds_keys=%s", list(seeds.keys()) if isinstance(seeds, dict) else type(seeds))
+            logger.debug(
+                "[Phase2 config] 创意种子为空 | seeds_keys=%s",
+                list(seeds.keys()) if isinstance(seeds, dict) else type(seeds),
+            )
 
         # 历史参考
         if input_data.historical_texts:
@@ -1425,6 +1733,7 @@ class Phase2Generator:
             try:
                 # 尝试 ast 解析
                 import ast
+
                 parsed = ast.literal_eval(desc)
                 if isinstance(parsed, list):
                     return "、".join(str(p) for p in parsed)
@@ -1442,7 +1751,7 @@ class Phase2Generator:
         # 获取模板指令和提示词模板
         template_instruction = input_data.template_instruction or ""
         template_prompt = input_data.template_prompt or ""
-        
+
         # 过滤掉无效的指令（如"无"、"暂无"等占位符）
         if template_instruction.strip() in ("无", "暂无", "无创意", ""):
             template_instruction = ""
@@ -1456,7 +1765,9 @@ class Phase2Generator:
         elif input_data.sub_user_content_style:
             style_prefix_parts.append(input_data.sub_user_content_style)
 
-        style_prefix = f"{'，'.join(style_prefix_parts)}，" if style_prefix_parts else ""
+        style_prefix = (
+            f"{'，'.join(style_prefix_parts)}，" if style_prefix_parts else ""
+        )
 
         # 根据对标图片参考生成提示词
         if input_data.benchmark_image_enabled and input_data.benchmark_image_roles:
@@ -1469,7 +1780,7 @@ class Phase2Generator:
                     for k, v in roles_list.items()
                 ]
             if isinstance(roles_list, list):
-                for i, role_info in enumerate(roles_list[:input_data.image_count]):
+                for i, role_info in enumerate(roles_list[: input_data.image_count]):
                     if isinstance(role_info, dict):
                         role = role_info.get("role", f"配图{i+1}")
                         desc = role_info.get("description", "")
@@ -1482,19 +1793,33 @@ class Phase2Generator:
                             detail = json.loads(desc)
                             # detail 可能是 dict 或 list
                             if isinstance(detail, dict):
-                                subject = detail.get("subject", detail.get("description", desc))
-                                layout = detail.get("composition", detail.get("layout", ""))
-                                color_style = detail.get("color_style", detail.get("style", ""))
+                                subject = detail.get(
+                                    "subject", detail.get("description", desc)
+                                )
+                                layout = detail.get(
+                                    "composition", detail.get("layout", "")
+                                )
+                                color_style = detail.get(
+                                    "color_style", detail.get("style", "")
+                                )
                             elif isinstance(detail, list):
                                 # 如果是列表，取第一个元素或拼接
                                 if detail and isinstance(detail[0], dict):
                                     first_item = detail[0]
-                                    subject = first_item.get("subject", first_item.get("description", desc))
-                                    layout = first_item.get("composition", first_item.get("layout", ""))
-                                    color_style = first_item.get("color_style", first_item.get("style", ""))
+                                    subject = first_item.get(
+                                        "subject", first_item.get("description", desc)
+                                    )
+                                    layout = first_item.get(
+                                        "composition", first_item.get("layout", "")
+                                    )
+                                    color_style = first_item.get(
+                                        "color_style", first_item.get("style", "")
+                                    )
                                 else:
                                     # 列表元素是字符串，拼接
-                                    subject = "、".join(str(item) for item in detail[:3])
+                                    subject = "、".join(
+                                        str(item) for item in detail[:3]
+                                    )
                         except (json.JSONDecodeError, TypeError):
                             pass
                     prompt_parts = []
@@ -1514,17 +1839,24 @@ class Phase2Generator:
                         prompt_parts.append(f"生图要求：{template_prompt}")
                     prompt_parts.append("高清、精美、适合社交媒体配图")
                     prompts.append("，".join(prompt_parts))
-        elif input_data.benchmark_image_enabled and input_data.benchmark_material_images:
+        elif (
+            input_data.benchmark_image_enabled and input_data.benchmark_material_images
+        ):
             # 有对标图片但没有角色配置
             for i in range(input_data.image_count):
                 prompt_parts = [style_prefix] if style_prefix else []
                 if input_data.template_product_selling_points:
                     try:
-                        pts = [str(p) for p in input_data.template_product_selling_points[:3]]
+                        pts = [
+                            str(p)
+                            for p in input_data.template_product_selling_points[:3]
+                        ]
                         prompt_parts.append(f"突出卖点：{'、'.join(pts)}")
                     except Exception:
-                        prompt_parts.append(f"突出卖点：{input_data.template_product_selling_points}")
-                prompt_parts.append(f"参考对标素材的构图和风格")
+                        prompt_parts.append(
+                            f"突出卖点：{input_data.template_product_selling_points}"
+                        )
+                prompt_parts.append("参考对标素材的构图和风格")
                 # 加入模板指令和提示词模板
                 if template_instruction:
                     prompt_parts.append(f"创作方向：{template_instruction}")
@@ -1538,10 +1870,14 @@ class Phase2Generator:
             prompt_parts = [style_prefix] if style_prefix else []
             if input_data.template_product_selling_points:
                 try:
-                    pts = [str(p) for p in input_data.template_product_selling_points[:3]]
+                    pts = [
+                        str(p) for p in input_data.template_product_selling_points[:3]
+                    ]
                     prompt_parts.append(f"体现卖点：{'、'.join(pts)}")
                 except Exception:
-                    prompt_parts.append(f"体现卖点：{input_data.template_product_selling_points}")
+                    prompt_parts.append(
+                        f"体现卖点：{input_data.template_product_selling_points}"
+                    )
             # 加入模板指令和提示词模板
             if template_instruction:
                 prompt_parts.append(f"创作方向：{template_instruction}")
@@ -1550,13 +1886,16 @@ class Phase2Generator:
             prompt_parts.append("精美构图，光线柔和，高清画质，适合社交媒体配图")
             prompt = "，".join(prompt_parts)
             prompts.append(prompt)
-        
+
         # 记录生成的提示词（用于调试）
         if template_instruction or template_prompt:
-            logger.info("[_construct_image_prompts] 已加入模板指令 | count=%s | example=%s", 
-                       len(prompts), prompts[0][:200] if prompts else "")
+            logger.info(
+                "[_construct_image_prompts] 已加入模板指令 | count=%s | example=%s",
+                len(prompts),
+                prompts[0][:200] if prompts else "",
+            )
 
-        return prompts[:input_data.image_count]
+        return prompts[: input_data.image_count]
 
     async def _generate_text_with_retry(
         self,
@@ -1579,8 +1918,13 @@ class Phase2Generator:
         """
         from app.adapters.factory import ModelAdapterFactory
 
-        logger.info("[Phase2] LLM调用 | prompt_len=%s | platform=%s | model_id=%s | temperature=%s",
-                   len(prompt), input_data.model_platform, input_data.model_id, temperature)
+        logger.info(
+            "[Phase2] LLM调用 | prompt_len=%s | platform=%s | model_id=%s | temperature=%s",
+            len(prompt),
+            input_data.model_platform,
+            input_data.model_id,
+            temperature,
+        )
 
         # 使用阶段1预加载的模型配置（无需数据库连接）
         model_config = input_data.text_model_config
@@ -1594,19 +1938,23 @@ class Phase2Generator:
         platform = input_data.model_platform or "bailian"
 
         # 调试日志：验证模型配置
-        logger.debug("[Phase2] 准备创建文本适配器 | platform=%s | model_id=%s | api_key_len=%s | base_url=%s",
-                    platform, model_config.model_id,
-                    len(model_config.api_key) if model_config.api_key else 0,
-                    model_config.base_url)
+        logger.debug(
+            "[Phase2] 准备创建文本适配器 | platform=%s | model_id=%s | api_key_len=%s | base_url=%s",
+            platform,
+            model_config.model_id,
+            len(model_config.api_key) if model_config.api_key else 0,
+            model_config.base_url,
+        )
 
         try:
             adapter = ModelAdapterFactory.create_adapter(
-                platform=platform, config=model_config, validate=True,
+                platform=platform,
+                config=model_config,
+                validate=True,
             )
         except Exception as e:
             logger.error("[Phase2] 创建适配器失败 | error=%s", str(e)[:200])
             return GenerationResult(success=False, error_message=str(e)[:500])
-
 
         # LLM 调用带重试
         last_error = None
@@ -1617,14 +1965,23 @@ class Phase2Generator:
                 text_params = TextGenParams(
                     model_id=model_config.model_id,
                     max_tokens=extra_params.get("max_tokens", 32000),
-                    temperature=extra_params.get("temperature", temperature if temperature is not None else 0.7),
+                    temperature=extra_params.get(
+                        "temperature", temperature if temperature is not None else 0.7
+                    ),
                     top_p=extra_params.get("top_p", 0.8),
-                    enable_thinking=(platform.lower() == "bailian") and extra_params.get("enable_thinking", True),
+                    enable_thinking=(platform.lower() == "bailian")
+                    and extra_params.get("enable_thinking", True),
                 )
 
                 # 在调用之前完成变量替换
-                formatted_prompt = adapter.format_prompt(prompt, input_data.variable_values)
-                formatted_system = adapter.format_prompt(system_prompt, input_data.variable_values) if system_prompt else None
+                formatted_prompt = adapter.format_prompt(
+                    prompt, input_data.variable_values
+                )
+                formatted_system = (
+                    adapter.format_prompt(system_prompt, input_data.variable_values)
+                    if system_prompt
+                    else None
+                )
 
                 result = await adapter.generate_text(
                     user_prompt=formatted_prompt,
@@ -1634,27 +1991,41 @@ class Phase2Generator:
 
                 if result.success:
                     if attempt > 0:
-                        logger.info("[Phase2] LLM重试成功 | attempt=%s/%s", attempt + 1, max_retries + 1)
-                    logger.info("[Phase2] LLM生成成功 | text_len=%s",
-                              len(result.text) if result.text else 0)
+                        logger.info(
+                            "[Phase2] LLM重试成功 | attempt=%s/%s",
+                            attempt + 1,
+                            max_retries + 1,
+                        )
+                    logger.info(
+                        "[Phase2] LLM生成成功 | text_len=%s",
+                        len(result.text) if result.text else 0,
+                    )
                     return result
 
                 # 检查是否需要重试
                 if result.error_type in ("server_error", "network_error", "rate_limit"):
                     last_error = result
                     if attempt < max_retries:
-                        wait_time = 2 ** attempt
+                        wait_time = 2**attempt
                         logger.warning(
                             "[Phase2] LLM瞬态错误，准备重试 | attempt=%s/%s | error=%s | wait=%ss",
-                            attempt + 1, max_retries + 1,
-                            result.error_message[:100] if result.error_message else "unknown",
-                            wait_time
+                            attempt + 1,
+                            max_retries + 1,
+                            (
+                                result.error_message[:100]
+                                if result.error_message
+                                else "unknown"
+                            ),
+                            wait_time,
                         )
                         await asyncio.sleep(wait_time)
                         continue
                 else:
                     # 客户端错误不重试
-                    logger.error("[Phase2] LLM生成失败(不可重试) | error=%s", result.error_message)
+                    logger.error(
+                        "[Phase2] LLM生成失败(不可重试) | error=%s",
+                        result.error_message,
+                    )
                     return result
 
             except Exception as e:
@@ -1664,10 +2035,13 @@ class Phase2Generator:
                     error_type="network_error",
                 )
                 if attempt < max_retries:
-                    wait_time = 2 ** attempt
+                    wait_time = 2**attempt
                     logger.warning(
                         "[Phase2] LLM调用异常，准备重试 | attempt=%s/%s | error=%s | wait=%ss",
-                        attempt + 1, max_retries + 1, str(e)[:100], wait_time
+                        attempt + 1,
+                        max_retries + 1,
+                        str(e)[:100],
+                        wait_time,
                     )
                     await asyncio.sleep(wait_time)
                 else:
@@ -1696,7 +2070,7 @@ class Phase2Generator:
         if not model_config or not platform:
             logger.warning(
                 "[Phase2] 未配置独立图片模型，跳过图片生成 | item_id=%s",
-                input_data.item_id
+                input_data.item_id,
             )
             return {"images": [], "thumbnails": []}
 
@@ -1712,8 +2086,11 @@ class Phase2Generator:
                 )
                 if b64:
                     benchmark_b64_list.append(b64)
-            logger.info("[Phase2] 对标图转换 Base64 | total=%s | success=%s",
-                       len(input_data.benchmark_material_images), len(benchmark_b64_list))
+            logger.info(
+                "[Phase2] 对标图转换 Base64 | total=%s | success=%s",
+                len(input_data.benchmark_material_images),
+                len(benchmark_b64_list),
+            )
 
         # 产品图（用于主体外观参考）
         # 优先使用模板附件中的产品图，回退到素材附件
@@ -1726,36 +2103,53 @@ class Phase2Generator:
                 )
                 if b64:
                     product_b64_list.append(b64)
-            logger.info("[Phase2] 产品图转换 Base64 | total=%s | success=%s",
-                       len(product_urls), len(product_b64_list))
+            logger.info(
+                "[Phase2] 产品图转换 Base64 | total=%s | success=%s",
+                len(product_urls),
+                len(product_b64_list),
+            )
 
         # 解析对标图角色配置（list 格式，按索引对应每张对标图）
         bench_roles_list = self._parse_benchmark_roles(input_data)
 
-        logger.info("[Phase2] 图片生成 | prompts=%s | platform=%s | model_id=%s | benchmark_b64=%s | product_b64=%s",
-                   len(prompts), platform, model_config.model_id,
-                   len(benchmark_b64_list), len(product_b64_list))
+        logger.info(
+            "[Phase2] 图片生成 | prompts=%s | platform=%s | model_id=%s | benchmark_b64=%s | product_b64=%s",
+            len(prompts),
+            platform,
+            model_config.model_id,
+            len(benchmark_b64_list),
+            len(product_b64_list),
+        )
 
         # 调试日志：验证图片模型配置
-        logger.debug("[Phase2] 准备创建图片适配器 | platform=%s | model_id=%s | api_key_len=%s | base_url=%s",
-                    platform, model_config.model_id,
-                    len(model_config.api_key) if model_config.api_key else 0,
-                    model_config.base_url)
+        logger.debug(
+            "[Phase2] 准备创建图片适配器 | platform=%s | model_id=%s | api_key_len=%s | base_url=%s",
+            platform,
+            model_config.model_id,
+            len(model_config.api_key) if model_config.api_key else 0,
+            model_config.base_url,
+        )
 
         # ===== 步骤B：创建适配器 =====
         try:
             adapter = ModelAdapterFactory.create_adapter(
-                platform=platform, config=model_config, validate=True,
+                platform=platform,
+                config=model_config,
+                validate=True,
             )
         except Exception as e:
             logger.error("[Phase2] 创建图片适配器失败 | error=%s", str(e)[:200])
             return {"images": [], "thumbnails": []}
 
         # ===== 步骤C：并行生成所有图片 =====
-        image_size_ratio = getattr(input_data, 'template_image_size_ratio', None) or "3:4"
-        add_watermark = getattr(input_data, 'template_add_watermark', False)
+        image_size_ratio = (
+            getattr(input_data, "template_image_size_ratio", None) or "3:4"
+        )
+        add_watermark = getattr(input_data, "template_add_watermark", False)
 
-        async def _generate_single(i: int, prompt: str) -> Tuple[int, Optional[str], Optional[str]]:
+        async def _generate_single(
+            i: int, prompt: str
+        ) -> Tuple[int, Optional[str], Optional[str]]:
             """生成单张图片，返回 (index, image_url, thumbnail_url)
 
             参考图传入规则（每张生成图独立选图）：
@@ -1775,14 +2169,20 @@ class Phase2Generator:
                 # 取对应对标图的角色要求（用模型视角：它收到的数组里这就是第1张）
                 if bench_idx < len(bench_roles_list):
                     role_info = bench_roles_list[bench_idx]
-                    roledesc = self._sanitize_image_role_desc(role_info.get("description", ""))
+                    roledesc = self._sanitize_image_role_desc(
+                        role_info.get("description", "")
+                    )
                     if roledesc:
                         benchmark_role_text = f"第1张（对标图）：请重点参考其{roledesc}，该图片主体产品不作为生成对象"
 
             # 产品图：随机取 2 张
             if product_b64_list:
                 n_product = min(2, len(product_b64_list))
-                sampled = random.sample(product_b64_list, n_product) if n_product > 1 else [random.choice(product_b64_list)]
+                sampled = (
+                    random.sample(product_b64_list, n_product)
+                    if n_product > 1
+                    else [random.choice(product_b64_list)]
+                )
                 selected_refs.extend(sampled)
 
             # 构建增强 prompt（从生图模型视角描述参考图用途）
@@ -1791,12 +2191,19 @@ class Phase2Generator:
             if benchmark_role_text:
                 extra_parts.append(f"【参考图说明】\n{benchmark_role_text}")
             if n_benchmark > 0 and n_product > 0:
-                extra_parts.append("第2张、第3张为产品参考图，参考其主体外观，保持主体的轮廓、比例、样式、色彩、纹理、材质、细节等")
+                extra_parts.append(
+                    "第2张、第3张为产品参考图，参考其主体外观，保持主体的轮廓、比例、样式、色彩、纹理、材质、细节等"
+                )
             if extra_parts:
                 enhanced_prompt = f"{prompt}\n\n" + "\n".join(extra_parts)
 
-            logger.info("[Phase2] 生成图片 %d/%d | 对标图=原始索引%s | 产品参考图=%s张",
-                       i + 1, len(prompts), (i % len(benchmark_b64_list)) + 1 if benchmark_b64_list else 0, n_product)
+            logger.info(
+                "[Phase2] 生成图片 %d/%d | 对标图=原始索引%s | 产品参考图=%s张",
+                i + 1,
+                len(prompts),
+                (i % len(benchmark_b64_list)) + 1 if benchmark_b64_list else 0,
+                n_product,
+            )
 
             try:
                 # 构建 ImageGenParams，从 model_config 读取配置
@@ -1812,7 +2219,9 @@ class Phase2Generator:
                 )
 
                 # 在调用之前完成变量替换
-                formatted_prompt = adapter.format_prompt(enhanced_prompt, input_data.variable_values)
+                formatted_prompt = adapter.format_prompt(
+                    enhanced_prompt, input_data.variable_values
+                )
 
                 result = await adapter.generate_image(
                     prompt=formatted_prompt,
@@ -1822,21 +2231,41 @@ class Phase2Generator:
                 if result.success:
                     # 优先使用 URL，如果没有则使用 base64
                     if result.image_urls:
-                        thumb = result.thumbnail_urls[0] if hasattr(result, 'thumbnail_urls') and result.thumbnail_urls else None
-                        return i, {"type": "url", "data": result.image_urls[0], "thumbnail": thumb}
+                        thumb = (
+                            result.thumbnail_urls[0]
+                            if hasattr(result, "thumbnail_urls")
+                            and result.thumbnail_urls
+                            else None
+                        )
+                        return i, {
+                            "type": "url",
+                            "data": result.image_urls[0],
+                            "thumbnail": thumb,
+                        }
                     elif result.image_base64_list:
                         # 返回 base64 数据，稍后由调用方保存
-                        return i, {"type": "base64", "data": result.image_base64_list[0]}
+                        return i, {
+                            "type": "base64",
+                            "data": result.image_base64_list[0],
+                        }
                     else:
-                        logger.warning("[Phase2] 图片生成成功但无返回数据 | prompt=%s", prompt[:50])
+                        logger.warning(
+                            "[Phase2] 图片生成成功但无返回数据 | prompt=%s", prompt[:50]
+                        )
                         return i, None, None
                 else:
-                    logger.warning("[Phase2] 图片生成失败 | prompt=%s | error=%s",
-                                 prompt[:50], result.error_message)
+                    logger.warning(
+                        "[Phase2] 图片生成失败 | prompt=%s | error=%s",
+                        prompt[:50],
+                        result.error_message,
+                    )
                     return i, None, None
             except Exception as e:
-                logger.warning("[Phase2] 单张图片生成异常 | prompt=%s | error=%s",
-                             prompt[:50], str(e)[:100])
+                logger.warning(
+                    "[Phase2] 单张图片生成异常 | prompt=%s | error=%s",
+                    prompt[:50],
+                    str(e)[:100],
+                )
                 return i, None, None
 
         tasks = [_generate_single(i, prompt) for i, prompt in enumerate(prompts)]
@@ -1844,14 +2273,14 @@ class Phase2Generator:
 
         sorted_results = sorted(
             [r for r in results if isinstance(r, tuple) and r[1] is not None],
-            key=lambda x: x[0]
+            key=lambda x: x[0],
         )
-        
+
         # 分离 URL 和 base64 数据
         images = []
         base64_images = []
         thumbnails = []
-        
+
         for r in sorted_results:
             img_data = r[1]
             if isinstance(img_data, dict):
@@ -1865,11 +2294,21 @@ class Phase2Generator:
                 # 兼容旧格式（直接是 URL 字符串）
                 images.append(img_data)
 
-        logger.info("[Phase2] 图片生成完成 | urls=%s | base64=%s | total=%s", 
-                   len(images), len(base64_images), len(prompts))
-        return {"images": images, "base64_images": base64_images, "thumbnails": thumbnails}
+        logger.info(
+            "[Phase2] 图片生成完成 | urls=%s | base64=%s | total=%s",
+            len(images),
+            len(base64_images),
+            len(prompts),
+        )
+        return {
+            "images": images,
+            "base64_images": base64_images,
+            "thumbnails": thumbnails,
+        }
 
-    def _parse_benchmark_roles(self, input_data: GenerationInputData) -> List[Dict[str, Any]]:
+    def _parse_benchmark_roles(
+        self, input_data: GenerationInputData
+    ) -> List[Dict[str, Any]]:
         """
         解析对标图角色配置为有序列表
 
@@ -1908,9 +2347,10 @@ class Phase2Generator:
         embedding 在检测完成后直接异步保存。
         """
         try:
-            from app.services.dedup_service import DedupService
-            from app.services.async_embedding_service import AsyncEmbeddingService, EmbeddingSaveRequest
             from app.models import GenerationItem
+            from app.services.async_embedding_service import (
+                AsyncEmbeddingService, EmbeddingSaveRequest)
+            from app.services.dedup_service import DedupService
 
             # 创建临时的 GenerationItem 对象用于去重检测
             temp_item = GenerationItem(
@@ -1945,12 +2385,16 @@ class Phase2Generator:
                     task_id=input_data.task_id,
                     content_type="text",
                     content=output_data.generated_text,
-                    content_hash=hashlib.sha256(output_data.generated_text.encode('utf-8')).hexdigest(),
+                    content_hash=hashlib.sha256(
+                        output_data.generated_text.encode("utf-8")
+                    ).hexdigest(),
                     embedding=dedup_result.embedding,
                     content_index=0,
                 )
                 asyncio.create_task(AsyncEmbeddingService.save_embedding_async(request))
-                logger.debug("[Phase2] embedding 已提交异步保存 | item_id=%s", input_data.item_id)
+                logger.debug(
+                    "[Phase2] embedding 已提交异步保存 | item_id=%s", input_data.item_id
+                )
 
             return dedup_result.passed
 
@@ -1970,8 +2414,8 @@ class Phase2Generator:
         去重结果记录到 output_data 中，不阻断流程。
         """
         try:
-            from app.services.dedup_service import DedupService
             from app.models import GenerationItem
+            from app.services.dedup_service import DedupService
 
             temp_item = GenerationItem(
                 id=input_data.item_id,
@@ -1984,37 +2428,53 @@ class Phase2Generator:
             async with async_session_maker() as db:
                 for i, img_url in enumerate(output_data.generated_image_urls):
                     try:
-                        dedup_result = await DedupService.check_image_duplication_with_scope(
-                            db=db,
-                            generated_image_url=img_url,
-                            item=temp_item,
-                            scope=input_data.dedup_scope,
-                            task_id=input_data.task_id,
-                            threshold=input_data.dedup_threshold,
+                        dedup_result = (
+                            await DedupService.check_image_duplication_with_scope(
+                                db=db,
+                                generated_image_url=img_url,
+                                item=temp_item,
+                                scope=input_data.dedup_scope,
+                                task_id=input_data.task_id,
+                                threshold=input_data.dedup_threshold,
+                            )
                         )
-                        image_dedup_results.append({
-                            "index": i,
-                            "passed": dedup_result.passed,
-                            "similarity": dedup_result.max_similarity,
-                        })
+                        image_dedup_results.append(
+                            {
+                                "index": i,
+                                "passed": dedup_result.passed,
+                                "similarity": dedup_result.max_similarity,
+                            }
+                        )
                         if not dedup_result.passed:
                             logger.warning(
                                 "[Phase2] 图片去重检测未通过 | item_id=%s | image_index=%s | similarity=%.2f",
-                                input_data.item_id, i, dedup_result.max_similarity
+                                input_data.item_id,
+                                i,
+                                dedup_result.max_similarity,
                             )
                     except Exception as img_e:
                         logger.warning(
                             "[Phase2] 单张图片去重检测失败 | item_id=%s | image_index=%s | error=%s",
-                            input_data.item_id, i, str(img_e)[:100]
+                            input_data.item_id,
+                            i,
+                            str(img_e)[:100],
                         )
-                        image_dedup_results.append({"index": i, "passed": True, "similarity": 0.0, "error": str(img_e)[:100]})
+                        image_dedup_results.append(
+                            {
+                                "index": i,
+                                "passed": True,
+                                "similarity": 0.0,
+                                "error": str(img_e)[:100],
+                            }
+                        )
 
             output_data.dedup_references = image_dedup_results
             logger.info(
                 "[Phase2] 图片去重完成 | item_id=%s | total_images=%s | passed=%s/%s",
-                input_data.item_id, len(image_dedup_results),
+                input_data.item_id,
+                len(image_dedup_results),
                 sum(1 for r in image_dedup_results if r.get("passed", True)),
-                len(image_dedup_results)
+                len(image_dedup_results),
             )
 
         except Exception as e:
@@ -2034,13 +2494,14 @@ class Phase2Generator:
             return result
 
         import re
+
         text_to_parse = text.strip()
 
         # 统一换行符，避免 \r\n 问题
-        text_to_parse = text_to_parse.replace('\r\n', '\n').replace('\r', '\n')
+        text_to_parse = text_to_parse.replace("\r\n", "\n").replace("\r", "\n")
 
         # 方法1：使用 re.search 查找代码块（不要求整个字符串匹配）
-        json_block_pattern = r'```(?:json)?\s*\n(.*?)\n\s*```'
+        json_block_pattern = r"```(?:json)?\s*\n(.*?)\n\s*```"
         match = re.search(json_block_pattern, text_to_parse, re.DOTALL)
         if match:
             text_to_parse = match.group(1).strip()
@@ -2048,15 +2509,17 @@ class Phase2Generator:
         else:
             # 方法2：尝试直接解析（可能没有代码块包裹）
             # 如果以 { 开头，直接尝试解析
-            if text_to_parse.startswith('{'):
+            if text_to_parse.startswith("{"):
                 pass  # 保持原样
             else:
                 # 尝试查找第一个 { 和最后一个 }
-                first_brace = text_to_parse.find('{')
-                last_brace = text_to_parse.rfind('}')
+                first_brace = text_to_parse.find("{")
+                last_brace = text_to_parse.rfind("}")
                 if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
-                    text_to_parse = text_to_parse[first_brace:last_brace + 1]
-                    logger.debug("[Phase2] 提取 {} 之间的内容 | length=%s", len(text_to_parse))
+                    text_to_parse = text_to_parse[first_brace : last_brace + 1]
+                    logger.debug(
+                        "[Phase2] 提取 {} 之间的内容 | length=%s", len(text_to_parse)
+                    )
 
         try:
             data = json.loads(text_to_parse)
@@ -2064,20 +2527,28 @@ class Phase2Generator:
             result["content"] = data.get("content")
             result["topics"] = data.get("topics", [])
             result["image_prompts"] = data.get("image_prompts", [])
-            logger.info("[Phase2] JSON解析成功 | title=%s | content_len=%s | topics=%s | image_prompts=%s",
-                        result["title"][:30] if result["title"] else None,
-                        len(result["content"]) if result["content"] else 0,
-                        len(result["topics"]),
-                        len(result["image_prompts"]))
+            logger.info(
+                "[Phase2] JSON解析成功 | title=%s | content_len=%s | topics=%s | image_prompts=%s",
+                result["title"][:30] if result["title"] else None,
+                len(result["content"]) if result["content"] else 0,
+                len(result["topics"]),
+                len(result["image_prompts"]),
+            )
         except json.JSONDecodeError as e:
-            logger.warning("[Phase2] JSON解析失败，使用原始文本 | error=%s | text_len=%s | first_100=%s",
-                          str(e)[:50], len(text_to_parse), text_to_parse[:100])
+            logger.warning(
+                "[Phase2] JSON解析失败，使用原始文本 | error=%s | text_len=%s | first_100=%s",
+                str(e)[:50],
+                len(text_to_parse),
+                text_to_parse[:100],
+            )
             result["content"] = text
 
         return result
 
 
-async def execute_phase2_generation(input_data: GenerationInputData) -> GenerationOutputData:
+async def execute_phase2_generation(
+    input_data: GenerationInputData,
+) -> GenerationOutputData:
     """执行阶段2生成"""
     generator = Phase2Generator()
     return await generator.execute(input_data)
@@ -2086,6 +2557,7 @@ async def execute_phase2_generation(input_data: GenerationInputData) -> Generati
 # ============================================
 # 阶段3：结果保存
 # ============================================
+
 
 async def phase3_save_result(
     output_data: GenerationOutputData,
@@ -2112,9 +2584,14 @@ async def phase3_save_result(
         except Exception as e:
             is_deadlock = "Deadlock" in str(e) or "1213" in str(e)
             if is_deadlock and attempt < MAX_RETRIES - 1:
-                wait = (2 ** attempt) * 0.1  # 0.1s, 0.2s, 0.4s
-                logger.warning("[Phase3] 死锁重试 | item_id=%s | attempt=%s/%s | wait=%.1fs",
-                             output_data.item_id, attempt + 1, MAX_RETRIES, wait)
+                wait = (2**attempt) * 0.1  # 0.1s, 0.2s, 0.4s
+                logger.warning(
+                    "[Phase3] 死锁重试 | item_id=%s | attempt=%s/%s | wait=%.1fs",
+                    output_data.item_id,
+                    attempt + 1,
+                    MAX_RETRIES,
+                    wait,
+                )
                 await asyncio.sleep(wait)
                 continue
             logger.error("[Phase3] 保存结果失败 | error=%s", str(e)[:200])
@@ -2130,7 +2607,11 @@ async def _phase3_save_once(
     """阶段3单次保存（独立 session）"""
     start_time = datetime.utcnow()
     if attempt == 0:
-        logger.info("[Phase3] 开始保存结果 | item_id=%s | success=%s", output_data.item_id, output_data.success)
+        logger.info(
+            "[Phase3] 开始保存结果 | item_id=%s | success=%s",
+            output_data.item_id,
+            output_data.success,
+        )
 
     async with async_session_maker() as db:
         # 查询子任务
@@ -2153,8 +2634,12 @@ async def _phase3_save_once(
             item.generated_text = output_data.generated_text
             item.output_topics = output_data.generated_topics
             item.generated_image_urls_json = output_data.generated_image_urls
-            item.generated_image_thumbnails_json = output_data.generated_image_thumbnail_urls
-            item.aigc_user_text_generator_user_prompt = output_data.aigc_user_text_prompt
+            item.generated_image_thumbnails_json = (
+                output_data.generated_image_thumbnail_urls
+            )
+            item.aigc_user_text_generator_user_prompt = (
+                output_data.aigc_user_text_prompt
+            )
             item.aigc_user_image_prompts_json = output_data.aigc_image_prompts
             item.output_user_text_prompt = output_data.output_user_text_prompt
             item.output_user_image_prompt = output_data.output_user_image_prompt
@@ -2165,21 +2650,32 @@ async def _phase3_save_once(
             item.error_message = output_data.error_message
 
         item.execution_started_at = output_data.execution_started_at
-        item.execution_completed_at = output_data.execution_completed_at or datetime.utcnow()
+        item.execution_completed_at = (
+            output_data.execution_completed_at or datetime.utcnow()
+        )
         item.updated_at = datetime.utcnow()
 
         # 更新任务状态和计数器
         from app.services.generation_service import GenerationService
+
         await GenerationService.update_generation_item_status(
-            db, output_data.item_id, owner_operator_id,
+            db,
+            output_data.item_id,
+            owner_operator_id,
             status="completed" if output_data.success else "failed",
-            error_message=output_data.error_message if not output_data.success else None,
+            error_message=(
+                output_data.error_message if not output_data.success else None
+            ),
         )
 
         elapsed = (datetime.utcnow() - start_time).total_seconds()
-        logger.info("[Phase3] 结果保存完成 | elapsed=%.2fs | item_id=%s | success=%s",
-                   elapsed, output_data.item_id, output_data.success)
-        
+        logger.info(
+            "[Phase3] 结果保存完成 | elapsed=%.2fs | item_id=%s | success=%s",
+            elapsed,
+            output_data.item_id,
+            output_data.success,
+        )
+
         # 记录结果保存日志（在数据库事务内）
         save_log = GenerationItemExecutionLog(
             item_id=output_data.item_id,
@@ -2195,10 +2691,14 @@ async def _phase3_save_once(
                 "images_saved": len(output_data.generated_image_urls or []),
                 "status": "completed" if output_data.success else "failed",
             },
-            error_data={"error_message": output_data.error_message} if not output_data.success else None,
+            error_data=(
+                {"error_message": output_data.error_message}
+                if not output_data.success
+                else None
+            ),
             duration_ms=int(elapsed * 1000),
             started_at=start_time,
-            completed_at=datetime.utcnow()
+            completed_at=datetime.utcnow(),
         )
         db.add(save_log)
         await db.commit()

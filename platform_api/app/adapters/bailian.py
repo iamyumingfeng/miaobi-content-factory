@@ -19,19 +19,15 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Any, Optional, List
+from typing import Any, Dict, List, Optional
+
 import aiohttp
 
-from .params import TextGenParams, ImageGenParams
-from .base import (
-    BaseModelAdapter,
-    GenerationResult,
-    BatchChatResult,
-    ModelConfig,
-)
+from .base import (BaseModelAdapter, BatchChatResult, GenerationResult,
+                   ModelConfig)
 from .factory import AdapterRegistry
-
 from .image_prompts import enhance_image_prompt, get_negative_prompt
+from .params import ImageGenParams, TextGenParams
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +73,7 @@ class BailianAdapter(BaseModelAdapter):
             增强后的提示词
         """
         return enhance_image_prompt(prompt, has_reference=has_reference)
-    
+
     def model_max_pixels(self, model_id: str = None) -> int:
         """
         模型对应的最大像素（1K=1024, 2K=2048, 4K=4096）
@@ -100,13 +96,17 @@ class BailianAdapter(BaseModelAdapter):
         # 按模型细分像素限制
         if "wan2.7-image-pro" in mid:
             return 4096  # 4K
-        if any(x in mid for x in ["qwen-image-2.0-pro", "qwen-image-2.0", "wan2.7-image"]):
+        if any(
+            x in mid for x in ["qwen-image-2.0-pro", "qwen-image-2.0", "wan2.7-image"]
+        ):
             return 2048  # 2K
-        
+
         # 默认 2K（保守策略）
         return 2048
 
-    def _convert_ratio_to_size(self, ratio: str, model_id: str = None, has_reference: bool = False) -> str:
+    def _convert_ratio_to_size(
+        self, ratio: str, model_id: str = None, has_reference: bool = False
+    ) -> str:
         """
         根据模型能力将比例转为像素尺寸
 
@@ -119,6 +119,7 @@ class BailianAdapter(BaseModelAdapter):
             str: 像素尺寸，如 "1536*2048"
         """
         from .params import calc_pixel_size
+
         if has_reference == True:
             max_px = 2048
         else:
@@ -197,10 +198,17 @@ class BailianAdapter(BaseModelAdapter):
                 "Content-Type": "application/json",
             }
 
-            logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
+            logger.info(
+                "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            )
             logger.info("[LLM] 文案生成请求 | model=%s | url=%s", model_id, url)
-            logger.info("[LLM] 请求 payload: %s", json.dumps(payload, ensure_ascii=False, indent=2))
-            logger.info("[LLM] 请求头: Authorization=Bearer [REDACTED], Content-Type=application/json")
+            logger.info(
+                "[LLM] 请求 payload: %s",
+                json.dumps(payload, ensure_ascii=False, indent=2),
+            )
+            logger.info(
+                "[LLM] 请求头: Authorization=Bearer [REDACTED], Content-Type=application/json"
+            )
 
             start_time = time.time()
 
@@ -214,8 +222,14 @@ class BailianAdapter(BaseModelAdapter):
                         result = json.loads(raw_body)
                     except (json.JSONDecodeError, ValueError):
                         result = {"raw_text": raw_body[:500]}
-                    error_detail = result.get("message", "") or result.get("error", {}).get("message", "") or raw_body[:300]
-                    logger.error(f"Bailian API error: status={response.status} url={url} detail={error_detail}")
+                    error_detail = (
+                        result.get("message", "")
+                        or result.get("error", {}).get("message", "")
+                        or raw_body[:300]
+                    )
+                    logger.error(
+                        f"Bailian API error: status={response.status} url={url} detail={error_detail}"
+                    )
                     return GenerationResult(
                         success=False,
                         error_message=f"Bailian API error {response.status}: {error_detail}",
@@ -225,9 +239,16 @@ class BailianAdapter(BaseModelAdapter):
                 result = await response.json()
 
                 elapsed = time.time() - start_time
-                logger.info("[LLM] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                logger.info("[LLM] 文案生成响应 | elapsed=%.2fs | model=%s", elapsed, model_id)
-                logger.info("[LLM] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[LLM] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                )
+                logger.info(
+                    "[LLM] 文案生成响应 | elapsed=%.2fs | model=%s", elapsed, model_id
+                )
+                logger.info(
+                    "[LLM] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 # OpenAI 兼容格式响应
                 choices = result.get("choices", [])
@@ -241,9 +262,21 @@ class BailianAdapter(BaseModelAdapter):
                     )
 
                 generated_text = choices[0].get("message", {}).get("content", "")
-                logger.info("[LLM] 生成的文案长度: %d 字符", len(generated_text) if generated_text else 0)
-                logger.info("[LLM] 生成的文案内容: %s", (generated_text[:1024] + "...") if generated_text and len(generated_text) > 1024 else (generated_text or ""))
-                logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[LLM] 生成的文案长度: %d 字符",
+                    len(generated_text) if generated_text else 0,
+                )
+                logger.info(
+                    "[LLM] 生成的文案内容: %s",
+                    (
+                        (generated_text[:1024] + "...")
+                        if generated_text and len(generated_text) > 1024
+                        else (generated_text or "")
+                    ),
+                )
+                logger.info(
+                    "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -290,7 +323,11 @@ class BailianAdapter(BaseModelAdapter):
             base = self.base_url.rstrip("/")
             url = f"{base}{self.TEXT_ENDPOINT}"
 
-            model_id = getattr(params, "model_id", self.config.model_id) if params else self.config.model_id
+            model_id = (
+                getattr(params, "model_id", self.config.model_id)
+                if params
+                else self.config.model_id
+            )
             max_tokens = getattr(params, "max_tokens", 32000) if params else 32000
             temperature = getattr(params, "temperature", 0.7) if params else 0.7
             top_p = getattr(params, "top_p", 0.8) if params else 0.8
@@ -312,10 +349,19 @@ class BailianAdapter(BaseModelAdapter):
                 "Content-Type": "application/json",
             }
 
-            logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>")
-            logger.info("[LLM] 文案生成请求(system+user) | model=%s | url=%s", model_id, url)
-            logger.info("[LLM] 请求 payload: %s", json.dumps(payload, ensure_ascii=False, indent=2))
-            logger.info("[LLM] 请求头: Authorization=Bearer [REDACTED], Content-Type=application/json")
+            logger.info(
+                "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            )
+            logger.info(
+                "[LLM] 文案生成请求(system+user) | model=%s | url=%s", model_id, url
+            )
+            logger.info(
+                "[LLM] 请求 payload: %s",
+                json.dumps(payload, ensure_ascii=False, indent=2),
+            )
+            logger.info(
+                "[LLM] 请求头: Authorization=Bearer [REDACTED], Content-Type=application/json"
+            )
 
             start_time = time.time()
 
@@ -328,8 +374,14 @@ class BailianAdapter(BaseModelAdapter):
                         result = json.loads(raw_body)
                     except (json.JSONDecodeError, ValueError):
                         result = {"raw_text": raw_body[:500]}
-                    error_detail = result.get("message", "") or result.get("error", {}).get("message", "") or raw_body[:300]
-                    logger.error(f"Bailian API error: status={response.status} url={url} detail={error_detail}")
+                    error_detail = (
+                        result.get("message", "")
+                        or result.get("error", {}).get("message", "")
+                        or raw_body[:300]
+                    )
+                    logger.error(
+                        f"Bailian API error: status={response.status} url={url} detail={error_detail}"
+                    )
                     return GenerationResult(
                         success=False,
                         error_message=f"Bailian API error {response.status}: {error_detail}",
@@ -339,9 +391,16 @@ class BailianAdapter(BaseModelAdapter):
                 result = await response.json()
 
                 elapsed = time.time() - start_time
-                logger.info("[LLM] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                logger.info("[LLM] 文案生成响应 | elapsed=%.2fs | model=%s", elapsed, model_id)
-                logger.info("[LLM] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[LLM] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                )
+                logger.info(
+                    "[LLM] 文案生成响应 | elapsed=%.2fs | model=%s", elapsed, model_id
+                )
+                logger.info(
+                    "[LLM] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 choices = result.get("choices", [])
                 if not choices:
@@ -353,9 +412,21 @@ class BailianAdapter(BaseModelAdapter):
                     )
 
                 generated_text = choices[0].get("message", {}).get("content", "")
-                logger.info("[LLM] 生成的文案长度: %d 字符", len(generated_text) if generated_text else 0)
-                logger.info("[LLM] 生成的文案内容: %s", (generated_text[:1024] + "...") if generated_text and len(generated_text) > 1024 else (generated_text or ""))
-                logger.info("[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[LLM] 生成的文案长度: %d 字符",
+                    len(generated_text) if generated_text else 0,
+                )
+                logger.info(
+                    "[LLM] 生成的文案内容: %s",
+                    (
+                        (generated_text[:1024] + "...")
+                        if generated_text and len(generated_text) > 1024
+                        else (generated_text or "")
+                    ),
+                )
+                logger.info(
+                    "[LLM] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -444,7 +515,9 @@ class BailianAdapter(BaseModelAdapter):
             )
 
             # 将 ratio 转换为百炼标准格式（图生图场景限制为 2K）
-            size = self._convert_ratio_to_size(p.ratio, model_id, has_reference=has_reference)
+            size = self._convert_ratio_to_size(
+                p.ratio, model_id, has_reference=has_reference
+            )
 
             # 构建 content 数组（使用增强后的提示词）
             # 注意：当有参考图片时，先放图片再放文本，让模型先理解参考内容
@@ -484,10 +557,10 @@ class BailianAdapter(BaseModelAdapter):
             # 日志优化：Base64 只显示长度
             log_preview = []
             for img in reference_images:
-                if img.startswith('data:'):
+                if img.startswith("data:"):
                     log_preview.append(f"<Base64 {len(img)} chars>")
                 else:
-                    log_preview.append(img[:60] + ('...' if len(img) > 60 else ''))
+                    log_preview.append(img[:60] + ("..." if len(img) > 60 else ""))
             logger.info(
                 f"[Image] Bailian 图片生成请求 | model={model_id} | size={size} | n={n} | "
                 f"ref_images={len(reference_images)} | imgs={log_preview}"
@@ -495,9 +568,11 @@ class BailianAdapter(BaseModelAdapter):
             logger.info(f"[Image] Bailian request URL: {self._multimodal_url}")
             # payload 日志：替换 Base64 为长度标记，其余完整输出
             payload_log = json.dumps(payload, ensure_ascii=False, indent=2)
-            payload_log = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+',
-                                lambda m: f'<Base64 {len(m.group(0))} chars>',
-                                payload_log)
+            payload_log = re.sub(
+                r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+",
+                lambda m: f"<Base64 {len(m.group(0))} chars>",
+                payload_log,
+            )
             logger.info(f"[Image] Bailian request payload: {payload_log}")
 
             start_time = time.time()
@@ -513,7 +588,11 @@ class BailianAdapter(BaseModelAdapter):
                     result = {"raw_text": raw_text[:500]}
 
                 if response.status != 200:
-                    error_msg = result.get("message", "") or result.get("error", {}).get("message", "") or raw_text[:300]
+                    error_msg = (
+                        result.get("message", "")
+                        or result.get("error", {}).get("message", "")
+                        or raw_text[:300]
+                    )
                     logger.error(
                         f"Bailian image API error: status={response.status}, "
                         f"detail={error_msg}, "
@@ -571,8 +650,6 @@ class BailianAdapter(BaseModelAdapter):
             if session:
                 await self._close_session(session)
 
-    
-
     async def generate_video(
         self,
         prompt: str,
@@ -581,18 +658,18 @@ class BailianAdapter(BaseModelAdapter):
     ) -> GenerationResult:
         """
         生成视频（文生视频或图生视频）
-        
+
         使用阿里百炼 multimodal-generation 接口。
-        
+
         支持模型：
         - wan2.7-t2v: 文生视频
         - wan2.7-i2v: 图生视频
-        
+
         Args:
             prompt: 提示词（已完成变量替换）
             image_url: 参考图片URL（图生视频时使用）
             model_id: 模型ID (wan2.7-t2v 或 wan2.7-i2v)
-        
+
         Returns:
             GenerationResult: 生成结果（视频需要异步获取）
         """
@@ -635,7 +712,9 @@ class BailianAdapter(BaseModelAdapter):
 
             start_time = time.time()
 
-            async with self._session.post(url, json=payload, headers=headers) as response:
+            async with self._session.post(
+                url, json=payload, headers=headers
+            ) as response:
                 response.raise_for_status()
                 result = await response.json()
 
@@ -749,7 +828,9 @@ class BailianAdapter(BaseModelAdapter):
                 "Content-Type": "application/json",
             }
 
-            logger.debug(f"Calling Bailian embedding: model={model_id}, text_len={len(text)}")
+            logger.debug(
+                f"Calling Bailian embedding: model={model_id}, text_len={len(text)}"
+            )
 
             start_time = time.time()
 
@@ -761,8 +842,14 @@ class BailianAdapter(BaseModelAdapter):
                         result = json.loads(raw_body)
                     except (json.JSONDecodeError, ValueError):
                         result = {"raw_text": raw_body[:500]}
-                    error_detail = result.get("message", "") or result.get("error", {}).get("message", "") or raw_body[:300]
-                    logger.error(f"Bailian embedding API error: status={response.status} detail={error_detail}")
+                    error_detail = (
+                        result.get("message", "")
+                        or result.get("error", {}).get("message", "")
+                        or raw_body[:300]
+                    )
+                    logger.error(
+                        f"Bailian embedding API error: status={response.status} detail={error_detail}"
+                    )
                     return None
 
                 result = await response.json()
@@ -838,22 +925,30 @@ class BailianAdapter(BaseModelAdapter):
                 if not image_url.startswith("data:"):
                     try:
                         # 尝试导入 storage service 处理图片
-                        from app.services.storage_service import get_storage_service
+                        from app.services.storage_service import \
+                            get_storage_service
+
                         storage_service = get_storage_service()
 
                         # 处理图片，优先使用 Base64
                         # no_compression=True: embedding 需要原图，不压缩
-                        processed_url, processed_base64 = await storage_service.process_reference_image(
-                            image_url,
-                            prefer_url=False,
-                            no_compression=True  # embedding 需要原图
+                        processed_url, processed_base64 = (
+                            await storage_service.process_reference_image(
+                                image_url,
+                                prefer_url=False,
+                                no_compression=True,  # embedding 需要原图
+                            )
                         )
 
-                        final_image = processed_base64 if processed_base64 else processed_url
+                        final_image = (
+                            processed_base64 if processed_base64 else processed_url
+                        )
                         if not final_image:
                             final_image = image_url
 
-                        logger.info(f"[Bailian] 图片处理完成 | original={image_url[:60]}... | final_type={'Base64' if final_image.startswith('data:') else 'URL'}")
+                        logger.info(
+                            f"[Bailian] 图片处理完成 | original={image_url[:60]}... | final_type={'Base64' if final_image.startswith('data:') else 'URL'}"
+                        )
                     except Exception as e:
                         logger.warning(f"[Bailian] 图片处理失败，使用原始 URL: {e}")
                         final_image = image_url
@@ -870,13 +965,11 @@ class BailianAdapter(BaseModelAdapter):
             # tongyi-embedding-vision-flash-2026-03-06[文本长度限制：1,024 Token]: 768（默认）, 512, 256, 128, 64
             payload = {
                 "model": model_id,
-                "input": {
-                    "contents": contents
-                },
+                "input": {"contents": contents},
                 "parameters": {
-                    #"dimension": 512,  # 百炼512 相对通用
+                    # "dimension": 512,  # 百炼512 相对通用
                     "enable_fusion": True  # 启用特征融合
-                }
+                },
             }
 
             headers = {
@@ -888,13 +981,19 @@ class BailianAdapter(BaseModelAdapter):
             log_preview = {"model": model_id, "contents": []}
             for item in contents:
                 if "text" in item:
-                    log_preview["contents"].append({"text": f"({len(item['text'])} chars)"})
+                    log_preview["contents"].append(
+                        {"text": f"({len(item['text'])} chars)"}
+                    )
                 elif "image" in item:
                     img = item["image"]
                     if img.startswith("data:"):
-                        log_preview["contents"].append({"image": f"<Base64 {len(img)} chars>"})
+                        log_preview["contents"].append(
+                            {"image": f"<Base64 {len(img)} chars>"}
+                        )
                     else:
-                        log_preview["contents"].append({"image": img[:60] + ("..." if len(img) > 60 else "")})
+                        log_preview["contents"].append(
+                            {"image": img[:60] + ("..." if len(img) > 60 else "")}
+                        )
 
             logger.info(f"Calling Bailian multimodal embedding: {log_preview}")
 
@@ -908,14 +1007,22 @@ class BailianAdapter(BaseModelAdapter):
                         result = json.loads(raw_body)
                     except (json.JSONDecodeError, ValueError):
                         result = {"raw_text": raw_body[:500]}
-                    error_detail = result.get("message", "") or result.get("error", {}).get("message", "") or raw_body[:300]
-                    logger.error(f"Bailian multimodal embedding API error: status={response.status} detail={error_detail}")
+                    error_detail = (
+                        result.get("message", "")
+                        or result.get("error", {}).get("message", "")
+                        or raw_body[:300]
+                    )
+                    logger.error(
+                        f"Bailian multimodal embedding API error: status={response.status} detail={error_detail}"
+                    )
                     return None
 
                 result = await response.json()
 
                 elapsed = time.time() - start_time
-                logger.debug(f"Bailian multimodal embedding completed in {elapsed:.2f}s")
+                logger.debug(
+                    f"Bailian multimodal embedding completed in {elapsed:.2f}s"
+                )
 
                 # 解析响应格式
                 # {"output": {"embeddings": [{"embedding": [...], "text_index": 0}]}}
@@ -927,13 +1034,17 @@ class BailianAdapter(BaseModelAdapter):
                 if embeddings:
                     embedding = embeddings[0].get("embedding")
                     if embedding:
-                        logger.info(f"Bailian multimodal embedding success: vector_dim={len(embedding)}")
+                        logger.info(
+                            f"Bailian multimodal embedding success: vector_dim={len(embedding)}"
+                        )
                         return embedding
 
                 # 尝试单 embedding 格式
                 embedding = output.get("embedding")
                 if embedding:
-                    logger.info(f"Bailian multimodal embedding success: vector_dim={len(embedding)}")
+                    logger.info(
+                        f"Bailian multimodal embedding success: vector_dim={len(embedding)}"
+                    )
                     return embedding
 
                 # 尝试 OpenAI 兼容格式
@@ -941,10 +1052,14 @@ class BailianAdapter(BaseModelAdapter):
                 if data:
                     embedding = data[0].get("embedding")
                     if embedding:
-                        logger.info(f"Bailian multimodal embedding success: vector_dim={len(embedding)}")
+                        logger.info(
+                            f"Bailian multimodal embedding success: vector_dim={len(embedding)}"
+                        )
                         return embedding
 
-                logger.warning("Bailian multimodal embedding response has no valid embedding")
+                logger.warning(
+                    "Bailian multimodal embedding response has no valid embedding"
+                )
                 return None
 
         except aiohttp.ClientError as e:
@@ -954,13 +1069,17 @@ class BailianAdapter(BaseModelAdapter):
             error_msg = str(e)
             if self.config.api_key:
                 error_msg = error_msg.replace(self.config.api_key, "[REDACTED]")
-            logger.error(f"Bailian multimodal embedding failed: {error_msg}", exc_info=True)
+            logger.error(
+                f"Bailian multimodal embedding failed: {error_msg}", exc_info=True
+            )
             return None
         finally:
             if session:
                 await self._close_session(session)
 
-    async def get_image_embedding(self, image_url: str, **kwargs) -> Optional[List[float]]:
+    async def get_image_embedding(
+        self, image_url: str, **kwargs
+    ) -> Optional[List[float]]:
         """
         获取图片的嵌入向量
 
@@ -996,20 +1115,27 @@ class BailianAdapter(BaseModelAdapter):
             await self._ensure_session()
 
             # 批量聊天专属 BaseURL
-            batch_base_url = kwargs.get("batch_base_url", "https://batch.dashscope.aliyuncs.com/compatible-mode/v1")
+            batch_base_url = kwargs.get(
+                "batch_base_url",
+                "https://batch.dashscope.aliyuncs.com/compatible-mode/v1",
+            )
             api_endpoint = kwargs.get("api_endpoint", "/chat/completions")
             url = f"{batch_base_url}{api_endpoint}"
 
             # 模型参数
-            model_id = getattr(params, "model_id", self.config.model_id) if params else self.config.model_id
+            params = kwargs.get("params")
+            model_id = (
+                getattr(params, "model_id", self.config.model_id)
+                if params
+                else self.config.model_id
+            )
             max_tokens = getattr(params, "max_tokens", 32000) if params else 32000
             temperature = getattr(params, "temperature", 0.7) if params else 0.7
             top_p = getattr(params, "top_p", 0.8) if params else 0.8
 
             # 格式化所有提示词
             formatted_prompts = [
-                self.format_prompt(prompt, variables)
-                for prompt in prompts
+                self.format_prompt(prompt, variables) for prompt in prompts
             ]
 
             # 构建批量请求
@@ -1032,11 +1158,15 @@ class BailianAdapter(BaseModelAdapter):
                 "Content-Type": "application/json",
             }
 
-            logger.debug(f"Calling Bailian batch chat: model={model_id}, count={len(prompts)}")
+            logger.debug(
+                f"Calling Bailian batch chat: model={model_id}, count={len(prompts)}"
+            )
 
             start_time = time.time()
 
-            async with self._session.post(url, json=payload, headers=headers) as response:
+            async with self._session.post(
+                url, json=payload, headers=headers
+            ) as response:
                 response.raise_for_status()
                 result = await response.json()
 

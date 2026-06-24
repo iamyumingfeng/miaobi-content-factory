@@ -7,33 +7,25 @@ Author: Claude Code
 Date: 2026
 """
 
+from datetime import datetime
+from typing import Any, Dict, Optional, Tuple, Union
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, List, Any, Dict
-from datetime import datetime
 
 from app.core.database import get_async_db
-from app.utils.response import success_response, ApiResponse
+from app.models import Operator, SubUser, SuperAdmin
 from app.schemas import PaginatedResponse
-from app.utils.deps import get_optional_current_user, get_current_super_admin
-from app.models import SuperAdmin, Operator, SubUser
-from typing import Tuple, Union
-from app.services.operation_log_service import (
-    OperationLogService,
-    MODULE_USERS,
-    MODULE_TEMPLATES,
-    MODULE_MATERIALS,
-    MODULE_GENERATION,
-    MODULE_DISTRIBUTION,
-    MODULE_SYSTEM,
-    MODULE_SCHEDULED_TASKS,
-)
+from app.services.operation_log_service import (OperationLogService)
+from app.utils.deps import get_current_super_admin, get_optional_current_user
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 
 
 class OperationLogCreateRequest:
     """操作日志创建请求"""
+
     def __init__(
         self,
         module: Optional[str] = None,
@@ -57,6 +49,7 @@ class OperationLogCreateRequest:
 
 class OperationLogResponse:
     """操作日志响应"""
+
     def __init__(self, data: Dict[str, Any]):
         self.id = data.get("id")
         self.super_admin_id = data.get("super_admin_id")
@@ -86,7 +79,9 @@ def _extract_client_info(request: Request) -> tuple:
 async def create_operation_log(
     request_body: dict,
     request: Request,
-    user_info: Optional[Tuple[Union[SuperAdmin, Operator, SubUser], str]] = Depends(get_optional_current_user),
+    user_info: Optional[Tuple[Union[SuperAdmin, Operator, SubUser], str]] = Depends(
+        get_optional_current_user
+    ),
     db: AsyncSession = Depends(get_async_db),
 ):
     """
@@ -102,7 +97,7 @@ async def create_operation_log(
     user_type = None
     if user_info:
         user_obj, user_type = user_info
-        user_id = getattr(user_obj, 'id', None)
+        user_id = getattr(user_obj, "id", None)
 
     log = await OperationLogService.create(
         db=db,
@@ -123,8 +118,11 @@ async def create_operation_log(
     await db.commit()
 
     return success_response(
-        data={"id": log.id, "created_at": log.created_at.isoformat() if log.created_at else None},
-        message="日志记录成功"
+        data={
+            "id": log.id,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        },
+        message="日志记录成功",
     )
 
 
@@ -172,6 +170,7 @@ async def list_operation_logs(
 
     if operator_ids:
         from sqlalchemy import select
+
         op_result = await db.execute(
             select(Operator.id, Operator.nickname).where(Operator.id.in_(operator_ids))
         )
@@ -179,6 +178,7 @@ async def list_operation_logs(
 
     if sub_user_ids:
         from sqlalchemy import select
+
         sub_result = await db.execute(
             select(SubUser.id, SubUser.nickname).where(SubUser.id.in_(sub_user_ids))
         )
@@ -187,25 +187,31 @@ async def list_operation_logs(
     # 转换为响应格式
     items = []
     for log in logs:
-        items.append({
-            "id": log.id,
-            "super_admin_id": log.super_admin_id,
-            "operator_id": log.operator_id,
-            "operator_name": operator_names.get(log.operator_id) if log.operator_id else None,
-            "sub_user_id": log.sub_user_id,
-            "sub_user_name": sub_user_names.get(log.sub_user_id) if log.sub_user_id else None,
-            "module": log.module,
-            "action": log.action,
-            "description": log.description,
-            "table_name": log.table_name,
-            "record_id": log.record_id,
-            "old_value_json": log.old_value_json,
-            "new_value_json": log.new_value_json,
-            "extra_data_json": log.extra_data_json,
-            "ip_address": log.ip_address,
-            "user_agent": log.user_agent,
-            "created_at": log.created_at.isoformat() if log.created_at else None,
-        })
+        items.append(
+            {
+                "id": log.id,
+                "super_admin_id": log.super_admin_id,
+                "operator_id": log.operator_id,
+                "operator_name": (
+                    operator_names.get(log.operator_id) if log.operator_id else None
+                ),
+                "sub_user_id": log.sub_user_id,
+                "sub_user_name": (
+                    sub_user_names.get(log.sub_user_id) if log.sub_user_id else None
+                ),
+                "module": log.module,
+                "action": log.action,
+                "description": log.description,
+                "table_name": log.table_name,
+                "record_id": log.record_id,
+                "old_value_json": log.old_value_json,
+                "new_value_json": log.new_value_json,
+                "extra_data_json": log.extra_data_json,
+                "ip_address": log.ip_address,
+                "user_agent": log.user_agent,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+        )
 
     return success_response(
         data=PaginatedResponse(
@@ -215,7 +221,7 @@ async def list_operation_logs(
             limit=limit,
             total_pages=(total + limit - 1) // limit if total > 0 else 0,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -238,6 +244,7 @@ async def get_operation_log(
 
     if log.operator_id:
         from sqlalchemy import select
+
         op_result = await db.execute(
             select(Operator.nickname).where(Operator.id == log.operator_id)
         )
@@ -245,6 +252,7 @@ async def get_operation_log(
 
     if log.sub_user_id:
         from sqlalchemy import select
+
         sub_result = await db.execute(
             select(SubUser.nickname).where(SubUser.id == log.sub_user_id)
         )
@@ -270,5 +278,5 @@ async def get_operation_log(
             "user_agent": log.user_agent,
             "created_at": log.created_at.isoformat() if log.created_at else None,
         },
-        message="获取成功"
+        message="获取成功",
     )

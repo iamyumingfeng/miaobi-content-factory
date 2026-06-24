@@ -7,30 +7,28 @@ Date: 2025
 
 from datetime import datetime
 from typing import Dict, List
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_async_db
-from app.core.config import get_settings
-from app.utils.response import success_response, ApiResponse
-from app.utils.deps import get_token_payload_required
-from app.models import ModelConfig, UserDefaultModel
-from app.schemas.settings import (
-    ModelConfigCreate,
-    ModelConfigUpdate,
-    ModelConfigResponse,
-    UserDefaultModelUpdate,
-    UserDefaultModelResponse,
-)
 from app.adapters.config import get_model_config_manager
+from app.core.config import get_settings
+from app.core.database import get_async_db
+from app.models import ModelConfig, UserDefaultModel
+from app.schemas.settings import (ModelConfigCreate, ModelConfigResponse,
+                                  ModelConfigUpdate, UserDefaultModelResponse,
+                                  UserDefaultModelUpdate)
+from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 
 
 class PlatformModelTypesResponse(BaseModel):
     """平台模型类型配置响应"""
+
     platform_types: Dict[str, List[str]] = {}
 
 
@@ -47,8 +45,10 @@ async def list_model_configs(
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
-    
-    result = await db.execute(select(ModelConfig).order_by(ModelConfig.platform, ModelConfig.model_id))
+
+    result = await db.execute(
+        select(ModelConfig).order_by(ModelConfig.platform, ModelConfig.model_id)
+    )
     configs = result.scalars().all()
     return success_response(data=configs, message="获取成功")
 
@@ -66,8 +66,7 @@ async def get_model_config(
     config = result.scalar_one_or_none()
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="模型配置不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="模型配置不存在"
         )
     return success_response(data=config, message="获取成功")
 
@@ -86,8 +85,7 @@ async def create_model_config(
 
     if user_type != "super_admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅超级管理员可操作"
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅超级管理员可操作"
         )
 
     config = ModelConfig(
@@ -108,7 +106,7 @@ async def create_model_config(
     db.add(config)
     await db.commit()
     await db.refresh(config)
-    
+
     # 刷新模型配置缓存
     config_manager = get_model_config_manager()
     await config_manager.load_all_configs(db, force_refresh=True)
@@ -130,8 +128,7 @@ async def update_model_config(
 
     if user_type != "super_admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅超级管理员可操作"
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅超级管理员可操作"
         )
 
     result = await db.execute(select(ModelConfig).where(ModelConfig.id == id))
@@ -139,10 +136,8 @@ async def update_model_config(
 
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="模型配置不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="模型配置不存在"
         )
-
 
     update_data = request.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -152,7 +147,7 @@ async def update_model_config(
 
     await db.commit()
     await db.refresh(config)
-    
+
     # 刷新模型配置缓存
     config_manager = get_model_config_manager()
     await config_manager.load_all_configs(db, force_refresh=True)
@@ -173,8 +168,7 @@ async def delete_model_config(
 
     if user_type != "super_admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅超级管理员可操作"
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅超级管理员可操作"
         )
 
     result = await db.execute(select(ModelConfig).where(ModelConfig.id == id))
@@ -182,14 +176,12 @@ async def delete_model_config(
 
     if not config:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="模型配置不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="模型配置不存在"
         )
-
 
     await db.delete(config)
     await db.commit()
-    
+
     # 刷新模型配置缓存
     config_manager = get_model_config_manager()
     await config_manager.load_all_configs(db, force_refresh=True)
@@ -199,7 +191,10 @@ async def delete_model_config(
 
 # ==================== 用户默认模型设置 ====================
 
-@router.get("/user-default-models", response_model=ApiResponse[UserDefaultModelResponse])
+
+@router.get(
+    "/user-default-models", response_model=ApiResponse[UserDefaultModelResponse]
+)
 async def get_user_default_models(
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
@@ -214,14 +209,13 @@ async def get_user_default_models(
     if user_type not in ["super_admin", "operator"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅超级管理员和创作管理员可操作"
+            detail="仅超级管理员和创作管理员可操作",
         )
 
     # 查询用户的设置
     result = await db.execute(
         select(UserDefaultModel).where(
-            UserDefaultModel.user_id == user_id,
-            UserDefaultModel.user_type == user_type
+            UserDefaultModel.user_id == user_id, UserDefaultModel.user_type == user_type
         )
     )
     user_settings = result.scalars().all()
@@ -232,7 +226,7 @@ async def get_user_default_models(
         image_model_config_id=None,
         video_model_config_id=None,
         embedding_model_config_id=None,
-        updated_at=None
+        updated_at=None,
     )
 
     # 找到最新的更新时间
@@ -256,7 +250,9 @@ async def get_user_default_models(
     return success_response(data=response, message="获取成功")
 
 
-@router.put("/user-default-models", response_model=ApiResponse[UserDefaultModelResponse])
+@router.put(
+    "/user-default-models", response_model=ApiResponse[UserDefaultModelResponse]
+)
 async def update_user_default_models(
     request: UserDefaultModelUpdate,
     payload: dict = Depends(get_token_payload_required),
@@ -272,7 +268,7 @@ async def update_user_default_models(
     if user_type not in ["super_admin", "operator"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅超级管理员和创作管理员可操作"
+            detail="仅超级管理员和创作管理员可操作",
         )
 
     # 需要更新的模型类型配置
@@ -291,7 +287,7 @@ async def update_user_default_models(
                 select(ModelConfig).where(
                     ModelConfig.id == model_config_id,
                     ModelConfig.model_type == model_type,
-                    ModelConfig.status == "active"
+                    ModelConfig.status == "active",
                 )
             )
             model_config = result.scalar_one_or_none()
@@ -301,11 +297,11 @@ async def update_user_default_models(
                     "llm": "文本",
                     "image": "图片",
                     "video": "视频",
-                    "embedding": "Embedding"
+                    "embedding": "Embedding",
                 }
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"无效的{model_type_name_map.get(model_type, model_type)}模型配置ID"
+                    detail=f"无效的{model_type_name_map.get(model_type, model_type)}模型配置ID",
                 )
 
     # 先一次性查询所有现有记录
@@ -313,7 +309,7 @@ async def update_user_default_models(
         select(UserDefaultModel).where(
             UserDefaultModel.user_id == user_id,
             UserDefaultModel.user_type == user_type,
-            UserDefaultModel.model_type.in_(["llm", "image", "video", "embedding"])
+            UserDefaultModel.model_type.in_(["llm", "image", "video", "embedding"]),
         )
     )
     existing_records = {r.model_type: r for r in result.scalars().all()}
@@ -330,7 +326,7 @@ async def update_user_default_models(
                 user_id=user_id,
                 user_type=user_type,
                 model_type=model_type,
-                model_config_id=model_config_id
+                model_config_id=model_config_id,
             )
             db.add(new_setting)
 
@@ -342,7 +338,10 @@ async def update_user_default_models(
 
 # ==================== 平台模型类型配置 ====================
 
-@router.get("/platform-model-types", response_model=ApiResponse[PlatformModelTypesResponse])
+
+@router.get(
+    "/platform-model-types", response_model=ApiResponse[PlatformModelTypesResponse]
+)
 async def get_platform_model_types(
     payload: dict = Depends(get_token_payload_required),
 ):
@@ -357,5 +356,5 @@ async def get_platform_model_types(
 
     return success_response(
         data=PlatformModelTypesResponse(platform_types=platform_types),
-        message="获取成功"
+        message="获取成功",
     )

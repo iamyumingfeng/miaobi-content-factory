@@ -19,24 +19,17 @@ import hashlib
 import hmac
 import json
 import logging
-import re
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from datetime import datetime
 from typing import Optional, Tuple
 
-import aiohttp
 
-from .params import TextGenParams, ImageGenParams
 from .base import BaseModelAdapter, GenerationResult, ModelConfig
 from .factory import AdapterRegistry
-
-from .image_prompts import enhance_image_prompt, get_negative_prompt
-
-
-
-
+from .image_prompts import enhance_image_prompt
+from .params import ImageGenParams, TextGenParams
 
 # 即梦 v46 异步任务轮询配置
 JIMENG_V46_POLL_INTERVAL = 5
@@ -54,22 +47,26 @@ class JimengAdapter(BaseModelAdapter):
 
     DEFAULT_BASE_URL = "https://visual.volcengineapi.com"
 
-
     def __init__(self, config: ModelConfig):
         super().__init__(config)
         self.base_url = config.base_url or self.DEFAULT_BASE_URL
         self.platform = "jimeng"
-        
+
         config_json = config.extra_params or {}
         self.access_key = config_json.get("access_key", "")
         self.secret_key = config_json.get("secret_key", "")
 
-        logger.info("[Jimeng] 适配器初始化 | model_id=%s | access_key_len=%d | secret_key_len=%d",
-                    config.model_id, len(self.access_key), len(self.secret_key))
+        logger.info(
+            "[Jimeng] 适配器初始化 | model_id=%s | access_key_len=%d | secret_key_len=%d",
+            config.model_id,
+            len(self.access_key),
+            len(self.secret_key),
+        )
 
     def _build_url(self, query_params: dict) -> str:
         """构建 URL（仅包含 Action 和 Version）"""
         import urllib.parse
+
         sorted_query = sorted(query_params.items())
         query = "&".join(
             f"{urllib.parse.quote(k, safe='')}={urllib.parse.quote(str(v), safe='')}"
@@ -141,19 +138,21 @@ class JimengAdapter(BaseModelAdapter):
         # 5. StringToSign
         credential_scope = f"{short_date}/{region}/{service}/request"
         canonical_request_hash = hashlib.sha256(canonical_request.encode()).hexdigest()
-        string_to_sign = "\n".join([
-            "HMAC-SHA256",
-            date_str,
-            credential_scope,
-            canonical_request_hash,
-        ])
-        
+        string_to_sign = "\n".join(
+            [
+                "HMAC-SHA256",
+                date_str,
+                credential_scope,
+                canonical_request_hash,
+            ]
+        )
+
         logger.debug("[Jimeng] StringToSign: %s", repr(string_to_sign))
 
         # 6. 计算签名（火山引擎要求密钥前加上前缀 "VolcSK"？）
         # 火山引擎签名算法：https://www.volcengine.com/docs/6348/71161
         secret_key_bytes = self.secret_key.encode("utf-8")
-        
+
         k_date = hmac.new(
             secret_key_bytes,
             short_date.encode("utf-8"),
@@ -175,7 +174,7 @@ class JimengAdapter(BaseModelAdapter):
             f"SignedHeaders={signed_headers}, "
             f"Signature={signature}"
         )
-        
+
         logger.debug("[Jimeng] Authorization: %s", authorization)
 
         return {
@@ -184,7 +183,9 @@ class JimengAdapter(BaseModelAdapter):
             "X-Content-Sha256": body_hash,
         }
 
-    def _post_sync(self, query_params: dict, body: str, timeout: float = 60.0) -> Tuple[int, str]:
+    def _post_sync(
+        self, query_params: dict, body: str, timeout: float = 60.0
+    ) -> Tuple[int, str]:
         """
         使用 urllib 发送签名 POST 请求
 
@@ -195,14 +196,16 @@ class JimengAdapter(BaseModelAdapter):
         headers = self._sign_request("POST", "/", query_params, body)
         headers["Content-Type"] = "application/json"
 
-        req = urllib.request.Request(url, data=body_bytes, headers=headers, method="POST")
+        req = urllib.request.Request(
+            url, data=body_bytes, headers=headers, method="POST"
+        )
 
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.status, resp.read().decode("utf-8")
         except urllib.error.HTTPError as e:
             return e.code, e.read().decode("utf-8")
-    
+
     def model_max_pixels(self, model_id: str = None) -> int:
         """模型对应的最大像素（1K=1024, 2K=2048, 4K=4096）"""
         mid = (model_id or "").lower()
@@ -218,10 +221,13 @@ class JimengAdapter(BaseModelAdapter):
     def _convert_ratio_to_size(self, ratio: str, model_id: str = None) -> str:
         """根据模型能力将比例转为像素尺寸"""
         from .params import calc_pixel_size
+
         max_px = self.model_max_pixels(model_id)
         return calc_pixel_size(ratio, max_px, separator="x") if max_px > 0 else ratio
 
-    async def _post_signed(self, query_params: dict, body: str, timeout: float = 60.0) -> Tuple[int, str]:
+    async def _post_signed(
+        self, query_params: dict, body: str, timeout: float = 60.0
+    ) -> Tuple[int, str]:
         """在异步上下文中发送签名请求"""
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(
@@ -256,7 +262,9 @@ class JimengAdapter(BaseModelAdapter):
 
     # ========== v40 图片生成（CVProcess 同步接口） ==========
 
-    async def _generate_image_v40(self, prompt: str, p: ImageGenParams) -> GenerationResult:
+    async def _generate_image_v40(
+        self, prompt: str, p: ImageGenParams
+    ) -> GenerationResult:
         try:
             model_id = p.model_id if p else "jimeng_t2i_v40"
             size = self._convert_ratio_to_size(p.ratio if p else "3:4", model_id)
@@ -264,7 +272,7 @@ class JimengAdapter(BaseModelAdapter):
             ref_images = p.reference_images or []
             image = ref_images[0] if ref_images else None
             strength = 0.5
-            
+
             # 验证参考图片URL是否支持（火山引擎不支持data URL）
             image_urls_to_check = []
             if isinstance(image, list):
@@ -273,13 +281,16 @@ class JimengAdapter(BaseModelAdapter):
                 image_urls_to_check.append(image)
             if isinstance(ref_images, list):
                 image_urls_to_check.extend(ref_images)
-            
+
             for url in image_urls_to_check:
-                if isinstance(url, str) and url.startswith('data:'):
-                    logger.error("[Image] 即梦API不支持data URL（base64编码），请使用公网HTTP/HTTPS URL | url=%s...", url[:100])
+                if isinstance(url, str) and url.startswith("data:"):
+                    logger.error(
+                        "[Image] 即梦API不支持data URL（base64编码），请使用公网HTTP/HTTPS URL | url=%s...",
+                        url[:100],
+                    )
                     return GenerationResult(
                         success=False,
-                        error_message="即梦API不支持data URL（base64编码），请确保已正确配置COS并使用公网URL"
+                        error_message="即梦API不支持data URL（base64编码），请确保已正确配置COS并使用公网URL",
                     )
 
             payload = {
@@ -296,16 +307,26 @@ class JimengAdapter(BaseModelAdapter):
             body = json.dumps(payload)
             query_params = {"Action": "CVProcess", "Version": "2022-08-31"}
 
-            logger.info("[Image] 即梦v40请求 | model=%s | payload=%s", model_id, json.dumps(payload, ensure_ascii=False)[:2000])
+            logger.info(
+                "[Image] 即梦v40请求 | model=%s | payload=%s",
+                model_id,
+                json.dumps(payload, ensure_ascii=False)[:2000],
+            )
 
             start_time = time.time()
             status, text = await self._post_signed(query_params, body, timeout=600)
             elapsed = time.time() - start_time
 
             if status >= 400:
-                logger.error("[Image] 即梦v40失败 | status=%d | body=%s", status, text[:500])
+                logger.error(
+                    "[Image] 即梦v40失败 | status=%d | body=%s", status, text[:500]
+                )
                 error_type = "server_error" if status >= 500 else "client_error"
-                return GenerationResult(success=False, error_message=f"HTTP {status}: {text[:500]}", error_type=error_type)
+                return GenerationResult(
+                    success=False,
+                    error_message=f"HTTP {status}: {text[:500]}",
+                    error_type=error_type,
+                )
 
             result = json.loads(text)
             data = result.get("data", {})
@@ -314,11 +335,22 @@ class JimengAdapter(BaseModelAdapter):
             if task_status in ["succeed", "SUCCESS"]:
                 images = data.get("data", [])
                 image_urls = [img.get("url") for img in images if img.get("url")]
-                logger.info("[Image] 即梦v40成功 | 图片数=%d | elapsed=%.2fs", len(image_urls), elapsed)
-                return GenerationResult(success=True, image_urls=image_urls or None, raw_response=result)
+                logger.info(
+                    "[Image] 即梦v40成功 | 图片数=%d | elapsed=%.2fs",
+                    len(image_urls),
+                    elapsed,
+                )
+                return GenerationResult(
+                    success=True, image_urls=image_urls or None, raw_response=result
+                )
             else:
                 logger.warning("[Image] 即梦v40状态: %s", task_status)
-                return GenerationResult(success=False, error_message=f"Task status: {task_status}", raw_response=result, error_type="client_error")
+                return GenerationResult(
+                    success=False,
+                    error_message=f"Task status: {task_status}",
+                    raw_response=result,
+                    error_type="client_error",
+                )
 
         except Exception as e:
             logger.error(f"Jimeng v40 failed: {e}")
@@ -326,14 +358,16 @@ class JimengAdapter(BaseModelAdapter):
 
     # ========== v46 图片生成（异步接口） ==========
 
-    async def _generate_image_v46(self, prompt: str, p: ImageGenParams) -> GenerationResult:
+    async def _generate_image_v46(
+        self, prompt: str, p: ImageGenParams
+    ) -> GenerationResult:
         try:
             model_id = p.model_id if p else "jimeng_seedream46_cvtob"
             start_time = time.time()
 
             ref_images = p.reference_images or []
             image = ref_images[0] if ref_images else None
-            
+
             # 验证参考图片URL是否支持（火山引擎不支持data URL）
             image_urls_to_check = []
             if isinstance(image, list):
@@ -342,21 +376,29 @@ class JimengAdapter(BaseModelAdapter):
                 image_urls_to_check.append(image)
             if isinstance(ref_images, list):
                 image_urls_to_check.extend(ref_images)
-            
+
             for url in image_urls_to_check:
-                if isinstance(url, str) and url.startswith('data:'):
-                    logger.error("[Image] 即梦API不支持data URL（base64编码），请使用公网HTTP/HTTPS URL | url=%s...", url[:100])
+                if isinstance(url, str) and url.startswith("data:"):
+                    logger.error(
+                        "[Image] 即梦API不支持data URL（base64编码），请使用公网HTTP/HTTPS URL | url=%s...",
+                        url[:100],
+                    )
                     return GenerationResult(
                         success=False,
-                        error_message="即梦API不支持data URL（base64编码），请确保已正确配置COS并使用公网URL"
+                        error_message="即梦API不支持data URL（base64编码），请确保已正确配置COS并使用公网URL",
                     )
 
-            payload = {"req_key": "jimeng_seedream46_cvtob", "prompt": enhance_image_prompt(prompt)}
+            payload = {
+                "req_key": "jimeng_seedream46_cvtob",
+                "prompt": enhance_image_prompt(prompt),
+            }
 
             if image:
-                payload["image_urls"] = image[:14] if isinstance(image, list) else [image]
+                payload["image_urls"] = (
+                    image[:14] if isinstance(image, list) else [image]
+                )
 
-            raw_size = kwargs.get("size", "1:1")
+            raw_size = p.aspect_ratio if p else "1:1"
             if raw_size and "x" in str(raw_size):
                 w, h = raw_size.split("x")
                 payload["width"] = int(w)
@@ -371,24 +413,39 @@ class JimengAdapter(BaseModelAdapter):
                     payload["width"] = 2048
                     payload["height"] = 2048
 
-            if count == 1:
+            if p and p.count == 1:
                 payload["force_single"] = True
 
-            watermark = kwargs.get("watermark", True)
-            if watermark is True or (isinstance(watermark, str) and str(watermark).lower() == "true"):
+            watermark = p.add_watermark if p else True
+            if watermark is True or (
+                isinstance(watermark, str) and str(watermark).lower() == "true"
+            ):
                 payload["watermark"] = True
 
             body = json.dumps(payload)
-            submit_params = {"Action": "CVSync2AsyncSubmitTask", "Version": "2022-08-31"}
+            submit_params = {
+                "Action": "CVSync2AsyncSubmitTask",
+                "Version": "2022-08-31",
+            }
 
-            logger.info("[Image] 即梦v46提交 | model=%s | payload=%s", model_id, json.dumps(payload, ensure_ascii=False)[:2000])
+            logger.info(
+                "[Image] 即梦v46提交 | model=%s | payload=%s",
+                model_id,
+                json.dumps(payload, ensure_ascii=False)[:2000],
+            )
 
             status, text = await self._post_signed(submit_params, body, timeout=60)
 
             if status >= 400:
-                logger.error("[Image] 即梦v46提交失败 | status=%d | body=%s", status, text[:2000])
+                logger.error(
+                    "[Image] 即梦v46提交失败 | status=%d | body=%s", status, text[:2000]
+                )
                 error_type = "server_error" if status >= 500 else "client_error"
-                return GenerationResult(success=False, error_message=f"HTTP {status}: {text[:500]}", error_type=error_type)
+                return GenerationResult(
+                    success=False,
+                    error_message=f"HTTP {status}: {text[:500]}",
+                    error_type=error_type,
+                )
 
             submit_result = json.loads(text)
             code = submit_result.get("code")
@@ -396,18 +453,30 @@ class JimengAdapter(BaseModelAdapter):
             task_id = submit_result.get("data", {}).get("task_id")
 
             if code != 10000:
-                logger.error("[Image] 即梦v46提交失败 | code=%s | message=%s", code, message)
-                return GenerationResult(success=False, error_message=f"code={code}, message={message}", error_type="client_error")
+                logger.error(
+                    "[Image] 即梦v46提交失败 | code=%s | message=%s", code, message
+                )
+                return GenerationResult(
+                    success=False,
+                    error_message=f"code={code}, message={message}",
+                    error_type="client_error",
+                )
 
             if not task_id:
                 logger.error("[Image] 即梦v46提交成功但未返回 task_id")
-                return GenerationResult(success=False, error_message="No task_id returned", error_type="client_error")
+                return GenerationResult(
+                    success=False,
+                    error_message="No task_id returned",
+                    error_type="client_error",
+                )
 
             logger.info("[Image] 即梦v46任务已提交 | task_id=%s", task_id)
 
             image_urls = await self._poll_v46_task(task_id, model_id, start_time)
 
-            return GenerationResult(success=True, image_urls=image_urls or None, raw_response=submit_result)
+            return GenerationResult(
+                success=True, image_urls=image_urls or None, raw_response=submit_result
+            )
 
         except Exception as e:
             logger.error(f"Jimeng v46 failed: {e}")
@@ -427,7 +496,9 @@ class JimengAdapter(BaseModelAdapter):
 
         while time.time() - start_time < timeout:
             poll_count += 1
-            query_body = json.dumps({"req_key": "jimeng_seedream46_cvtob", "task_id": task_id})
+            query_body = json.dumps(
+                {"req_key": "jimeng_seedream46_cvtob", "task_id": task_id}
+            )
 
             status, text = await self._post_signed(query_params, query_body, timeout=60)
             result = json.loads(text)
@@ -437,13 +508,22 @@ class JimengAdapter(BaseModelAdapter):
             resp_status = resp_data.get("status", "")
 
             elapsed = time.time() - start_time
-            logger.debug("[Image] 即梦v46轮询 | poll#%d | status=%s | code=%s | elapsed=%.1fs",
-                        poll_count, resp_status, code, elapsed)
+            logger.debug(
+                "[Image] 即梦v46轮询 | poll#%d | status=%s | code=%s | elapsed=%.1fs",
+                poll_count,
+                resp_status,
+                code,
+                elapsed,
+            )
 
             if code == 10000:
                 if resp_status == "done":
                     image_urls = resp_data.get("image_urls", [])
-                    logger.info("[Image] 即梦v46完成 | task_id=%s | 图片数=%d", task_id, len(image_urls))
+                    logger.info(
+                        "[Image] 即梦v46完成 | task_id=%s | 图片数=%d",
+                        task_id,
+                        len(image_urls),
+                    )
                     return image_urls
                 elif resp_status in ("in_queue", "generating"):
                     await asyncio.sleep(interval)
@@ -455,7 +535,9 @@ class JimengAdapter(BaseModelAdapter):
                     logger.warning("[Image] 即梦v46未知状态: %s", resp_status)
                     await asyncio.sleep(interval)
             else:
-                logger.warning("[Image] 即梦v46错误 | code=%s | message=%s", code, message)
+                logger.warning(
+                    "[Image] 即梦v46错误 | code=%s | message=%s", code, message
+                )
                 if code in [50429, 50430, 50500]:
                     await asyncio.sleep(interval)
                 else:
@@ -488,7 +570,9 @@ class JimengAdapter(BaseModelAdapter):
                 "seed": seed,
             }
             if image_url:
-                payload["images"] = image_url if isinstance(image_url, list) else [image_url]
+                payload["images"] = (
+                    image_url if isinstance(image_url, list) else [image_url]
+                )
 
             body = json.dumps(payload)
             query_params = {"Action": "CVProcess", "Version": "2022-08-31"}
@@ -497,7 +581,11 @@ class JimengAdapter(BaseModelAdapter):
 
             if status >= 400:
                 error_type = "server_error" if status >= 500 else "client_error"
-                return GenerationResult(success=False, error_message=f"HTTP {status}: {text[:500]}", error_type=error_type)
+                return GenerationResult(
+                    success=False,
+                    error_message=f"HTTP {status}: {text[:500]}",
+                    error_type=error_type,
+                )
 
             result = json.loads(text)
             return GenerationResult(success=True, video_url=None, raw_response=result)
@@ -510,5 +598,6 @@ class JimengAdapter(BaseModelAdapter):
 
     async def check_availability(self) -> bool:
         return bool(self.access_key and self.secret_key)
+
 
 AdapterRegistry.register("jimeng", JimengAdapter)

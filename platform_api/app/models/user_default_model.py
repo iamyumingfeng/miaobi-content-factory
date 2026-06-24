@@ -6,7 +6,8 @@ Date: 2025
 """
 
 from datetime import datetime
-from sqlalchemy import Column, BigInteger, String, Enum, DateTime, ForeignKey, UniqueConstraint
+
+from sqlalchemy import (BigInteger, Column, DateTime, Enum, ForeignKey, UniqueConstraint)
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -19,6 +20,7 @@ class UserDefaultModel(Base):
     支持每个用户（创作管理员/超级管理员）独立设置自己的默认模型，
     删除模型时通过外键 ON DELETE SET NULL 自动回退为 "auto"。
     """
+
     __tablename__ = "user_default_model"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True, comment="主键")
@@ -29,14 +31,14 @@ class UserDefaultModel(Base):
         Enum("super_admin", "operator", name="user_type_enum"),
         nullable=False,
         index=True,
-        comment="用户类型：super_admin / operator"
+        comment="用户类型：super_admin / operator",
     )
 
     # 模型类型
     model_type = Column(
         Enum("llm", "image", "video", "embedding", name="model_type_enum"),
         nullable=False,
-        comment="模型类型：llm / image / video / embedding"
+        comment="模型类型：llm / image / video / embedding",
     )
 
     # 关联的模型配置（NULL 表示自动选择）
@@ -45,16 +47,26 @@ class UserDefaultModel(Base):
         ForeignKey("model_config.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="关联的模型配置ID，NULL表示自动选择"
+        comment="关联的模型配置ID，NULL表示自动选择",
     )
 
     # 时间字段
-    created_at = Column(DateTime, nullable=False, default=datetime.now, comment="创建时间")
-    updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now, comment="更新时间")
+    created_at = Column(
+        DateTime, nullable=False, default=datetime.now, comment="创建时间"
+    )
+    updated_at = Column(
+        DateTime,
+        nullable=False,
+        default=datetime.now,
+        onupdate=datetime.now,
+        comment="更新时间",
+    )
 
     # 唯一约束：每个用户每种模型类型只能有一个设置
     __table_args__ = (
-        UniqueConstraint("user_id", "user_type", "model_type", name="uq_user_model_type"),
+        UniqueConstraint(
+            "user_id", "user_type", "model_type", name="uq_user_model_type"
+        ),
     )
 
     # 关联关系
@@ -62,4 +74,3 @@ class UserDefaultModel(Base):
 
     def __repr__(self):
         return f"<UserDefaultModel(id={self.id}, user_id={self.user_id}, model_type={self.model_type})>"
-

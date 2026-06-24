@@ -1,13 +1,16 @@
 """
 平台分类 Schema 定义
 """
+
 from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from typing import List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class PlatformBase(BaseModel):
     """平台基础 Schema"""
+
     name: str = Field(..., min_length=1, max_length=50, description="平台名称")
     description: Optional[str] = Field(None, max_length=200, description="平台描述")
     color: Optional[str] = Field(None, max_length=7, description="平台颜色标识(HEX)")
@@ -16,11 +19,13 @@ class PlatformBase(BaseModel):
 
 class PlatformCreate(PlatformBase):
     """创建平台请求 Schema"""
+
     pass
 
 
 class PlatformUpdate(BaseModel):
     """更新平台请求 Schema"""
+
     name: Optional[str] = Field(None, min_length=1, max_length=50)
     description: Optional[str] = Field(None, max_length=200)
     color: Optional[str] = Field(None, max_length=7)
@@ -29,14 +34,15 @@ class PlatformUpdate(BaseModel):
 
 class PlatformResponse(PlatformBase):
     """平台响应 Schema"""
+
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: int
     created_by: Optional[int] = None
     owner_operator_id: int
     created_at: datetime
     updated_at: datetime
-    
+
     # 统计信息
     material_category_count: int = Field(0, description="素材分类数量")
     template_category_count: int = Field(0, description="模板分类数量")
@@ -44,8 +50,10 @@ class PlatformResponse(PlatformBase):
 
 # ==================== 树形结构 Schema (与前端匹配) ====================
 
+
 class CategoryTreeTag(BaseModel):
     """标签树形结构项 (与前端 CategoryTreeTag 匹配)"""
+
     id: int
     name: str
     description: Optional[str] = None
@@ -57,6 +65,7 @@ class CategoryTreeTag(BaseModel):
 
 class CategoryTreeCategory(BaseModel):
     """分类树形结构项 (与前端 CategoryTreeCategory 匹配)"""
+
     id: int
     name: str
     description: Optional[str] = None
@@ -69,6 +78,7 @@ class CategoryTreeCategory(BaseModel):
 
 class CategoryTreePlatform(BaseModel):
     """平台树形结构项 (与前端 CategoryTreePlatform 匹配)"""
+
     id: int
     name: str
     description: Optional[str] = None
@@ -81,6 +91,7 @@ class CategoryTreePlatform(BaseModel):
 
 class PlatformTreeResponse(BaseModel):
     """平台树形响应 (与前端 CategoryTreeResponse 匹配)"""
+
     platforms: List[CategoryTreePlatform]
     material_total: int
     template_total: int

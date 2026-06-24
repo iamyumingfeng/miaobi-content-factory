@@ -6,20 +6,9 @@ API v1 路由模块
 
 from fastapi import APIRouter
 
-from . import auth
-from . import users
-from . import templates
-from . import materials
-from . import generation
-from . import distribution
-from . import settings
-from . import dashboard
-from . import operation_logs
-from . import trend_analysis
-from . import creative_seeds
-from . import platform_config
-from . import scheduled_tasks
-from . import task_queue
+from . import (auth, creative_seeds, dashboard, distribution, generation,
+               materials, operation_logs, platform_config, scheduled_tasks,
+               settings, task_queue, templates, trend_analysis, users)
 
 # 主路由（禁用自动斜杠重定向，避免 POST body 丢失）
 router = APIRouter(redirect_slashes=False)
@@ -34,11 +23,19 @@ router.include_router(generation.router, prefix="/generation", tags=["内容生�
 router.include_router(distribution.router, prefix="/distribution", tags=["内容分发"])
 router.include_router(settings.router, prefix="/settings", tags=["系统设置"])
 router.include_router(dashboard.router, prefix="/dashboard", tags=["仪表盘"])
-router.include_router(operation_logs.router, prefix="/operation-logs", tags=["操作日志"])
-router.include_router(trend_analysis.router, prefix="/trend-analysis", tags=["趋势分析"])
-router.include_router(creative_seeds.router, prefix="/creative-seeds", tags=["创意种子库"])
+router.include_router(
+    operation_logs.router, prefix="/operation-logs", tags=["操作日志"]
+)
+router.include_router(
+    trend_analysis.router, prefix="/trend-analysis", tags=["趋势分析"]
+)
+router.include_router(
+    creative_seeds.router, prefix="/creative-seeds", tags=["创意种子库"]
+)
 router.include_router(platform_config.router, prefix="/config", tags=["平台配置"])
-router.include_router(scheduled_tasks.router, prefix="/scheduled-tasks", tags=["定时任务"])
+router.include_router(
+    scheduled_tasks.router, prefix="/scheduled-tasks", tags=["定时任务"]
+)
 router.include_router(task_queue.router, prefix="/task-queue", tags=["任务队列管理"])
 
 __all__ = ["router"]

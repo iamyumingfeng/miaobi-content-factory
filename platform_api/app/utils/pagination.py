@@ -7,9 +7,10 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import Generic, List, Optional, TypeVar
+from typing import Generic, List, TypeVar
+
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 T = TypeVar("T")
@@ -19,6 +20,7 @@ class PageParams(BaseModel):
     """
     分页参数
     """
+
     page: int = Field(default=1, ge=1, description="页码，从1开始")
     limit: int = Field(default=20, ge=1, le=100, description="每页数量")
 
@@ -29,6 +31,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
 
     通用的分页响应格式。
     """
+
     items: List[T] = Field(description="数据列表")
     total: int = Field(description="总数量")
     page: int = Field(description="当前页码")

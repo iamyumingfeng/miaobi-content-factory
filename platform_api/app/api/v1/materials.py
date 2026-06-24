@@ -7,31 +7,25 @@ Date: 2025
 
 import io
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File, Form
-from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, List
+from typing import List, Optional
+
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Query,
+                     UploadFile, status)
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_async_db
-from app.utils.response import success_response, ApiResponse
 from app.schemas import PaginatedResponse
-from app.utils.deps import get_token_payload_required
+from app.schemas.materials import (MaterialAttachmentCreate,
+                                   MaterialAttachmentResponse,
+                                   MaterialCopyRequest,
+                                   MaterialCreate, MaterialResponse,
+                                   MaterialTagCreate, MaterialTagResponse,
+                                   MaterialTagUpdate, MaterialUpdate)
 from app.services.material_service import MaterialService
-from app.services.storage_service import get_storage_service, StorageService
-from app.schemas.materials import (
-    MaterialCategoryCreate,
-    MaterialCategoryUpdate,
-    MaterialCategoryResponse,
-    MaterialTagCreate,
-    MaterialTagUpdate,
-    MaterialTagResponse,
-    MaterialCreate,
-    MaterialUpdate,
-    MaterialResponse,
-    MaterialCopyRequest,
-    MaterialAttachmentCreate,
-    MaterialAttachmentResponse,
-)
+from app.services.storage_service import get_storage_service
+from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -62,11 +56,6 @@ class TransferRequest(BaseModel):
     target_operator_id: int
 
 
-class BatchTransferRequest(BaseModel):
-    material_ids: List[int]
-    target_operator_id: int
-
-
 class MigrateTagRequest(BaseModel):
     target_tag_id: int
 
@@ -79,6 +68,7 @@ class BatchMigrateRequest(BaseModel):
 
 class BatchTransferRequest(BaseModel):
     """批量素材迁移请求（超级管理员专用）"""
+
     material_ids: List[int]
     target_operator_id: int
     target_platform_id: int  # 目标平台
@@ -92,7 +82,9 @@ class BatchTransferRequest(BaseModel):
 @router.get("/categories", response_model=ApiResponse[list])
 async def list_material_categories(
     platform_id: Optional[int] = Query(None, description="平台ID筛选"),
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -103,7 +95,7 @@ async def list_material_categories(
     - 创作管理员：只能查看自己的分类
     """
     from app.services.material_service import MaterialService
-    
+
     current_user_id = int(payload.get("sub"))
     user_type = payload.get("user_type")
 
@@ -115,23 +107,25 @@ async def list_material_categories(
     categories = await MaterialService.list_material_categories(
         db, owner_operator_id=filter_owner_id, platform_id=platform_id
     )
-    
+
     # 加载统计信息
     result = []
     for cat in categories:
         tag_count = await MaterialService.count_tags_by_category(db, cat.id)
-        result.append({
-            "id": cat.id,
-            "name": cat.name,
-            "description": cat.description,
-            "color": cat.color,
-            "platform_id": cat.material_platform_id,
-            "sort_order": cat.sort_order,
-            "tag_count": tag_count,
-            "created_at": cat.created_at,
-            "updated_at": cat.updated_at,
-        })
-    
+        result.append(
+            {
+                "id": cat.id,
+                "name": cat.name,
+                "description": cat.description,
+                "color": cat.color,
+                "platform_id": cat.material_platform_id,
+                "sort_order": cat.sort_order,
+                "tag_count": tag_count,
+                "created_at": cat.created_at,
+                "updated_at": cat.updated_at,
+            }
+        )
+
     return success_response(data=result, message="获取成功")
 
 
@@ -147,16 +141,16 @@ async def create_material_category(
     - 仅创作管理员可创建分类
     """
     from app.services.material_service import MaterialService
-    
+
     user_type = payload.get("user_type")
     if user_type == "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能创建分类，请由创作管理员操作"
+            detail="超级管理员不能创建分类，请由创作管理员操作",
         )
-    
+
     current_user_id = int(payload.get("sub"))
-    
+
     category = await MaterialService.create_material_category(
         db,
         name=request["name"],
@@ -167,12 +161,15 @@ async def create_material_category(
         color=request.get("color"),
         sort_order=request.get("sort_order", 0),
     )
-    
-    return success_response(data={
-        "id": category.id,
-        "name": category.name,
-        "platform_id": category.material_platform_id,
-    }, message="创建成功")
+
+    return success_response(
+        data={
+            "id": category.id,
+            "name": category.name,
+            "platform_id": category.material_platform_id,
+        },
+        message="创建成功",
+    )
 
 
 @router.put("/categories/{id}", response_model=ApiResponse[dict])
@@ -186,22 +183,25 @@ async def update_material_category(
     更新素材分类
     """
     from app.services.material_service import MaterialService
-    
+
     current_user_id = int(payload.get("sub"))
     user_type = payload.get("user_type")
     is_super_admin = user_type == "super_admin"
-    
+
     category = await MaterialService.update_material_category(
         db,
         category_id=id,
         owner_operator_id=None if is_super_admin else current_user_id,
-        **{k: v for k, v in request.items() if v is not None}
+        **{k: v for k, v in request.items() if v is not None},
     )
-    
-    return success_response(data={
-        "id": category.id,
-        "name": category.name,
-    }, message="更新成功")
+
+    return success_response(
+        data={
+            "id": category.id,
+            "name": category.name,
+        },
+        message="更新成功",
+    )
 
 
 @router.delete("/categories/{id}")
@@ -214,11 +214,11 @@ async def delete_material_category(
     删除素材分类（同时删除分类下的所有标签）
     """
     from app.services.material_service import MaterialService
-    
+
     current_user_id = int(payload.get("sub"))
     user_type = payload.get("user_type")
     is_super_admin = user_type == "super_admin"
-    
+
     await MaterialService.delete_material_category(
         db, id, None if is_super_admin else current_user_id
     )
@@ -235,7 +235,7 @@ async def get_material_category_stats(
     获取素材分类统计信息（素材数量、标签数量）
     """
     from app.services.material_service import MaterialService
-    
+
     stats = await MaterialService.get_category_stats(db, id)
     return success_response(data=stats, message="获取成功")
 
@@ -245,8 +245,12 @@ async def get_material_category_stats(
 # ============================================
 @router.get("/tags", response_model=ApiResponse[list[MaterialTagResponse]])
 async def list_material_tags(
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
-    category_id: Optional[int] = Query(None, description="分类ID，传具体ID查询该分类下的标签"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
+    category_id: Optional[int] = Query(
+        None, description="分类ID，传具体ID查询该分类下的标签"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -273,7 +277,9 @@ async def list_material_tags(
 
 @router.get("/tag-summary")
 async def get_material_tag_summary(
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -293,7 +299,9 @@ async def get_material_tag_summary(
     else:
         filter_owner_id = current_user_id
 
-    summary = await MaterialService.get_tag_summary(db, owner_operator_id=filter_owner_id)
+    summary = await MaterialService.get_tag_summary(
+        db, owner_operator_id=filter_owner_id
+    )
     return success_response(data=summary, message="获取成功")
 
 
@@ -311,13 +319,13 @@ async def create_material_tag(
     """
     user_type = payload.get("user_type")
     current_user_id = int(payload.get("sub"))
-    
+
     if user_type == "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能新增平台或标签，请由创作管理员操作"
+            detail="超级管理员不能新增平台或标签，请由创作管理员操作",
         )
-    
+
     owner_operator_id = current_user_id
     created_by = current_user_id
 
@@ -359,10 +367,7 @@ async def update_material_tag(
         )
         return success_response(data=tag, message="更新成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/tags/{id}")
@@ -381,13 +386,15 @@ async def delete_material_tag(
     user_type = payload.get("user_type")
     is_super_admin = user_type == "super_admin"
     try:
-        await MaterialService.delete_material_tag(db, id, None if is_super_admin else current_user_id, is_super_admin=is_super_admin)
+        await MaterialService.delete_material_tag(
+            db,
+            id,
+            None if is_super_admin else current_user_id,
+            is_super_admin=is_super_admin,
+        )
         return success_response(data=None, message="删除成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get("/tags/{id}/stats")
@@ -412,10 +419,7 @@ async def get_material_tag_stats(
         db, id, None if is_super_admin else current_user_id
     )
     if not tag:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="标签不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="标签不存在")
 
     material_count = await MaterialService.count_materials_by_tag(db, id)
     material_ids = await MaterialService.get_material_ids_by_tag(db, id)
@@ -427,7 +431,7 @@ async def get_material_tag_stats(
             "material_count": material_count,
             "material_ids": material_ids,
         },
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -455,8 +459,7 @@ async def migrate_tag_materials(
     )
     if not source_tag:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="源标签不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="源标签不存在"
         )
 
     # 获取目标标签
@@ -465,19 +468,23 @@ async def migrate_tag_materials(
     )
     if not target_tag:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="目标标签不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="目标标签不存在"
         )
 
     # 检查是否属于同一管理员（超级管理员除外）
-    if not is_super_admin and source_tag.owner_operator_id != target_tag.owner_operator_id:
+    if (
+        not is_super_admin
+        and source_tag.owner_operator_id != target_tag.owner_operator_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="只能迁移到同一管理员的其他标签"
+            detail="只能迁移到同一管理员的其他标签",
         )
 
     # 执行迁移
-    migrated_count = await MaterialService.migrate_tag_materials(db, id, request.target_tag_id)
+    migrated_count = await MaterialService.migrate_tag_materials(
+        db, id, request.target_tag_id
+    )
 
     return success_response(
         data={
@@ -485,7 +492,7 @@ async def migrate_tag_materials(
             "target_tag_id": request.target_tag_id,
             "migrated_count": migrated_count,
         },
-        message=f"成功迁移 {migrated_count} 个素材"
+        message=f"成功迁移 {migrated_count} 个素材",
     )
 
 
@@ -507,8 +514,7 @@ async def batch_migrate_materials(
 
     if not request.material_ids:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="请选择要迁移的素材"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="请选择要迁移的素材"
         )
 
     # 获取目标标签
@@ -517,18 +523,19 @@ async def batch_migrate_materials(
     )
     if not target_tag:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="目标标签不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="目标标签不存在"
         )
 
     # 验证素材权限（非超级管理员需要验证）
     if not is_super_admin:
         for material_id in request.material_ids:
-            material = await MaterialService.get_material(db, material_id, current_user_id)
+            material = await MaterialService.get_material(
+                db, material_id, current_user_id
+            )
             if not material:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"素材 {material_id} 不存在或无权限操作"
+                    detail=f"素材 {material_id} 不存在或无权限操作",
                 )
 
     # 执行批量迁移
@@ -544,7 +551,7 @@ async def batch_migrate_materials(
             "target_tag_id": request.target_tag_id,
             "migrated_count": migrated_count,
         },
-        message=f"成功迁移 {migrated_count} 个素材"
+        message=f"成功迁移 {migrated_count} 个素材",
     )
 
 
@@ -569,21 +576,18 @@ async def batch_transfer_materials(
     # 权限校验：仅超级管理员可用
     if user_type != "super_admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅超级管理员可使用此功能"
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅超级管理员可使用此功能"
         )
 
     # 参数校验
     if not request.material_ids:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="请选择要迁移的素材"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="请选择要迁移的素材"
         )
 
     if len(request.material_ids) > 100:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="单次最多迁移 100 个素材"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="单次最多迁移 100 个素材"
         )
 
     # target_tag_ids 为空列表时表示无标签，不强制要求
@@ -598,7 +602,7 @@ async def batch_transfer_materials(
 
     return success_response(
         data=result,
-        message=f"成功迁移 {result['success_count']} 个素材，失败 {result['failed_count']} 个"
+        message=f"成功迁移 {result['success_count']} 个素材，失败 {result['failed_count']} 个",
     )
 
 
@@ -637,14 +641,20 @@ def build_material_response(item, attachments, tags, is_favorite):
     category = None
     platform = None
 
-    logger.debug(f"[build_material_response] item id={item.id}, tags count={len(tags) if tags else 0}")
+    logger.debug(
+        f"[build_material_response] item id={item.id}, tags count={len(tags) if tags else 0}"
+    )
 
     # 从标签中获取分类和平台信息
     if tags and len(tags) > 0:
         first_tag = tags[0]
-        logger.debug(f"[build_material_response] first_tag: id={first_tag.id}, name={first_tag.name}")
-        logger.debug(f"[build_material_response] first_tag.category: {first_tag.category}")
-        if hasattr(first_tag, 'category') and first_tag.category:
+        logger.debug(
+            f"[build_material_response] first_tag: id={first_tag.id}, name={first_tag.name}"
+        )
+        logger.debug(
+            f"[build_material_response] first_tag.category: {first_tag.category}"
+        )
+        if hasattr(first_tag, "category") and first_tag.category:
             cat = first_tag.category
             category = {
                 "id": cat.id,
@@ -654,7 +664,7 @@ def build_material_response(item, attachments, tags, is_favorite):
                 "platform_id": cat.material_platform_id,
             }
             logger.debug(f"[build_material_response] category built: {category}")
-            if hasattr(cat, 'platform') and cat.platform:
+            if hasattr(cat, "platform") and cat.platform:
                 plat = cat.platform
                 platform = {
                     "id": plat.id,
@@ -703,14 +713,19 @@ async def list_materials(
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
     status: Optional[str] = Query(None, description="状态筛选"),
     content_type: Optional[str] = Query(None, description="内容类型筛选"),
-    library_type: Optional[str] = Query(None, description="素材库类型：creation/benchmark"),
+    library_type: Optional[str] = Query(
+        None, description="素材库类型：creation/benchmark"
+    ),
     tag_id: Optional[int] = Query(None, description="标签筛选"),
     no_tag: Optional[bool] = Query(None, description="仅显示无标签的素材"),
     category_id: Optional[int] = Query(None, description="分类筛选"),
     platform_id: Optional[int] = Query(None, description="平台筛选"),
     keyword: Optional[str] = Query(None, description="关键词搜索"),
     is_favorite: Optional[bool] = Query(None, description="是否仅收藏"),
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用，传null表示超级管理员自己的素材）"),
+    owner_operator_id: Optional[int] = Query(
+        None,
+        description="指定创作管理员ID（仅超级管理员可用，传null表示超级管理员自己的素材）",
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -732,7 +747,7 @@ async def list_materials(
         if is_favorite is not None and filter_owner_id is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="超级管理员查看收藏素材时请指定 owner_operator_id"
+                detail="超级管理员查看收藏素材时请指定 owner_operator_id",
             )
     else:
         filter_owner_id = current_user_id
@@ -762,11 +777,15 @@ async def list_materials(
     for item in items:
         # 使用已加载的附件（通过 selectinload）
         attachments = item.attachments or []
-        logger.debug(f"[MaterialList] Item id={item.id}: attachments_count={len(attachments)}, "
-                    f"image_count={item.image_count}, "
-                    f"attachment_urls={[a.file_url for a in attachments[:3]]}")
+        logger.debug(
+            f"[MaterialList] Item id={item.id}: attachments_count={len(attachments)}, "
+            f"image_count={item.image_count}, "
+            f"attachment_urls={[a.file_url for a in attachments[:3]]}"
+        )
         # 加载标签
-        tags = await MaterialService.get_material_tags(db, item.id, item.owner_operator_id)
+        tags = await MaterialService.get_material_tags(
+            db, item.id, item.owner_operator_id
+        )
         # 检查收藏状态 - 只有当明确筛选收藏时才检查，避免超级管理员查看其他管理员素材时报错
         item_is_favorite = False
         if is_favorite is not None and favorite_user_id:
@@ -774,7 +793,9 @@ async def list_materials(
             item_is_favorite = favorite is not None
 
         # 构建响应
-        response_items.append(build_material_response(item, attachments, tags, item_is_favorite))
+        response_items.append(
+            build_material_response(item, attachments, tags, item_is_favorite)
+        )
 
     return success_response(
         data=PaginatedResponse(
@@ -784,7 +805,7 @@ async def list_materials(
             limit=limit,
             total_pages=(total + limit - 1) // limit if total > 0 else 0,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -802,13 +823,13 @@ async def create_material(
     """
     user_type = payload.get("user_type")
     current_user_id = int(payload.get("sub"))
-    
+
     if user_type == "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能上传素材，请由创作管理员操作"
+            detail="超级管理员不能上传素材，请由创作管理员操作",
         )
-    
+
     owner_operator_id = current_user_id
     created_by = current_user_id
     user_id = current_user_id
@@ -828,8 +849,12 @@ async def create_material(
     )
 
     # 加载关联数据并构建响应
-    attachments = await MaterialService.list_material_attachments(db, material.id, material.owner_operator_id)
-    tags = await MaterialService.get_material_tags(db, material.id, material.owner_operator_id)
+    attachments = await MaterialService.list_material_attachments(
+        db, material.id, material.owner_operator_id
+    )
+    tags = await MaterialService.get_material_tags(
+        db, material.id, material.owner_operator_id
+    )
     is_favorite = False
     favorite = await MaterialService.get_favorite(db, material.id, user_id)
     is_favorite = favorite is not None
@@ -849,7 +874,9 @@ async def upload_material(
     source_type: str = Form(default="upload", description="来源类型"),
     content_type: str = Form(default="image_text", description="内容类型"),
     tag_ids: Optional[str] = Form(default=None, description="标签ID列表（逗号分隔）"),
-    files: Optional[List[UploadFile]] = File(default=None, description="图片文件列表（最多5张）"),
+    files: Optional[List[UploadFile]] = File(
+        default=None, description="图片文件列表（最多5张）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -865,14 +892,18 @@ async def upload_material(
     user_type = payload.get("user_type")
     current_user_id = int(payload.get("sub"))
 
-    logger.info(f"[MaterialUpload] Starting upload: user_type={user_type}, current_user_id={current_user_id}, "
-                f"title={title}, files_count={len(files) if files else 0}")
+    logger.info(
+        f"[MaterialUpload] Starting upload: user_type={user_type}, current_user_id={current_user_id}, "
+        f"title={title}, files_count={len(files) if files else 0}"
+    )
 
     if user_type == "super_admin":
-        logger.warning(f"[MaterialUpload] Super admin attempted upload: user_id={current_user_id}")
+        logger.warning(
+            f"[MaterialUpload] Super admin attempted upload: user_id={current_user_id}"
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能上传素材，请由创作管理员操作"
+            detail="超级管理员不能上传素材，请由创作管理员操作",
         )
 
     owner_operator_id = current_user_id
@@ -882,37 +913,43 @@ async def upload_material(
     parsed_tag_ids = None
     if tag_ids:
         try:
-            parsed_tag_ids = [int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
+            parsed_tag_ids = [
+                int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
+            ]
             logger.debug(f"[MaterialUpload] Parsed tag_ids: {parsed_tag_ids}")
         except ValueError:
             logger.warning(f"[MaterialUpload] Invalid tag_ids format: {tag_ids}")
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="标签ID格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="标签ID格式不正确"
             )
 
     # 验证文件数量
     if files and len(files) > 5:
         logger.warning(f"[MaterialUpload] Too many files: {len(files)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="最多上传5张图片"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="最多上传5张图片"
         )
 
     # 验证文件类型和大小
     if files:
-        allowed_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
+        allowed_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
         max_size = 5 * 1024 * 1024  # 5MB
         for idx, file in enumerate(files):
             if file.filename:
-                ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-                logger.debug(f"[MaterialUpload] File {idx}: filename={file.filename}, ext={ext}, "
-                            f"content_type={file.content_type}")
+                ext = (
+                    file.filename.rsplit(".", 1)[-1].lower()
+                    if "." in file.filename
+                    else ""
+                )
+                logger.debug(
+                    f"[MaterialUpload] File {idx}: filename={file.filename}, ext={ext}, "
+                    f"content_type={file.content_type}"
+                )
                 if ext not in allowed_extensions:
                     logger.warning(f"[MaterialUpload] Unsupported file format: {ext}")
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp"
+                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp",
                     )
 
     # 创建素材
@@ -929,7 +966,9 @@ async def upload_material(
         content_type=content_type,
         tag_ids=parsed_tag_ids,
     )
-    logger.info(f"[MaterialUpload] Created material: id={material.id}, owner_operator_id={owner_operator_id}")
+    logger.info(
+        f"[MaterialUpload] Created material: id={material.id}, owner_operator_id={owner_operator_id}"
+    )
 
     # 处理文件上传
     if files and material.id:
@@ -943,27 +982,35 @@ async def upload_material(
                 file_content = await file.read()
 
                 if not file_content:
-                    logger.warning(f"[MaterialUpload] File {idx} is empty, skipping: filename={file.filename}")
+                    logger.warning(
+                        f"[MaterialUpload] File {idx} is empty, skipping: filename={file.filename}"
+                    )
                     continue
 
-                logger.info(f"[MaterialUpload] Processing file {idx}: filename={file.filename}, "
-                           f"size={len(file_content)} bytes")
+                logger.info(
+                    f"[MaterialUpload] Processing file {idx}: filename={file.filename}, "
+                    f"size={len(file_content)} bytes"
+                )
 
                 # 获取文件扩展名
                 ext = "jpg"
-                if file.filename and '.' in file.filename:
-                    ext = file.filename.rsplit('.', 1)[-1].lower()
+                if file.filename and "." in file.filename:
+                    ext = file.filename.rsplit(".", 1)[-1].lower()
 
                 # 保存原图并生成缩略图
-                original_url, thumbnail_url = await storage.save_material_image_with_thumbnail(
-                    file_content=file_content,
-                    owner_admin_id=owner_operator_id,
-                    material_id=material.id,
-                    extension=ext,
+                original_url, thumbnail_url = (
+                    await storage.save_material_image_with_thumbnail(
+                        file_content=file_content,
+                        owner_admin_id=owner_operator_id,
+                        material_id=material.id,
+                        extension=ext,
+                    )
                 )
 
-                logger.info(f"[MaterialUpload] Storage result for file {idx}: "
-                           f"original_url={original_url}, thumbnail_url={thumbnail_url}")
+                logger.info(
+                    f"[MaterialUpload] Storage result for file {idx}: "
+                    f"original_url={original_url}, thumbnail_url={thumbnail_url}"
+                )
 
                 # 保存附件记录
                 if original_url:
@@ -971,6 +1018,7 @@ async def upload_material(
                     width, height = None, None
                     try:
                         from PIL import Image
+
                         img = Image.open(io.BytesIO(file_content))
                         width, height = img.size
                     except Exception:
@@ -989,19 +1037,28 @@ async def upload_material(
                         height=height,
                         thumbnail_url=thumbnail_url,
                     )
-                    logger.info(f"[MaterialUpload] Saved attachment: id={attachment.id if attachment else 'None'}, "
-                               f"file_url={original_url}, file_size={len(file_content)}, "
-                               f"width={width}, height={height}, thumbnail_url={thumbnail_url}")
+                    logger.info(
+                        f"[MaterialUpload] Saved attachment: id={attachment.id if attachment else 'None'}, "
+                        f"file_url={original_url}, file_size={len(file_content)}, "
+                        f"width={width}, height={height}, thumbnail_url={thumbnail_url}"
+                    )
                     saved_count += 1
                 else:
-                    logger.error(f"[MaterialUpload] Failed to save file {idx}: "
-                               f"storage returned (None, None), filename={file.filename}")
+                    logger.error(
+                        f"[MaterialUpload] Failed to save file {idx}: "
+                        f"storage returned (None, None), filename={file.filename}"
+                    )
                     failed_count += 1
             except Exception as e:
-                logger.error(f"[MaterialUpload] Exception processing file {idx}: {e}", exc_info=True)
+                logger.error(
+                    f"[MaterialUpload] Exception processing file {idx}: {e}",
+                    exc_info=True,
+                )
                 failed_count += 1
 
-        logger.info(f"[MaterialUpload] File processing complete: saved={saved_count}, failed={failed_count}")
+        logger.info(
+            f"[MaterialUpload] File processing complete: saved={saved_count}, failed={failed_count}"
+        )
 
         # 更新素材的图片计数
         image_count = saved_count
@@ -1009,36 +1066,69 @@ async def upload_material(
             await MaterialService.update_material(
                 db, material.id, owner_operator_id, image_count=image_count
             )
-            logger.info(f"[MaterialUpload] Updated material image_count={image_count} for material_id={material.id}")
+            logger.info(
+                f"[MaterialUpload] Updated material image_count={image_count} for material_id={material.id}"
+            )
 
     # 加载关联数据并构建响应
-    attachments = await MaterialService.list_material_attachments(db, material.id, material.owner_operator_id)
-    tags = await MaterialService.get_material_tags(db, material.id, material.owner_operator_id)
+    attachments = await MaterialService.list_material_attachments(
+        db, material.id, material.owner_operator_id
+    )
+    tags = await MaterialService.get_material_tags(
+        db, material.id, material.owner_operator_id
+    )
     is_favorite = False
     favorite = await MaterialService.get_favorite(db, material.id, current_user_id)
     is_favorite = favorite is not None
 
-    logger.info(f"[MaterialUpload] Loaded for response: material_id={material.id}, "
-                f"attachments_count={len(attachments)}, tags_count={len(tags)}, is_favorite={is_favorite}")
+    logger.info(
+        f"[MaterialUpload] Loaded for response: material_id={material.id}, "
+        f"attachments_count={len(attachments)}, tags_count={len(tags)}, is_favorite={is_favorite}"
+    )
 
     response_data = build_material_response(material, attachments, tags, is_favorite)
 
     # 记录响应中的图片信息
-    response_attachments = response_data.get("attachments", []) if isinstance(response_data, dict) else getattr(response_data, "attachments", [])
+    response_attachments = (
+        response_data.get("attachments", [])
+        if isinstance(response_data, dict)
+        else getattr(response_data, "attachments", [])
+    )
     if response_attachments:
         for idx, att in enumerate(response_attachments):
-            att_file_url = att.get("file_url") if isinstance(att, dict) else getattr(att, "file_url", None)
-            att_thumb_url = att.get("thumbnail_url") if isinstance(att, dict) else getattr(att, "thumbnail_url", None)
-            att_type = att.get("file_type") if isinstance(att, dict) else getattr(att, "file_type", None)
-            logger.info(f"[MaterialUpload] Response attachment {idx}: file_url={att_file_url}, "
-                       f"thumbnail_url={att_thumb_url}, file_type={att_type}")
+            att_file_url = (
+                att.get("file_url")
+                if isinstance(att, dict)
+                else getattr(att, "file_url", None)
+            )
+            att_thumb_url = (
+                att.get("thumbnail_url")
+                if isinstance(att, dict)
+                else getattr(att, "thumbnail_url", None)
+            )
+            att_type = (
+                att.get("file_type")
+                if isinstance(att, dict)
+                else getattr(att, "file_type", None)
+            )
+            logger.info(
+                f"[MaterialUpload] Response attachment {idx}: file_url={att_file_url}, "
+                f"thumbnail_url={att_thumb_url}, file_type={att_type}"
+            )
     else:
-        logger.warning(f"[MaterialUpload] Response has no attachments: material_id={material.id}")
+        logger.warning(
+            f"[MaterialUpload] Response has no attachments: material_id={material.id}"
+        )
 
-    logger.info(f"[MaterialUpload] Upload completed successfully: material_id={material.id}")
+    logger.info(
+        f"[MaterialUpload] Upload completed successfully: material_id={material.id}"
+    )
 
     if failed_count > 0:
-        return success_response(data=response_data, message=f"创建成功，但有 {failed_count} 个文件上传失败（可能是文件大小超限）")
+        return success_response(
+            data=response_data,
+            message=f"创建成功，但有 {failed_count} 个文件上传失败（可能是文件大小超限）",
+        )
     return success_response(data=response_data, message="创建成功")
 
 
@@ -1067,7 +1157,7 @@ async def batch_update_material_status(
                 db,
                 material_id=material_id,
                 owner_operator_id=None if is_super_admin else current_user_id,
-                status=request.status
+                status=request.status,
             )
             success_count += 1
         except Exception:
@@ -1076,12 +1166,12 @@ async def batch_update_material_status(
     if failed_ids:
         return success_response(
             data={"success_count": success_count, "failed_ids": failed_ids},
-            message=f"批量状态更新完成，成功 {success_count} 条，失败 {len(failed_ids)} 条"
+            message=f"批量状态更新完成，成功 {success_count} 条，失败 {len(failed_ids)} 条",
         )
 
     return success_response(
         data={"success_count": success_count, "failed_ids": []},
-        message=f"成功更新 {success_count} 条素材状态"
+        message=f"成功更新 {success_count} 条素材状态",
     )
 
 
@@ -1107,8 +1197,9 @@ async def batch_delete_materials(
     for material_id in request.material_ids:
         try:
             await MaterialService.delete_material(
-                db, material_id=material_id,
-                owner_operator_id=None if is_super_admin else current_user_id
+                db,
+                material_id=material_id,
+                owner_operator_id=None if is_super_admin else current_user_id,
             )
             success_count += 1
         except Exception:
@@ -1117,12 +1208,12 @@ async def batch_delete_materials(
     if failed_ids:
         return success_response(
             data={"success_count": success_count, "failed_ids": failed_ids},
-            message=f"批量删除完成，成功 {success_count} 条，失败 {len(failed_ids)} 条"
+            message=f"批量删除完成，成功 {success_count} 条，失败 {len(failed_ids)} 条",
         )
 
     return success_response(
         data={"success_count": success_count, "failed_ids": []},
-        message=f"成功删除 {success_count} 条素材"
+        message=f"成功删除 {success_count} 条素材",
     )
 
 
@@ -1130,7 +1221,10 @@ async def batch_delete_materials(
 # 素材平台管理（独立平台表）
 # ============================================
 
-@router.post("/platforms", response_model=ApiResponse[dict], status_code=status.HTTP_201_CREATED)
+
+@router.post(
+    "/platforms", response_model=ApiResponse[dict], status_code=status.HTTP_201_CREATED
+)
 async def create_material_platform(
     data: dict,
     payload: dict = Depends(get_token_payload_required),
@@ -1148,7 +1242,7 @@ async def create_material_platform(
     if user_type == "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能创建平台，请由创作管理员操作"
+            detail="超级管理员不能创建平台，请由创作管理员操作",
         )
 
     current_user_id = int(payload.get("sub"))
@@ -1159,27 +1253,32 @@ async def create_material_platform(
         created_by=current_user_id,
         description=data.get("description"),
         color=data.get("color"),
-        sort_order=data.get("sort_order", 0)
+        sort_order=data.get("sort_order", 0),
     )
 
-    return success_response(data={
-        "id": platform.id,
-        "name": platform.name,
-        "description": platform.description,
-        "color": platform.color,
-        "sort_order": platform.sort_order,
-        "created_by": platform.created_by,
-        "owner_operator_id": platform.owner_operator_id,
-        "created_at": platform.created_at,
-        "updated_at": platform.updated_at,
-        "category_count": 0,
-    }, message="创建成功")
+    return success_response(
+        data={
+            "id": platform.id,
+            "name": platform.name,
+            "description": platform.description,
+            "color": platform.color,
+            "sort_order": platform.sort_order,
+            "created_by": platform.created_by,
+            "owner_operator_id": platform.owner_operator_id,
+            "created_at": platform.created_at,
+            "updated_at": platform.updated_at,
+            "category_count": 0,
+        },
+        message="创建成功",
+    )
 
 
 @router.get("/platforms", response_model=ApiResponse[list])
 async def list_material_platforms(
     keyword: Optional[str] = Query(None, description="搜索关键词"),
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -1201,30 +1300,33 @@ async def list_material_platforms(
 
     service = MaterialPlatformService(db)
     platforms = await service.get_platforms(
-        owner_operator_id=filter_owner_id,
-        keyword=keyword
+        owner_operator_id=filter_owner_id, keyword=keyword
     )
 
     result = []
     for p in platforms:
-        result.append({
-            "id": p.id,
-            "name": p.name,
-            "description": p.description,
-            "color": p.color,
-            "sort_order": p.sort_order,
-            "created_by": p.created_by,
-            "owner_operator_id": p.owner_operator_id,
-            "created_at": p.created_at,
-            "updated_at": p.updated_at,
-            "category_count": len(p.categories),
-        })
+        result.append(
+            {
+                "id": p.id,
+                "name": p.name,
+                "description": p.description,
+                "color": p.color,
+                "sort_order": p.sort_order,
+                "created_by": p.created_by,
+                "owner_operator_id": p.owner_operator_id,
+                "created_at": p.created_at,
+                "updated_at": p.updated_at,
+                "category_count": len(p.categories),
+            }
+        )
     return success_response(data=result, message="获取成功")
 
 
 @router.get("/platforms/tree", response_model=ApiResponse[dict])
 async def get_material_platform_tree(
-    owner_operator_id: Optional[int] = Query(None, description="指定创作管理员ID（仅超级管理员可用）"),
+    owner_operator_id: Optional[int] = Query(
+        None, description="指定创作管理员ID（仅超级管理员可用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -1268,23 +1370,23 @@ async def get_material_platform(
         platform_id, None if is_super_admin else current_user_id
     )
     if not platform:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="平台不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="平台不存在")
 
-    return success_response(data={
-        "id": platform.id,
-        "name": platform.name,
-        "description": platform.description,
-        "color": platform.color,
-        "sort_order": platform.sort_order,
-        "created_by": platform.created_by,
-        "owner_operator_id": platform.owner_operator_id,
-        "created_at": platform.created_at,
-        "updated_at": platform.updated_at,
-        "category_count": len(platform.categories),
-    }, message="获取成功")
+    return success_response(
+        data={
+            "id": platform.id,
+            "name": platform.name,
+            "description": platform.description,
+            "color": platform.color,
+            "sort_order": platform.sort_order,
+            "created_by": platform.created_by,
+            "owner_operator_id": platform.owner_operator_id,
+            "created_at": platform.created_at,
+            "updated_at": platform.updated_at,
+            "category_count": len(platform.categories),
+        },
+        message="获取成功",
+    )
 
 
 @router.get("/platforms/{platform_id}/stats", response_model=ApiResponse[dict])
@@ -1296,8 +1398,10 @@ async def get_material_platform_stats(
     """
     获取素材平台统计信息（素材数量、分类数量、标签数量）
     """
+    from sqlalchemy import func, select
+
+    from app.models import MaterialTag, MaterialTagRel
     from app.services.material_platform_service import MaterialPlatformService
-    from app.models import MaterialTagRel, MaterialTag, MaterialCategory
 
     service = MaterialPlatformService(db)
     platform = await service.get_platform(platform_id)
@@ -1313,20 +1417,26 @@ async def get_material_platform_stats(
     # 统计素材数量
     if platform.categories:
         category_ids = [cat.id for cat in platform.categories]
-        material_count = await db.scalar(
-            select(func.count(func.distinct(MaterialTagRel.material_id)))
-            .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
-            .where(MaterialTag.category_id.in_(category_ids))
-        ) or 0
+        material_count = (
+            await db.scalar(
+                select(func.count(func.distinct(MaterialTagRel.material_id)))
+                .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
+                .where(MaterialTag.category_id.in_(category_ids))
+            )
+            or 0
+        )
     else:
         material_count = 0
 
-    return success_response(data={
-        "platform_id": platform_id,
-        "material_count": material_count,
-        "category_count": category_count,
-        "tag_count": tag_count,
-    }, message="获取成功")
+    return success_response(
+        data={
+            "platform_id": platform_id,
+            "material_count": material_count,
+            "category_count": category_count,
+            "tag_count": tag_count,
+        },
+        message="获取成功",
+    )
 
 
 @router.put("/platforms/{platform_id}", response_model=ApiResponse[dict])
@@ -1348,25 +1458,25 @@ async def update_material_platform(
         platform = await service.update_platform(
             platform_id=platform_id,
             owner_operator_id=None if is_super_admin else current_user_id,
-            **data
+            **data,
         )
-        return success_response(data={
-            "id": platform.id,
-            "name": platform.name,
-            "description": platform.description,
-            "color": platform.color,
-            "sort_order": platform.sort_order,
-            "created_by": platform.created_by,
-            "owner_operator_id": platform.owner_operator_id,
-            "created_at": platform.created_at,
-            "updated_at": platform.updated_at,
-            "category_count": len(platform.categories),
-        }, message="更新成功")
+        return success_response(
+            data={
+                "id": platform.id,
+                "name": platform.name,
+                "description": platform.description,
+                "color": platform.color,
+                "sort_order": platform.sort_order,
+                "created_by": platform.created_by,
+                "owner_operator_id": platform.owner_operator_id,
+                "created_at": platform.created_at,
+                "updated_at": platform.updated_at,
+                "category_count": len(platform.categories),
+            },
+            message="更新成功",
+        )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/platforms/{platform_id}")
@@ -1384,19 +1494,17 @@ async def delete_material_platform(
 
     service = MaterialPlatformService(db)
     try:
-        await service.delete_platform(platform_id, None if is_super_admin else current_user_id)
+        await service.delete_platform(
+            platform_id, None if is_super_admin else current_user_id
+        )
         return success_response(message="删除成功")
     except Exception as e:
         error_msg = str(e)
         if "存在" in error_msg:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=error_msg
+                status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg
             )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=error_msg
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_msg)
 
 
 @router.get("/{id}", response_model=ApiResponse[MaterialResponse])
@@ -1420,13 +1528,12 @@ async def get_material(
         db, id, owner_operator_id=None if is_super_admin else current_user_id
     )
     if not material:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="素材不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="素材不存在")
 
     # 加载关联数据
-    attachments = await MaterialService.list_material_attachments(db, id, material.owner_operator_id)
+    attachments = await MaterialService.list_material_attachments(
+        db, id, material.owner_operator_id
+    )
     tags = await MaterialService.get_material_tags(db, id, material.owner_operator_id)
     is_favorite = False
     favorite = await MaterialService.get_favorite(db, id, user_id)
@@ -1464,20 +1571,23 @@ async def update_material(
         )
 
         # 加载关联数据并构建响应
-        attachments = await MaterialService.list_material_attachments(db, material.id, material.owner_operator_id)
-        tags = await MaterialService.get_material_tags(db, material.id, material.owner_operator_id)
+        attachments = await MaterialService.list_material_attachments(
+            db, material.id, material.owner_operator_id
+        )
+        tags = await MaterialService.get_material_tags(
+            db, material.id, material.owner_operator_id
+        )
         is_favorite = False
         favorite = await MaterialService.get_favorite(db, material.id, user_id)
         is_favorite = favorite is not None
 
-        response_data = build_material_response(material, attachments, tags, is_favorite)
+        response_data = build_material_response(
+            material, attachments, tags, is_favorite
+        )
 
         return success_response(data=response_data, message="更新成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/{id}")
@@ -1497,14 +1607,13 @@ async def delete_material(
     is_super_admin = user_type == "super_admin"
     try:
         await MaterialService.delete_material(
-            db, material_id=id, owner_operator_id=None if is_super_admin else current_user_id
+            db,
+            material_id=id,
+            owner_operator_id=None if is_super_admin else current_user_id,
         )
         return success_response(message="删除成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/{id}/copy", response_model=ApiResponse[MaterialResponse])
@@ -1544,20 +1653,23 @@ async def copy_material(
         )
 
         # 加载关联数据并构建响应
-        attachments = await MaterialService.list_material_attachments(db, material.id, material.owner_operator_id)
-        tags = await MaterialService.get_material_tags(db, material.id, material.owner_operator_id)
+        attachments = await MaterialService.list_material_attachments(
+            db, material.id, material.owner_operator_id
+        )
+        tags = await MaterialService.get_material_tags(
+            db, material.id, material.owner_operator_id
+        )
         is_favorite = False
         favorite = await MaterialService.get_favorite(db, material.id, user_id)
         is_favorite = favorite is not None
 
-        response_data = build_material_response(material, attachments, tags, is_favorite)
+        response_data = build_material_response(
+            material, attachments, tags, is_favorite
+        )
 
         return success_response(data=response_data, message="复制成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/batch-copy")
@@ -1577,7 +1689,9 @@ async def batch_copy_materials(
     is_super_admin = user_type == "super_admin"
 
     # 目标管理员：超级管理员可指定，创作管理员使用自己
-    target_operator_id = request.target_operator_id if is_super_admin else current_user_id
+    target_operator_id = (
+        request.target_operator_id if is_super_admin else current_user_id
+    )
 
     success_count = 0
     failed_ids = []
@@ -1595,7 +1709,7 @@ async def batch_copy_materials(
                 material_id=material_id,
                 owner_operator_id=target_operator_id,
                 new_title=new_title,
-                tag_ids=request.target_tag_ids
+                tag_ids=request.target_tag_ids,
             )
             success_count += 1
             new_materials.append(material.id)
@@ -1604,13 +1718,21 @@ async def batch_copy_materials(
 
     if failed_ids:
         return success_response(
-            data={"success_count": success_count, "failed_ids": failed_ids, "new_material_ids": new_materials},
-            message=f"批量复制完成，成功 {success_count} 条，失败 {len(failed_ids)} 条"
+            data={
+                "success_count": success_count,
+                "failed_ids": failed_ids,
+                "new_material_ids": new_materials,
+            },
+            message=f"批量复制完成，成功 {success_count} 条，失败 {len(failed_ids)} 条",
         )
 
     return success_response(
-        data={"success_count": success_count, "failed_ids": [], "new_material_ids": new_materials},
-        message=f"成功复制 {success_count} 条素材"
+        data={
+            "success_count": success_count,
+            "failed_ids": [],
+            "new_material_ids": new_materials,
+        },
+        message=f"成功复制 {success_count} 条素材",
     )
 
 
@@ -1632,33 +1754,34 @@ async def transfer_material(
     user_type = payload.get("user_type")
     if user_type != "super_admin":
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="仅超级管理员可转移素材"
+            status_code=status.HTTP_403_FORBIDDEN, detail="仅超级管理员可转移素材"
         )
-    
+
     try:
         material = await MaterialService.update_material(
             db,
             material_id=id,
             owner_operator_id=None,  # 超级管理员可以更新任何素材
-            owner_operator_id_new=request.target_operator_id
+            owner_operator_id_new=request.target_operator_id,
         )
-        
+
         return success_response(
-            data={"material_id": material.id, "new_owner_id": request.target_operator_id},
-            message="素材转移成功"
+            data={
+                "material_id": material.id,
+                "new_owner_id": request.target_operator_id,
+            },
+            message="素材转移成功",
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 # ============================================
 # 素材附件管理
 # ============================================
-@router.get("/{id}/attachments", response_model=ApiResponse[list[MaterialAttachmentResponse]])
+@router.get(
+    "/{id}/attachments", response_model=ApiResponse[list[MaterialAttachmentResponse]]
+)
 async def list_material_attachments(
     id: int,
     payload: dict = Depends(get_token_payload_required),
@@ -1679,10 +1802,7 @@ async def list_material_attachments(
         db, id, owner_operator_id=None if is_super_admin else current_user_id
     )
     if not material:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="素材不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="素材不存在")
 
     attachments = await MaterialService.list_material_attachments(
         db, id, owner_operator_id=material.owner_operator_id
@@ -1690,7 +1810,9 @@ async def list_material_attachments(
     return success_response(data=attachments, message="获取成功")
 
 
-@router.post("/{id}/attachments", response_model=ApiResponse[MaterialAttachmentResponse])
+@router.post(
+    "/{id}/attachments", response_model=ApiResponse[MaterialAttachmentResponse]
+)
 async def add_material_attachment(
     id: int,
     request: MaterialAttachmentCreate,
@@ -1706,18 +1828,18 @@ async def add_material_attachment(
     user_type = payload.get("user_type")
     current_user_id = int(payload.get("sub"))
     is_super_admin = user_type == "super_admin"
-    
+
     # 超级管理员不能上传素材附件
     if user_type == "super_admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="超级管理员不能添加素材附件，请由创作管理员操作"
+            detail="超级管理员不能添加素材附件，请由创作管理员操作",
         )
-    
+
     try:
         # 创作管理员只能为自己的素材添加附件
         owner_operator_id = current_user_id
-        
+
         attachment = await MaterialService.add_material_attachment(
             db,
             material_id=id,
@@ -1734,13 +1856,12 @@ async def add_material_attachment(
         )
         return success_response(data=attachment, message="添加成功")
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
-@router.post("/{id}/update-with-attachments", response_model=ApiResponse[MaterialResponse])
+@router.post(
+    "/{id}/update-with-attachments", response_model=ApiResponse[MaterialResponse]
+)
 async def update_material_with_attachments(
     id: int,
     title: Optional[str] = Form(default=None, description="素材标题"),
@@ -1752,8 +1873,12 @@ async def update_material_with_attachments(
     platform_id: Optional[int] = Form(default=None, description="所属平台ID"),
     category_id: Optional[int] = Form(default=None, description="所属分类ID"),
     source_url: Optional[str] = Form(default=None, description="来源URL"),
-    delete_attachment_ids: Optional[str] = Form(default=None, description="要删除的附件ID列表（逗号分隔）"),
-    files: Optional[List[UploadFile]] = File(default=None, description="新文件列表（图片或视频，最多5个）"),
+    delete_attachment_ids: Optional[str] = Form(
+        default=None, description="要删除的附件ID列表（逗号分隔）"
+    ),
+    files: Optional[List[UploadFile]] = File(
+        default=None, description="新文件列表（图片或视频，最多5个）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -1766,6 +1891,7 @@ async def update_material_with_attachments(
     - 支持同时更新素材基本信息
     """
     import io
+
     from app.services.storage_service import get_storage_service
 
     user_type = payload.get("user_type")
@@ -1773,41 +1899,54 @@ async def update_material_with_attachments(
     is_super_admin = user_type == "super_admin"
     owner_operator_id = None if is_super_admin else current_user_id
 
-    logger.info(f"[MaterialUpdateWithAttachments] Starting: material_id={id}, user_type={user_type}, "
-                f"delete_attachment_ids={delete_attachment_ids}, files_count={len(files) if files else 0}")
+    logger.info(
+        f"[MaterialUpdateWithAttachments] Starting: material_id={id}, user_type={user_type}, "
+        f"delete_attachment_ids={delete_attachment_ids}, files_count={len(files) if files else 0}"
+    )
 
     # 获取素材（验证所有权）
-    material = await MaterialService.get_material(db, id, owner_operator_id=owner_operator_id)
+    material = await MaterialService.get_material(
+        db, id, owner_operator_id=owner_operator_id
+    )
     if not material:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="素材不存在"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="素材不存在")
 
     # 解析要删除的附件ID
     parsed_delete_ids = []
     if delete_attachment_ids:
         try:
-            parsed_delete_ids = [int(aid.strip()) for aid in delete_attachment_ids.split(",") if aid.strip()]
-            logger.debug(f"[MaterialUpdateWithAttachments] Parsed delete_attachment_ids: {parsed_delete_ids}")
+            parsed_delete_ids = [
+                int(aid.strip())
+                for aid in delete_attachment_ids.split(",")
+                if aid.strip()
+            ]
+            logger.debug(
+                f"[MaterialUpdateWithAttachments] Parsed delete_attachment_ids: {parsed_delete_ids}"
+            )
         except ValueError:
-            logger.warning(f"[MaterialUpdateWithAttachments] Invalid delete_attachment_ids format: {delete_attachment_ids}")
+            logger.warning(
+                f"[MaterialUpdateWithAttachments] Invalid delete_attachment_ids format: {delete_attachment_ids}"
+            )
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="附件ID格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="附件ID格式不正确"
             )
 
     # 解析标签ID
     parsed_tag_ids = None
     if tag_ids:
         try:
-            parsed_tag_ids = [int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()]
-            logger.debug(f"[MaterialUpdateWithAttachments] Parsed tag_ids: {parsed_tag_ids}")
+            parsed_tag_ids = [
+                int(tid.strip()) for tid in tag_ids.split(",") if tid.strip()
+            ]
+            logger.debug(
+                f"[MaterialUpdateWithAttachments] Parsed tag_ids: {parsed_tag_ids}"
+            )
         except ValueError:
-            logger.warning(f"[MaterialUpdateWithAttachments] Invalid tag_ids format: {tag_ids}")
+            logger.warning(
+                f"[MaterialUpdateWithAttachments] Invalid tag_ids format: {tag_ids}"
+            )
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="标签ID格式不正确"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="标签ID格式不正确"
             )
 
     # 构建更新数据
@@ -1837,9 +1976,13 @@ async def update_material_with_attachments(
         try:
             await MaterialService.delete_material_attachment(db, aid, owner_operator_id)
             deleted_count += 1
-            logger.info(f"[MaterialUpdateWithAttachments] Deleted attachment: attachment_id={aid}")
+            logger.info(
+                f"[MaterialUpdateWithAttachments] Deleted attachment: attachment_id={aid}"
+            )
         except Exception as e:
-            logger.warning(f"[MaterialUpdateWithAttachments] Failed to delete attachment {aid}: {e}")
+            logger.warning(
+                f"[MaterialUpdateWithAttachments] Failed to delete attachment {aid}: {e}"
+            )
 
     # 处理新文件上传
     saved_count = 0
@@ -1849,27 +1992,39 @@ async def update_material_with_attachments(
 
     if files and len(files) > 0:
         # 验证文件数量（考虑剩余容量）
-        current_attachments = await MaterialService.list_material_attachments(db, id, owner_operator_id)
+        current_attachments = await MaterialService.list_material_attachments(
+            db, id, owner_operator_id
+        )
         current_count = len(current_attachments) - deleted_count
         if current_count + len(files) > 5:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="素材最多支持5个附件"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="素材最多支持5个附件"
             )
 
         # 验证文件类型和大小
-        allowed_image_extensions = {'jpg', 'jpeg', 'png', 'gif', 'webp'}
-        allowed_video_extensions = {'mp4', 'webm', 'mov'}
+        allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+        allowed_video_extensions = {"mp4", "webm", "mov"}
         max_size = 50 * 1024 * 1024  # 50MB
         for idx, file in enumerate(files):
             if file.filename:
-                ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
-                logger.debug(f"[MaterialUpdateWithAttachments] File {idx}: filename={file.filename}, ext={ext}")
-                if ext not in allowed_image_extensions and ext not in allowed_video_extensions:
-                    logger.warning(f"[MaterialUpdateWithAttachments] Unsupported file format: {ext}")
+                ext = (
+                    file.filename.rsplit(".", 1)[-1].lower()
+                    if "." in file.filename
+                    else ""
+                )
+                logger.debug(
+                    f"[MaterialUpdateWithAttachments] File {idx}: filename={file.filename}, ext={ext}"
+                )
+                if (
+                    ext not in allowed_image_extensions
+                    and ext not in allowed_video_extensions
+                ):
+                    logger.warning(
+                        f"[MaterialUpdateWithAttachments] Unsupported file format: {ext}"
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp/mp4/webm/mov"
+                        detail=f"不支持的文件格式: {ext}，仅支持 jpg/jpeg/png/gif/webp/mp4/webm/mov",
                     )
 
         # 保存文件
@@ -1879,18 +2034,22 @@ async def update_material_with_attachments(
                 file_content = await file.read()
 
                 if not file_content:
-                    logger.warning(f"[MaterialUpdateWithAttachments] File {idx} is empty, skipping: filename={file.filename}")
+                    logger.warning(
+                        f"[MaterialUpdateWithAttachments] File {idx} is empty, skipping: filename={file.filename}"
+                    )
                     continue
 
-                logger.info(f"[MaterialUpdateWithAttachments] Processing file {idx}: filename={file.filename}, "
-                           f"size={len(file_content)} bytes")
+                logger.info(
+                    f"[MaterialUpdateWithAttachments] Processing file {idx}: filename={file.filename}, "
+                    f"size={len(file_content)} bytes"
+                )
 
                 # 获取文件扩展名和类型
                 ext = "jpg"
                 file_type = "image"
-                if file.filename and '.' in file.filename:
-                    ext = file.filename.rsplit('.', 1)[-1].lower()
-                    if ext in {'mp4', 'webm', 'mov'}:
+                if file.filename and "." in file.filename:
+                    ext = file.filename.rsplit(".", 1)[-1].lower()
+                    if ext in {"mp4", "webm", "mov"}:
                         file_type = "video"
 
                 original_url = None
@@ -1900,16 +2059,19 @@ async def update_material_with_attachments(
 
                 if file_type == "image":
                     # 保存原图并生成缩略图（使用素材库的方法）
-                    original_url, thumbnail_url = await storage.save_material_image_with_thumbnail(
-                        file_content=file_content,
-                        owner_admin_id=material.owner_operator_id,
-                        material_id=material.id,
-                        extension=ext,
+                    original_url, thumbnail_url = (
+                        await storage.save_material_image_with_thumbnail(
+                            file_content=file_content,
+                            owner_admin_id=material.owner_operator_id,
+                            material_id=material.id,
+                            extension=ext,
+                        )
                     )
 
                     # 获取图片尺寸
                     try:
                         from PIL import Image
+
                         img = Image.open(io.BytesIO(file_content))
                         width, height = img.size
                     except Exception:
@@ -1926,8 +2088,14 @@ async def update_material_with_attachments(
                 # 保存附件记录
                 if original_url:
                     # 获取当前最大 sort_order
-                    current_attachments = await MaterialService.list_material_attachments(db, id, owner_operator_id)
-                    max_sort = max([a.sort_order for a in current_attachments], default=-1)
+                    current_attachments = (
+                        await MaterialService.list_material_attachments(
+                            db, id, owner_operator_id
+                        )
+                    )
+                    max_sort = max(
+                        [a.sort_order for a in current_attachments], default=-1
+                    )
 
                     await MaterialService.add_material_attachment(
                         db,
@@ -1951,10 +2119,15 @@ async def update_material_with_attachments(
                 else:
                     failed_count += 1
             except Exception as e:
-                logger.error(f"[MaterialUpdateWithAttachments] Exception processing file {idx}: {e}", exc_info=True)
+                logger.error(
+                    f"[MaterialUpdateWithAttachments] Exception processing file {idx}: {e}",
+                    exc_info=True,
+                )
                 failed_count += 1
 
-        logger.info(f"[MaterialUpdateWithAttachments] File processing complete: saved={saved_count}, failed={failed_count}")
+        logger.info(
+            f"[MaterialUpdateWithAttachments] File processing complete: saved={saved_count}, failed={failed_count}"
+        )
 
     # 更新素材基本信息
     if update_data:
@@ -1964,12 +2137,18 @@ async def update_material_with_attachments(
             owner_operator_id=owner_operator_id,
             **update_data,
         )
-        logger.info(f"[MaterialUpdateWithAttachments] Updated material basic info: material_id={id}")
+        logger.info(
+            f"[MaterialUpdateWithAttachments] Updated material basic info: material_id={id}"
+        )
 
     # 加载关联数据并构建响应
     await db.refresh(material)
-    attachments = await MaterialService.list_material_attachments(db, material.id, material.owner_operator_id)
-    tags = await MaterialService.get_material_tags(db, material.id, material.owner_operator_id)
+    attachments = await MaterialService.list_material_attachments(
+        db, material.id, material.owner_operator_id
+    )
+    tags = await MaterialService.get_material_tags(
+        db, material.id, material.owner_operator_id
+    )
     is_favorite = False
     if not is_super_admin:
         favorite = await MaterialService.get_favorite(db, material.id, current_user_id)
@@ -1977,10 +2156,15 @@ async def update_material_with_attachments(
 
     response_data = build_material_response(material, attachments, tags, is_favorite)
 
-    logger.info(f"[MaterialUpdateWithAttachments] Update completed: material_id={id}, deleted={deleted_count}, added={saved_count}")
+    logger.info(
+        f"[MaterialUpdateWithAttachments] Update completed: material_id={id}, deleted={deleted_count}, added={saved_count}"
+    )
 
     if failed_count > 0:
-        return success_response(data=response_data, message=f"更新成功，但有 {failed_count} 个文件上传失败（可能是文件大小超限）")
+        return success_response(
+            data=response_data,
+            message=f"更新成功，但有 {failed_count} 个文件上传失败（可能是文件大小超限）",
+        )
     return success_response(data=response_data, message="更新成功")
 
 
@@ -2013,11 +2197,7 @@ async def favorite_material(
         )
         return success_response(
             data={"is_favorite": is_favorite},
-            message="已收藏" if is_favorite else "已取消收藏"
+            message="已收藏" if is_favorite else "已取消收藏",
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
-
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

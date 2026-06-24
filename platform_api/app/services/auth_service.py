@@ -7,22 +7,16 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import Optional, Tuple
 from datetime import datetime, timedelta, timezone
+from typing import Optional, Tuple
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import (
-    verify_password,
-    get_password_hash,
-)
-from app.core.exceptions import (
-    UserNotFoundError,
-    AccountLockedError,
-    UseridNotFoundError,
-    PasswordIncorrectError,
-)
-from app.models import SuperAdmin, Operator, SubUser
+from app.core.exceptions import (AccountLockedError, PasswordIncorrectError,
+                                 UseridNotFoundError, UserNotFoundError)
+from app.core.security import get_password_hash, verify_password
+from app.models import Operator, SubUser, SuperAdmin
 
 # 登录失败配置
 MAX_LOGIN_FAILURES = 3  # 最大连续失败次数
@@ -67,9 +61,7 @@ class AuthService:
         found_user_type = None
 
         for model, user_type in user_types:
-            result = await db.execute(
-                select(model).where(model.userid == userid)
-            )
+            result = await db.execute(select(model).where(model.userid == userid))
             user = result.scalar_one_or_none()
 
             if user:
@@ -86,7 +78,9 @@ class AuthService:
         if hasattr(found_user, "locked_until") and found_user.locked_until:
             if found_user.locked_until > now:
                 # 账号仍在锁定中
-                remaining_minutes = int((found_user.locked_until - now).total_seconds() / 60)
+                remaining_minutes = int(
+                    (found_user.locked_until - now).total_seconds() / 60
+                )
                 raise AccountLockedError(
                     f"账号已被锁定，请在 {remaining_minutes} 分钟后再试"
                 )
@@ -104,13 +98,17 @@ class AuthService:
         if not verify_password(password, found_user.hashed_password):
             # 密码错误，增加失败计数
             if hasattr(found_user, "login_failure_count"):
-                found_user.login_failure_count = (found_user.login_failure_count or 0) + 1
+                found_user.login_failure_count = (
+                    found_user.login_failure_count or 0
+                ) + 1
 
                 remaining_attempts = MAX_LOGIN_FAILURES - found_user.login_failure_count
 
                 if remaining_attempts <= 0:
                     # 达到最大失败次数，锁定账号
-                    found_user.locked_until = now + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+                    found_user.locked_until = now + timedelta(
+                        minutes=LOCKOUT_DURATION_MINUTES
+                    )
                     await db.commit()
                     raise AccountLockedError(
                         f"连续登录失败次数过多，账号已被锁定 {LOCKOUT_DURATION_MINUTES} 分钟"
@@ -307,6 +305,7 @@ class AuthService:
             OldPasswordError: 原密码错误
         """
         from datetime import datetime
+
         from app.core.exceptions import OldPasswordError
 
         model_map = {

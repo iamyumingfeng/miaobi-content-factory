@@ -8,13 +8,13 @@ Date: 2025
 """
 
 import logging
-from typing import List, Optional, Dict, Any, Tuple
-from datetime import datetime, timedelta, date
-from calendar import monthrange
-from sqlalchemy import select, and_, or_, func, desc, case
+from datetime import date, datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+from sqlalchemy import and_, case, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import GenerationTask, GenerationItem, SubUser, Operator
+from app.models import GenerationItem, Operator
 
 logger = logging.getLogger(__name__)
 
@@ -26,9 +26,7 @@ class TrendAnalysisService:
 
     @staticmethod
     def _get_date_range(
-        start_date: Optional[date],
-        end_date: Optional[date],
-        default_days: int = 30
+        start_date: Optional[date], end_date: Optional[date], default_days: int = 30
     ) -> Tuple[date, date]:
         """
         获取日期范围
@@ -52,7 +50,7 @@ class TrendAnalysisService:
     def _build_operator_filter(
         owner_admin_id: Optional[int],
         filter_operator_id: Optional[int],
-        is_super_admin: bool
+        is_super_admin: bool,
     ) -> List[Any]:
         """
         构建创作管理员过滤条件
@@ -73,10 +71,7 @@ class TrendAnalysisService:
             return [GenerationItem.owner_operator_id == owner_admin_id]
 
     @staticmethod
-    def _calculate_comparison(
-        current: int,
-        previous: int
-    ) -> Dict[str, Any]:
+    def _calculate_comparison(current: int, previous: int) -> Dict[str, Any]:
         """
         计算对比数据
 
@@ -88,12 +83,16 @@ class TrendAnalysisService:
             对比数据字典
         """
         change = current - previous
-        change_rate = (change / previous * 100) if previous > 0 else (100.0 if current > 0 else 0.0)
+        change_rate = (
+            (change / previous * 100)
+            if previous > 0
+            else (100.0 if current > 0 else 0.0)
+        )
         return {
             "current": current,
             "previous": previous,
             "change": change,
-            "change_rate": round(change_rate, 2)
+            "change_rate": round(change_rate, 2),
         }
 
     @staticmethod
@@ -106,7 +105,7 @@ class TrendAnalysisService:
         dimension: str = "day",
         compare_type: str = "none",
         content_type: str = "all",
-        filter_operator_id: Optional[int] = None
+        filter_operator_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         获取内容生成趋势
@@ -125,11 +124,22 @@ class TrendAnalysisService:
         Returns:
             生成趋势数据
         """
-        logger.debug("[TrendAnalysisService] get_generation_trend | owner=%s | start=%s | end=%s | dim=%s | compare=%s | content=%s",
-                    owner_admin_id, start_date, end_date, dimension, compare_type, content_type)
+        logger.debug(
+            "[TrendAnalysisService] get_generation_trend | owner=%s | start=%s | end=%s | dim=%s | compare=%s | content=%s",
+            owner_admin_id,
+            start_date,
+            end_date,
+            dimension,
+            compare_type,
+            content_type,
+        )
 
-        start_date, end_date = TrendAnalysisService._get_date_range(start_date, end_date)
-        operator_filter = TrendAnalysisService._build_operator_filter(owner_admin_id, filter_operator_id, is_super_admin)
+        start_date, end_date = TrendAnalysisService._get_date_range(
+            start_date, end_date
+        )
+        operator_filter = TrendAnalysisService._build_operator_filter(
+            owner_admin_id, filter_operator_id, is_super_admin
+        )
 
         # 构建基础查询条件
         range_start = datetime.combine(start_date, datetime.min.time())
@@ -137,20 +147,29 @@ class TrendAnalysisService:
 
         base_conditions = operator_filter + [
             GenerationItem.created_at >= range_start,
-            GenerationItem.created_at < range_end
+            GenerationItem.created_at < range_end,
         ]
 
         # 按时间维度聚合
         if dimension == "month":
             # 按月聚合 (MySQL)
-            query = select(
-                func.date_format(GenerationItem.created_at, '%Y-%m-01').label('period'),
-                func.count(GenerationItem.id).label('generated'),
-                func.sum(case((GenerationItem.status == 'completed', 1), else_=0)).label('completed'),
-                func.sum(case((GenerationItem.status == 'failed', 1), else_=0)).label('failed')
-            ).where(and_(*base_conditions)).group_by(
-                func.date_format(GenerationItem.created_at, '%Y-%m-01')
-            ).order_by(func.date_format(GenerationItem.created_at, '%Y-%m-01'))
+            query = (
+                select(
+                    func.date_format(GenerationItem.created_at, "%Y-%m-01").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("generated"),
+                    func.sum(
+                        case((GenerationItem.status == "completed", 1), else_=0)
+                    ).label("completed"),
+                    func.sum(
+                        case((GenerationItem.status == "failed", 1), else_=0)
+                    ).label("failed"),
+                )
+                .where(and_(*base_conditions))
+                .group_by(func.date_format(GenerationItem.created_at, "%Y-%m-01"))
+                .order_by(func.date_format(GenerationItem.created_at, "%Y-%m-01"))
+            )
 
             result = await db.execute(query)
             rows = result.all()
@@ -167,13 +186,15 @@ class TrendAnalysisService:
                 failed = row.failed or 0
                 success_rate = (completed / generated * 100) if generated > 0 else 0
 
-                data.append({
-                    "date": period_str,
-                    "generated": generated,
-                    "distributed": 0,
-                    "published": 0,
-                    "success_rate": round(success_rate, 2)
-                })
+                data.append(
+                    {
+                        "date": period_str,
+                        "generated": generated,
+                        "distributed": 0,
+                        "published": 0,
+                        "success_rate": round(success_rate, 2),
+                    }
+                )
 
             total = sum(item["generated"] for item in data)
             avg_daily = total / max(len(data), 1)
@@ -181,14 +202,23 @@ class TrendAnalysisService:
 
         elif dimension == "week":
             # 按周聚合 (MySQL: %Y-%u gives year-week format)
-            query = select(
-                func.date_format(GenerationItem.created_at, '%Y-%u').label('period'),
-                func.count(GenerationItem.id).label('generated'),
-                func.sum(case((GenerationItem.status == 'completed', 1), else_=0)).label('completed'),
-                func.sum(case((GenerationItem.status == 'failed', 1), else_=0)).label('failed')
-            ).where(and_(*base_conditions)).group_by(
-                func.date_format(GenerationItem.created_at, '%Y-%u')
-            ).order_by(func.date_format(GenerationItem.created_at, '%Y-%u'))
+            query = (
+                select(
+                    func.date_format(GenerationItem.created_at, "%Y-%u").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("generated"),
+                    func.sum(
+                        case((GenerationItem.status == "completed", 1), else_=0)
+                    ).label("completed"),
+                    func.sum(
+                        case((GenerationItem.status == "failed", 1), else_=0)
+                    ).label("failed"),
+                )
+                .where(and_(*base_conditions))
+                .group_by(func.date_format(GenerationItem.created_at, "%Y-%u"))
+                .order_by(func.date_format(GenerationItem.created_at, "%Y-%u"))
+            )
 
             result = await db.execute(query)
             rows = result.all()
@@ -204,13 +234,15 @@ class TrendAnalysisService:
                 completed = row.completed or 0
                 success_rate = (completed / generated * 100) if generated > 0 else 0
 
-                data.append({
-                    "date": period_str,
-                    "generated": generated,
-                    "distributed": 0,
-                    "published": 0,
-                    "success_rate": round(success_rate, 2)
-                })
+                data.append(
+                    {
+                        "date": period_str,
+                        "generated": generated,
+                        "distributed": 0,
+                        "published": 0,
+                        "success_rate": round(success_rate, 2),
+                    }
+                )
 
             total = sum(item["generated"] for item in data)
             avg_daily = total / max(len(data), 1)
@@ -218,14 +250,21 @@ class TrendAnalysisService:
 
         else:
             # 按天聚合（优化后 - 单个聚合查询, MySQL）
-            query = select(
-                func.date(GenerationItem.created_at).label('period'),
-                func.count(GenerationItem.id).label('generated'),
-                func.sum(case((GenerationItem.status == 'completed', 1), else_=0)).label('completed'),
-                func.sum(case((GenerationItem.status == 'failed', 1), else_=0)).label('failed')
-            ).where(and_(*base_conditions)).group_by(
-                func.date(GenerationItem.created_at)
-            ).order_by(func.date(GenerationItem.created_at))
+            query = (
+                select(
+                    func.date(GenerationItem.created_at).label("period"),
+                    func.count(GenerationItem.id).label("generated"),
+                    func.sum(
+                        case((GenerationItem.status == "completed", 1), else_=0)
+                    ).label("completed"),
+                    func.sum(
+                        case((GenerationItem.status == "failed", 1), else_=0)
+                    ).label("failed"),
+                )
+                .where(and_(*base_conditions))
+                .group_by(func.date(GenerationItem.created_at))
+                .order_by(func.date(GenerationItem.created_at))
+            )
 
             result = await db.execute(query)
             rows = result.all()
@@ -245,7 +284,7 @@ class TrendAnalysisService:
                 period_data[period_str] = {
                     "generated": generated,
                     "completed": completed,
-                    "success_rate": round(success_rate, 2)
+                    "success_rate": round(success_rate, 2),
                 }
 
             # 填充所有日期（包括没有数据的日期）
@@ -255,21 +294,25 @@ class TrendAnalysisService:
                 date_str = current.strftime("%Y-%m-%d")
                 if date_str in period_data:
                     item = period_data[date_str]
-                    data.append({
-                        "date": date_str,
-                        "generated": item["generated"],
-                        "distributed": 0,
-                        "published": 0,
-                        "success_rate": item["success_rate"]
-                    })
+                    data.append(
+                        {
+                            "date": date_str,
+                            "generated": item["generated"],
+                            "distributed": 0,
+                            "published": 0,
+                            "success_rate": item["success_rate"],
+                        }
+                    )
                 else:
-                    data.append({
-                        "date": date_str,
-                        "generated": 0,
-                        "distributed": 0,
-                        "published": 0,
-                        "success_rate": 0
-                    })
+                    data.append(
+                        {
+                            "date": date_str,
+                            "generated": 0,
+                            "distributed": 0,
+                            "published": 0,
+                            "success_rate": 0,
+                        }
+                    )
                 current += timedelta(days=1)
 
             total = sum(item["generated"] for item in data)
@@ -299,7 +342,7 @@ class TrendAnalysisService:
             "total": total,
             "avg_daily": round(avg_daily, 2),
             "max_daily": max_daily,
-            "compare": compare
+            "compare": compare,
         }
 
     @staticmethod
@@ -308,7 +351,7 @@ class TrendAnalysisService:
         operator_filter: List[Any],
         start_date: date,
         end_date: date,
-        dimension: str
+        dimension: str,
     ) -> int:
         """
         获取指定时间范围内的生成数量
@@ -328,7 +371,7 @@ class TrendAnalysisService:
 
         conditions = operator_filter + [
             GenerationItem.created_at >= range_start,
-            GenerationItem.created_at < range_end
+            GenerationItem.created_at < range_end,
         ]
 
         query = select(func.count(GenerationItem.id)).where(and_(*conditions))
@@ -344,7 +387,7 @@ class TrendAnalysisService:
         dimension: str = "day",
         compare_type: str = "none",
         content_type: str = "all",
-        filter_operator_id: Optional[int] = None
+        filter_operator_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         获取内容分发趋势
@@ -363,11 +406,21 @@ class TrendAnalysisService:
         Returns:
             分发趋势数据
         """
-        logger.debug("[TrendAnalysisService] get_distribution_trend | owner=%s | start=%s | end=%s | dim=%s | compare=%s",
-                    owner_admin_id, start_date, end_date, dimension, compare_type)
+        logger.debug(
+            "[TrendAnalysisService] get_distribution_trend | owner=%s | start=%s | end=%s | dim=%s | compare=%s",
+            owner_admin_id,
+            start_date,
+            end_date,
+            dimension,
+            compare_type,
+        )
 
-        start_date, end_date = TrendAnalysisService._get_date_range(start_date, end_date)
-        operator_filter = TrendAnalysisService._build_operator_filter(owner_admin_id, filter_operator_id, is_super_admin)
+        start_date, end_date = TrendAnalysisService._get_date_range(
+            start_date, end_date
+        )
+        operator_filter = TrendAnalysisService._build_operator_filter(
+            owner_admin_id, filter_operator_id, is_super_admin
+        )
 
         # 构建基础查询条件
         range_start = datetime.combine(start_date, datetime.min.time())
@@ -376,36 +429,60 @@ class TrendAnalysisService:
         # 分发条件（基于 distributed_at 字段）
         distributed_base_conditions = operator_filter + [
             GenerationItem.distributed_at >= range_start,
-            GenerationItem.distributed_at < range_end
+            GenerationItem.distributed_at < range_end,
         ]
 
         # 发布条件（基于 confirmed_at 字段）
         published_base_conditions = operator_filter + [
             GenerationItem.confirmed_at >= range_start,
-            GenerationItem.confirmed_at < range_end
+            GenerationItem.confirmed_at < range_end,
         ]
 
         if dimension == "month":
             # 按月聚合 (MySQL)
-            distributed_query = select(
-                func.date_format(GenerationItem.distributed_at, '%Y-%m-01').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*distributed_base_conditions)).group_by(
-                func.date_format(GenerationItem.distributed_at, '%Y-%m-01')
-            ).order_by(func.date_format(GenerationItem.distributed_at, '%Y-%m-01'))
+            distributed_query = (
+                select(
+                    func.date_format(GenerationItem.distributed_at, "%Y-%m-01").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*distributed_base_conditions))
+                .group_by(func.date_format(GenerationItem.distributed_at, "%Y-%m-01"))
+                .order_by(func.date_format(GenerationItem.distributed_at, "%Y-%m-01"))
+            )
 
-            published_query = select(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%m-01').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*published_base_conditions)).group_by(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%m-01')
-            ).order_by(func.date_format(GenerationItem.confirmed_at, '%Y-%m-01'))
+            published_query = (
+                select(
+                    func.date_format(GenerationItem.confirmed_at, "%Y-%m-01").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*published_base_conditions))
+                .group_by(func.date_format(GenerationItem.confirmed_at, "%Y-%m-01"))
+                .order_by(func.date_format(GenerationItem.confirmed_at, "%Y-%m-01"))
+            )
 
             distributed_result = await db.execute(distributed_query)
             published_result = await db.execute(published_query)
 
-            distributed_by_period = {row.period.strftime("%Y-%m") if isinstance(row.period, datetime) else str(row.period)[:7]: row.count for row in distributed_result.all()}
-            published_by_period = {row.period.strftime("%Y-%m") if isinstance(row.period, datetime) else str(row.period)[:7]: row.count for row in published_result.all()}
+            distributed_by_period = {
+                (
+                    row.period.strftime("%Y-%m")
+                    if isinstance(row.period, datetime)
+                    else str(row.period)[:7]
+                ): row.count
+                for row in distributed_result.all()
+            }
+            published_by_period = {
+                (
+                    row.period.strftime("%Y-%m")
+                    if isinstance(row.period, datetime)
+                    else str(row.period)[:7]
+                ): row.count
+                for row in published_result.all()
+            }
 
             data = []
             current = start_date.replace(day=1)
@@ -414,13 +491,17 @@ class TrendAnalysisService:
                 distributed = distributed_by_period.get(period_str, 0)
                 published = published_by_period.get(period_str, 0)
 
-                data.append({
-                    "date": period_str,
-                    "generated": 0,
-                    "distributed": distributed,
-                    "published": published,
-                    "success_rate": round((published / distributed * 100) if distributed > 0 else 0, 2)
-                })
+                data.append(
+                    {
+                        "date": period_str,
+                        "generated": 0,
+                        "distributed": distributed,
+                        "published": published,
+                        "success_rate": round(
+                            (published / distributed * 100) if distributed > 0 else 0, 2
+                        ),
+                    }
+                )
 
                 if current.month == 12:
                     current = current.replace(year=current.year + 1, month=1)
@@ -429,25 +510,39 @@ class TrendAnalysisService:
 
         elif dimension == "week":
             # 按周聚合 (MySQL: %Y-%u gives year-week format)
-            distributed_query = select(
-                func.date_format(GenerationItem.distributed_at, '%Y-%u').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*distributed_base_conditions)).group_by(
-                func.date_format(GenerationItem.distributed_at, '%Y-%u')
-            ).order_by(func.date_format(GenerationItem.distributed_at, '%Y-%u'))
+            distributed_query = (
+                select(
+                    func.date_format(GenerationItem.distributed_at, "%Y-%u").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*distributed_base_conditions))
+                .group_by(func.date_format(GenerationItem.distributed_at, "%Y-%u"))
+                .order_by(func.date_format(GenerationItem.distributed_at, "%Y-%u"))
+            )
 
-            published_query = select(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%u').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*published_base_conditions)).group_by(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%u')
-            ).order_by(func.date_format(GenerationItem.confirmed_at, '%Y-%u'))
+            published_query = (
+                select(
+                    func.date_format(GenerationItem.confirmed_at, "%Y-%u").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*published_base_conditions))
+                .group_by(func.date_format(GenerationItem.confirmed_at, "%Y-%u"))
+                .order_by(func.date_format(GenerationItem.confirmed_at, "%Y-%u"))
+            )
 
             distributed_result = await db.execute(distributed_query)
             published_result = await db.execute(published_query)
 
-            distributed_by_period = {str(row.period): row.count for row in distributed_result.all()}
-            published_by_period = {str(row.period): row.count for row in published_result.all()}
+            distributed_by_period = {
+                str(row.period): row.count for row in distributed_result.all()
+            }
+            published_by_period = {
+                str(row.period): row.count for row in published_result.all()
+            }
 
             data = []
             current = start_date - timedelta(days=start_date.weekday())
@@ -456,31 +551,41 @@ class TrendAnalysisService:
                 distributed = distributed_by_period.get(period_str, 0)
                 published = published_by_period.get(period_str, 0)
 
-                data.append({
-                    "date": period_str,
-                    "generated": 0,
-                    "distributed": distributed,
-                    "published": published,
-                    "success_rate": round((published / distributed * 100) if distributed > 0 else 0, 2)
-                })
+                data.append(
+                    {
+                        "date": period_str,
+                        "generated": 0,
+                        "distributed": distributed,
+                        "published": published,
+                        "success_rate": round(
+                            (published / distributed * 100) if distributed > 0 else 0, 2
+                        ),
+                    }
+                )
 
                 current += timedelta(days=7)
 
         else:
             # 按天聚合（优化后 - 单个聚合查询, MySQL）
-            distributed_query = select(
-                func.date(GenerationItem.distributed_at).label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*distributed_base_conditions)).group_by(
-                func.date(GenerationItem.distributed_at)
-            ).order_by(func.date(GenerationItem.distributed_at))
+            distributed_query = (
+                select(
+                    func.date(GenerationItem.distributed_at).label("period"),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*distributed_base_conditions))
+                .group_by(func.date(GenerationItem.distributed_at))
+                .order_by(func.date(GenerationItem.distributed_at))
+            )
 
-            published_query = select(
-                func.date(GenerationItem.confirmed_at).label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*published_base_conditions)).group_by(
-                func.date(GenerationItem.confirmed_at)
-            ).order_by(func.date(GenerationItem.confirmed_at))
+            published_query = (
+                select(
+                    func.date(GenerationItem.confirmed_at).label("period"),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*published_base_conditions))
+                .group_by(func.date(GenerationItem.confirmed_at))
+                .order_by(func.date(GenerationItem.confirmed_at))
+            )
 
             distributed_result = await db.execute(distributed_query)
             published_result = await db.execute(published_query)
@@ -509,19 +614,25 @@ class TrendAnalysisService:
                 distributed = distributed_by_period.get(date_str, 0)
                 published = published_by_period.get(date_str, 0)
 
-                data.append({
-                    "date": date_str,
-                    "generated": 0,
-                    "distributed": distributed,
-                    "published": published,
-                    "success_rate": round((published / distributed * 100) if distributed > 0 else 0, 2)
-                })
+                data.append(
+                    {
+                        "date": date_str,
+                        "generated": 0,
+                        "distributed": distributed,
+                        "published": published,
+                        "success_rate": round(
+                            (published / distributed * 100) if distributed > 0 else 0, 2
+                        ),
+                    }
+                )
 
                 current += timedelta(days=1)
 
         total_distributed = sum(item["distributed"] for item in data)
         total_published = sum(item["published"] for item in data)
-        distribution_rate = (total_published / total_distributed * 100) if total_distributed > 0 else 0
+        distribution_rate = (
+            (total_published / total_distributed * 100) if total_distributed > 0 else 0
+        )
 
         # 计算对比数据
         distributed_compare = None
@@ -536,31 +647,42 @@ class TrendAnalysisService:
                 prev_start = start_date - timedelta(days=period_days)
                 prev_end = start_date - timedelta(days=1)
 
-            prev_distributed, prev_published = await TrendAnalysisService._get_distribution_stats(
-                db, operator_filter,
-                datetime.combine(prev_start, datetime.min.time()),
-                datetime.combine(prev_end, datetime.max.time())
+            prev_distributed, prev_published = (
+                await TrendAnalysisService._get_distribution_stats(
+                    db,
+                    operator_filter,
+                    datetime.combine(prev_start, datetime.min.time()),
+                    datetime.combine(prev_end, datetime.max.time()),
+                )
             )
 
-            distributed_compare = TrendAnalysisService._calculate_comparison(total_distributed, prev_distributed)
-            published_compare = TrendAnalysisService._calculate_comparison(total_published, prev_published)
+            distributed_compare = TrendAnalysisService._calculate_comparison(
+                total_distributed, prev_distributed
+            )
+            published_compare = TrendAnalysisService._calculate_comparison(
+                total_published, prev_published
+            )
 
         return {
             "data": data,
             "total_distributed": total_distributed,
             "total_published": total_published,
             "distribution_rate": round(distribution_rate, 2),
-            "publish_rate": round((total_published / total_distributed * 100) if total_distributed > 0 else 0, 2),
+            "publish_rate": round(
+                (
+                    (total_published / total_distributed * 100)
+                    if total_distributed > 0
+                    else 0
+                ),
+                2,
+            ),
             "distributed_compare": distributed_compare,
-            "published_compare": published_compare
+            "published_compare": published_compare,
         }
 
     @staticmethod
     async def _get_distribution_stats(
-        db: AsyncSession,
-        operator_filter: List[Any],
-        start: datetime,
-        end: datetime
+        db: AsyncSession, operator_filter: List[Any], start: datetime, end: datetime
     ) -> Tuple[int, int]:
         """
         获取指定时间范围内的分发和发布统计
@@ -577,17 +699,21 @@ class TrendAnalysisService:
         # 分发数量
         distributed_conditions = operator_filter + [
             GenerationItem.distributed_at >= start,
-            GenerationItem.distributed_at <= end
+            GenerationItem.distributed_at <= end,
         ]
-        distributed_query = select(func.count(GenerationItem.id)).where(and_(*distributed_conditions))
+        distributed_query = select(func.count(GenerationItem.id)).where(
+            and_(*distributed_conditions)
+        )
         distributed = await db.scalar(distributed_query) or 0
 
         # 发布数量
         published_conditions = operator_filter + [
             GenerationItem.confirmed_at >= start,
-            GenerationItem.confirmed_at <= end
+            GenerationItem.confirmed_at <= end,
         ]
-        published_query = select(func.count(GenerationItem.id)).where(and_(*published_conditions))
+        published_query = select(func.count(GenerationItem.id)).where(
+            and_(*published_conditions)
+        )
         published = await db.scalar(published_query) or 0
 
         return distributed, published
@@ -599,7 +725,7 @@ class TrendAnalysisService:
         is_super_admin: bool,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-        filter_operator_id: Optional[int] = None
+        filter_operator_id: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         获取各创作管理员的生成趋势
@@ -615,11 +741,19 @@ class TrendAnalysisService:
         Returns:
             各创作管理员趋势数据列表
         """
-        logger.debug("[TrendAnalysisService] get_operator_trend | owner=%s | start=%s | end=%s",
-                    owner_admin_id, start_date, end_date)
+        logger.debug(
+            "[TrendAnalysisService] get_operator_trend | owner=%s | start=%s | end=%s",
+            owner_admin_id,
+            start_date,
+            end_date,
+        )
 
-        start_date, end_date = TrendAnalysisService._get_date_range(start_date, end_date)
-        operator_filter = TrendAnalysisService._build_operator_filter(owner_admin_id, filter_operator_id, is_super_admin)
+        start_date, end_date = TrendAnalysisService._get_date_range(
+            start_date, end_date
+        )
+        operator_filter = TrendAnalysisService._build_operator_filter(
+            owner_admin_id, filter_operator_id, is_super_admin
+        )
 
         range_start = datetime.combine(start_date, datetime.min.time())
         range_end = datetime.combine(end_date + timedelta(days=1), datetime.min.time())
@@ -628,17 +762,23 @@ class TrendAnalysisService:
         query = (
             select(
                 GenerationItem.owner_operator_id,
-                func.count(GenerationItem.id).label('generated'),
-                func.sum(case((GenerationItem.distributed_at.isnot(None), 1), else_=0)).label('distributed'),
-                func.sum(case((GenerationItem.confirmed_at.isnot(None), 1), else_=0)).label('published')
+                func.count(GenerationItem.id).label("generated"),
+                func.sum(
+                    case((GenerationItem.distributed_at.isnot(None), 1), else_=0)
+                ).label("distributed"),
+                func.sum(
+                    case((GenerationItem.confirmed_at.isnot(None), 1), else_=0)
+                ).label("published"),
             )
-            .where(and_(
-                *operator_filter,
-                GenerationItem.created_at >= range_start,
-                GenerationItem.created_at < range_end
-            ))
+            .where(
+                and_(
+                    *operator_filter,
+                    GenerationItem.created_at >= range_start,
+                    GenerationItem.created_at < range_end,
+                )
+            )
             .group_by(GenerationItem.owner_operator_id)
-            .order_by(desc('generated'))
+            .order_by(desc("generated"))
         )
 
         result = await db.execute(query)
@@ -646,19 +786,25 @@ class TrendAnalysisService:
 
         # 获取创作管理员名称
         operator_ids = [row.owner_operator_id for row in rows if row.owner_operator_id]
-        operators_query = select(Operator.id, Operator.nickname).where(Operator.id.in_(operator_ids))
+        operators_query = select(Operator.id, Operator.nickname).where(
+            Operator.id.in_(operator_ids)
+        )
         operators_result = await db.execute(operators_query)
         operator_names = {row.id: row.nickname for row in operators_result.all()}
 
         data = []
         for row in rows:
-            data.append({
-                "operator_id": row.owner_operator_id,
-                "operator_name": operator_names.get(row.owner_operator_id, f"管理员{row.owner_operator_id}"),
-                "generated": row.generated or 0,
-                "distributed": row.distributed or 0,
-                "published": row.published or 0
-            })
+            data.append(
+                {
+                    "operator_id": row.owner_operator_id,
+                    "operator_name": operator_names.get(
+                        row.owner_operator_id, f"管理员{row.owner_operator_id}"
+                    ),
+                    "generated": row.generated or 0,
+                    "distributed": row.distributed or 0,
+                    "published": row.published or 0,
+                }
+            )
 
         return data
 
@@ -671,7 +817,7 @@ class TrendAnalysisService:
         end_date: Optional[date] = None,
         dimension: str = "day",
         compare_type: str = "none",
-        filter_operator_id: Optional[int] = None
+        filter_operator_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         获取内容发布趋势（合并生成和发布）
@@ -692,10 +838,18 @@ class TrendAnalysisService:
         Returns:
             发布趋势数据
         """
-        logger.debug("[TrendAnalysisService] get_publish_trend | user_type=%s | user_id=%s | start=%s | end=%s | dim=%s",
-                    user_type, user_id, start_date, end_date, dimension)
+        logger.debug(
+            "[TrendAnalysisService] get_publish_trend | user_type=%s | user_id=%s | start=%s | end=%s | dim=%s",
+            user_type,
+            user_id,
+            start_date,
+            end_date,
+            dimension,
+        )
 
-        start_date, end_date = TrendAnalysisService._get_date_range(start_date, end_date)
+        start_date, end_date = TrendAnalysisService._get_date_range(
+            start_date, end_date
+        )
 
         # 构建基础查询条件
         range_start = datetime.combine(start_date, datetime.min.time())
@@ -718,31 +872,41 @@ class TrendAnalysisService:
         # 生成条件（基于 created_at，创作者视角实际是"接收"时间）
         generated_conditions = base_filter + [
             GenerationItem.created_at >= range_start,
-            GenerationItem.created_at < range_end
+            GenerationItem.created_at < range_end,
         ]
 
         # 发布条件（基于 confirmed_at）
         published_conditions = base_filter + [
             GenerationItem.confirmed_at >= range_start,
             GenerationItem.confirmed_at < range_end,
-            GenerationItem.confirmed_at.isnot(None)
+            GenerationItem.confirmed_at.isnot(None),
         ]
 
         if dimension == "month":
             # 按月聚合 (MySQL)
-            generated_query = select(
-                func.date_format(GenerationItem.created_at, '%Y-%m-01').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*generated_conditions)).group_by(
-                func.date_format(GenerationItem.created_at, '%Y-%m-01')
-            ).order_by(func.date_format(GenerationItem.created_at, '%Y-%m-01'))
+            generated_query = (
+                select(
+                    func.date_format(GenerationItem.created_at, "%Y-%m-01").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*generated_conditions))
+                .group_by(func.date_format(GenerationItem.created_at, "%Y-%m-01"))
+                .order_by(func.date_format(GenerationItem.created_at, "%Y-%m-01"))
+            )
 
-            published_query = select(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%m-01').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*published_conditions)).group_by(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%m-01')
-            ).order_by(func.date_format(GenerationItem.confirmed_at, '%Y-%m-01'))
+            published_query = (
+                select(
+                    func.date_format(GenerationItem.confirmed_at, "%Y-%m-01").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*published_conditions))
+                .group_by(func.date_format(GenerationItem.confirmed_at, "%Y-%m-01"))
+                .order_by(func.date_format(GenerationItem.confirmed_at, "%Y-%m-01"))
+            )
 
             generated_result = await db.execute(generated_query)
             published_result = await db.execute(published_query)
@@ -774,13 +938,15 @@ class TrendAnalysisService:
                 published = published_by_period.get(period_str, 0)
                 success_rate = (published / generated * 100) if generated > 0 else 0
 
-                data.append({
-                    "date": period_str,
-                    "generated": generated,
-                    "distributed": 0,
-                    "published": published,
-                    "success_rate": round(success_rate, 2)
-                })
+                data.append(
+                    {
+                        "date": period_str,
+                        "generated": generated,
+                        "distributed": 0,
+                        "published": published,
+                        "success_rate": round(success_rate, 2),
+                    }
+                )
 
                 if current.month == 12:
                     current = current.replace(year=current.year + 1, month=1)
@@ -789,25 +955,39 @@ class TrendAnalysisService:
 
         elif dimension == "week":
             # 按周聚合 (MySQL: %Y-%u)
-            generated_query = select(
-                func.date_format(GenerationItem.created_at, '%Y-%u').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*generated_conditions)).group_by(
-                func.date_format(GenerationItem.created_at, '%Y-%u')
-            ).order_by(func.date_format(GenerationItem.created_at, '%Y-%u'))
+            generated_query = (
+                select(
+                    func.date_format(GenerationItem.created_at, "%Y-%u").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*generated_conditions))
+                .group_by(func.date_format(GenerationItem.created_at, "%Y-%u"))
+                .order_by(func.date_format(GenerationItem.created_at, "%Y-%u"))
+            )
 
-            published_query = select(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%u').label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*published_conditions)).group_by(
-                func.date_format(GenerationItem.confirmed_at, '%Y-%u')
-            ).order_by(func.date_format(GenerationItem.confirmed_at, '%Y-%u'))
+            published_query = (
+                select(
+                    func.date_format(GenerationItem.confirmed_at, "%Y-%u").label(
+                        "period"
+                    ),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*published_conditions))
+                .group_by(func.date_format(GenerationItem.confirmed_at, "%Y-%u"))
+                .order_by(func.date_format(GenerationItem.confirmed_at, "%Y-%u"))
+            )
 
             generated_result = await db.execute(generated_query)
             published_result = await db.execute(published_query)
 
-            generated_by_period = {str(row.period): row.count for row in generated_result.all()}
-            published_by_period = {str(row.period): row.count for row in published_result.all()}
+            generated_by_period = {
+                str(row.period): row.count for row in generated_result.all()
+            }
+            published_by_period = {
+                str(row.period): row.count for row in published_result.all()
+            }
 
             # 构建数据
             data = []
@@ -818,31 +998,39 @@ class TrendAnalysisService:
                 published = published_by_period.get(period_str, 0)
                 success_rate = (published / generated * 100) if generated > 0 else 0
 
-                data.append({
-                    "date": period_str,
-                    "generated": generated,
-                    "distributed": 0,
-                    "published": published,
-                    "success_rate": round(success_rate, 2)
-                })
+                data.append(
+                    {
+                        "date": period_str,
+                        "generated": generated,
+                        "distributed": 0,
+                        "published": published,
+                        "success_rate": round(success_rate, 2),
+                    }
+                )
 
                 current += timedelta(days=7)
 
         else:
             # 按天聚合
-            generated_query = select(
-                func.date(GenerationItem.created_at).label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*generated_conditions)).group_by(
-                func.date(GenerationItem.created_at)
-            ).order_by(func.date(GenerationItem.created_at))
+            generated_query = (
+                select(
+                    func.date(GenerationItem.created_at).label("period"),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*generated_conditions))
+                .group_by(func.date(GenerationItem.created_at))
+                .order_by(func.date(GenerationItem.created_at))
+            )
 
-            published_query = select(
-                func.date(GenerationItem.confirmed_at).label('period'),
-                func.count(GenerationItem.id).label('count')
-            ).where(and_(*published_conditions)).group_by(
-                func.date(GenerationItem.confirmed_at)
-            ).order_by(func.date(GenerationItem.confirmed_at))
+            published_query = (
+                select(
+                    func.date(GenerationItem.confirmed_at).label("period"),
+                    func.count(GenerationItem.id).label("count"),
+                )
+                .where(and_(*published_conditions))
+                .group_by(func.date(GenerationItem.confirmed_at))
+                .order_by(func.date(GenerationItem.confirmed_at))
+            )
 
             generated_result = await db.execute(generated_query)
             published_result = await db.execute(published_query)
@@ -872,19 +1060,23 @@ class TrendAnalysisService:
                 published = published_by_period.get(date_str, 0)
                 success_rate = (published / generated * 100) if generated > 0 else 0
 
-                data.append({
-                    "date": date_str,
-                    "generated": generated,
-                    "distributed": 0,
-                    "published": published,
-                    "success_rate": round(success_rate, 2)
-                })
+                data.append(
+                    {
+                        "date": date_str,
+                        "generated": generated,
+                        "distributed": 0,
+                        "published": published,
+                        "success_rate": round(success_rate, 2),
+                    }
+                )
 
                 current += timedelta(days=1)
 
         total_generated = sum(item["generated"] for item in data)
         total_published = sum(item["published"] for item in data)
-        success_rate = (total_published / total_generated * 100) if total_generated > 0 else 0
+        success_rate = (
+            (total_published / total_generated * 100) if total_generated > 0 else 0
+        )
 
         # 计算对比数据
         generated_compare = None
@@ -899,14 +1091,21 @@ class TrendAnalysisService:
                 prev_start = start_date - timedelta(days=period_days)
                 prev_end = start_date - timedelta(days=1)
 
-            prev_generated, prev_published = await TrendAnalysisService._get_publish_stats(
-                db, base_filter,
-                datetime.combine(prev_start, datetime.min.time()),
-                datetime.combine(prev_end, datetime.max.time())
+            prev_generated, prev_published = (
+                await TrendAnalysisService._get_publish_stats(
+                    db,
+                    base_filter,
+                    datetime.combine(prev_start, datetime.min.time()),
+                    datetime.combine(prev_end, datetime.max.time()),
+                )
             )
 
-            generated_compare = TrendAnalysisService._calculate_comparison(total_generated, prev_generated)
-            published_compare = TrendAnalysisService._calculate_comparison(total_published, prev_published)
+            generated_compare = TrendAnalysisService._calculate_comparison(
+                total_generated, prev_generated
+            )
+            published_compare = TrendAnalysisService._calculate_comparison(
+                total_published, prev_published
+            )
 
         return {
             "data": data,
@@ -914,15 +1113,12 @@ class TrendAnalysisService:
             "total_published": total_published,
             "success_rate": round(success_rate, 2),
             "generated_compare": generated_compare,
-            "published_compare": published_compare
+            "published_compare": published_compare,
         }
 
     @staticmethod
     async def _get_publish_stats(
-        db: AsyncSession,
-        base_filter: List[Any],
-        start: datetime,
-        end: datetime
+        db: AsyncSession, base_filter: List[Any], start: datetime, end: datetime
     ) -> Tuple[int, int]:
         """
         获取指定时间范围内的生成和发布统计
@@ -939,26 +1135,28 @@ class TrendAnalysisService:
         # 生成数量
         generated_conditions = base_filter + [
             GenerationItem.created_at >= start,
-            GenerationItem.created_at <= end
+            GenerationItem.created_at <= end,
         ]
-        generated_query = select(func.count(GenerationItem.id)).where(and_(*generated_conditions))
+        generated_query = select(func.count(GenerationItem.id)).where(
+            and_(*generated_conditions)
+        )
         generated = await db.scalar(generated_query) or 0
 
         # 发布数量
         published_conditions = base_filter + [
             GenerationItem.confirmed_at >= start,
             GenerationItem.confirmed_at <= end,
-            GenerationItem.confirmed_at.isnot(None)
+            GenerationItem.confirmed_at.isnot(None),
         ]
-        published_query = select(func.count(GenerationItem.id)).where(and_(*published_conditions))
+        published_query = select(func.count(GenerationItem.id)).where(
+            and_(*published_conditions)
+        )
         published = await db.scalar(published_query) or 0
 
         return generated, published
 
     @staticmethod
-    async def get_filter_options(
-        db: AsyncSession
-    ) -> Dict[str, Any]:
+    async def get_filter_options(db: AsyncSession) -> Dict[str, Any]:
         """
         获取筛选选项
 
@@ -969,20 +1167,26 @@ class TrendAnalysisService:
             筛选选项
         """
         # 获取创作管理员列表
-        operators_query = select(Operator.id, Operator.nickname).where(Operator.status != 'disabled').order_by(Operator.id)
+        operators_query = (
+            select(Operator.id, Operator.nickname)
+            .where(Operator.status != "disabled")
+            .order_by(Operator.id)
+        )
         operators_result = await db.execute(operators_query)
-        operators = [{"id": row.id, "name": row.nickname} for row in operators_result.all()]
+        operators = [
+            {"id": row.id, "name": row.nickname} for row in operators_result.all()
+        ]
 
         return {
             "operators": operators,
             "content_types": [
                 {"value": "all", "label": "全部"},
                 {"value": "image_text", "label": "图文"},
-                {"value": "video", "label": "视频"}
+                {"value": "video", "label": "视频"},
             ],
             "dimensions": [
                 {"value": "day", "label": "按天"},
                 {"value": "week", "label": "按周"},
-                {"value": "month", "label": "按月"}
-            ]
+                {"value": "month", "label": "按月"},
+            ],
         }

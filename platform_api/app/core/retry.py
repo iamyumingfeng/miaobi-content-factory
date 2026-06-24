@@ -7,11 +7,11 @@ Author: Claude Code
 Date: 2025
 """
 
-import random
 import asyncio
 import logging
-from typing import Optional, Set, Type
+import random
 from dataclasses import dataclass
+from typing import Optional, Set, Type
 
 import aiohttp
 
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class RetryConfig:
     """重试配置"""
+
     max_retries: int = 3
     base_delay: float = 1.0
     max_delay: float = 60.0
@@ -122,7 +123,7 @@ class RetryStrategy:
         config = config or RetryConfig()
 
         # 指数退避计算
-        delay = config.base_delay * (config.exponential_base ** attempt)
+        delay = config.base_delay * (config.exponential_base**attempt)
 
         # 限制最大延迟
         delay = min(delay, config.max_delay)
@@ -167,11 +168,13 @@ class RetryStrategy:
 
 class RetryableError(Exception):
     """可重试错误"""
+
     pass
 
 
 class NonRetryableError(Exception):
     """不可重试错误"""
+
     pass
 
 

@@ -10,10 +10,10 @@ Date: 2025
 import logging
 from typing import Optional
 
-from .openai_compatible import OpenAICompatibleAdapter
-from .factory import AdapterRegistry
-from .params import TextGenParams, ImageGenParams
 from .base import GenerationResult
+from .factory import AdapterRegistry
+from .openai_compatible import OpenAICompatibleAdapter
+from .params import ImageGenParams
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,9 @@ class DeepSeekAdapter(OpenAICompatibleAdapter):
         params: Optional[ImageGenParams] = None,
     ) -> GenerationResult:
         """DeepSeek 暂不支持图片生成"""
-        return GenerationResult(success=False, error_message="deepseek does not support image generation")
+        return GenerationResult(
+            success=False, error_message="deepseek does not support image generation"
+        )
 
     async def generate_video(
         self,
@@ -54,6 +56,7 @@ class DeepSeekAdapter(OpenAICompatibleAdapter):
             success=False,
             error_message="DeepSeek does not support video generation",
         )
+
 
 # 注册适配器
 AdapterRegistry.register("deepseek", DeepSeekAdapter)

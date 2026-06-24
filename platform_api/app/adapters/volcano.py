@@ -19,17 +19,18 @@ import json
 import logging
 import re
 import time
-from typing import Optional, Dict, Any, List
+from typing import List, Optional
+
 import aiohttp
 
-from .openai_compatible import OpenAICompatibleAdapter
+from .base import GenerationResult
 from .factory import AdapterRegistry
-from .params import TextGenParams, ImageGenParams
-from .base import BatchChatResult, GenerationResult
-
 from .image_prompts import enhance_image_prompt
+from .openai_compatible import OpenAICompatibleAdapter
+from .params import ImageGenParams
 
 logger = logging.getLogger(__name__)
+
 
 class VolcanoAdapter(OpenAICompatibleAdapter):
     """
@@ -42,7 +43,6 @@ class VolcanoAdapter(OpenAICompatibleAdapter):
     DEFAULT_BASE_URL = "https://ark.cn-beijing.volces.com/api/v3"
     DEFAULT_TEXT_ENDPOINT = "/chat/completions"
     DEFAULT_IMAGE_ENDPOINT = "/images/generations"
-
 
     def __init__(self, config):
         super().__init__(config)
@@ -78,13 +78,17 @@ class VolcanoAdapter(OpenAICompatibleAdapter):
         try:
             formatted_prompt = prompt
             has_pair_instruction = "【参考图说明】" in formatted_prompt
-            enhanced_prompt = enhance_image_prompt(formatted_prompt, has_reference=not has_pair_instruction)
+            enhanced_prompt = enhance_image_prompt(
+                formatted_prompt, has_reference=not has_pair_instruction
+            )
 
             url = f"{self.base_url}{self.DEFAULT_IMAGE_ENDPOINT}"
             model_id = p.model_id
             size = self.convert_ratio_to_size(p.ratio, p.model_id, separator="x")
             reference_images: List[str] = p.reference_images or []
-            watermark = bool(p.watermark) if isinstance(p.watermark, int) else p.watermark
+            watermark = (
+                bool(p.watermark) if isinstance(p.watermark, int) else p.watermark
+            )
 
             # 构建请求体
             payload = {
@@ -110,9 +114,11 @@ class VolcanoAdapter(OpenAICompatibleAdapter):
 
             # payload 日志：替换 Base64 为长度标记，其余完整输出
             payload_str = json.dumps(payload, ensure_ascii=False, indent=2)
-            payload_str = re.sub(r'data:image/[^;]+;base64,[A-Za-z0-9+/=]+',
-                                lambda m: f'<Base64 {len(m.group(0))} chars>',
-                                payload_str)
+            payload_str = re.sub(
+                r"data:image/[^;]+;base64,[A-Za-z0-9+/=]+",
+                lambda m: f"<Base64 {len(m.group(0))} chars>",
+                payload_str,
+            )
             logger.info("[Image] 请求 payload: %s", payload_str)
 
             start_time = time.time()
@@ -121,33 +127,55 @@ class VolcanoAdapter(OpenAICompatibleAdapter):
             async with session.post(url, json=payload, headers=headers) as response:
                 # 先读取响应体，再判断状态码
                 response_text = await response.text()
-                
+
                 if response.status != 200:
                     # 打印详细错误响应
-                    logger.error("[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                    logger.error("[Image] 火山引擎图片生成失败 | status=%s | model=%s", response.status, model_id)
+                    logger.error(
+                        "[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                    )
+                    logger.error(
+                        "[Image] 火山引擎图片生成失败 | status=%s | model=%s",
+                        response.status,
+                        model_id,
+                    )
                     logger.error("[Image] 错误响应体: %s", response_text[:2000])
-                    logger.error("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
-                    
+                    logger.error(
+                        "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                    )
+
                     # 尝试解析错误响应
                     try:
                         error_data = json.loads(response_text)
-                        error_msg = error_data.get("error", {}).get("message", response_text[:200])
+                        error_msg = error_data.get("error", {}).get(
+                            "message", response_text[:200]
+                        )
                     except:
                         error_msg = response_text[:200]
-                    
+
                     return GenerationResult(
                         success=False,
                         error_message=f"API Error {response.status}: {error_msg}",
-                        raw_response={"status": response.status, "body": response_text[:500]},
+                        raw_response={
+                            "status": response.status,
+                            "body": response_text[:500],
+                        },
                     )
-                
+
                 result = json.loads(response_text)
 
                 elapsed = time.time() - start_time
-                logger.info("[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
-                logger.info("[Image] 火山引擎图片生成响应 | platform=volcano | elapsed=%.2fs | model=%s", elapsed, model_id)
-                logger.info("[Image] 响应内容: %s", json.dumps(result, ensure_ascii=False, indent=2)[:2000])
+                logger.info(
+                    "[Image] <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<"
+                )
+                logger.info(
+                    "[Image] 火山引擎图片生成响应 | platform=volcano | elapsed=%.2fs | model=%s",
+                    elapsed,
+                    model_id,
+                )
+                logger.info(
+                    "[Image] 响应内容: %s",
+                    json.dumps(result, ensure_ascii=False, indent=2)[:2000],
+                )
 
                 # 提取生成的图片 URL
                 data = result.get("data", [])
@@ -161,9 +189,13 @@ class VolcanoAdapter(OpenAICompatibleAdapter):
                     )
 
                 image_urls = [item.get("url") for item in data if item.get("url")]
-                logger.info("[Image] 生成图片数量: %d", len(image_urls) if image_urls else 0)
+                logger.info(
+                    "[Image] 生成图片数量: %d", len(image_urls) if image_urls else 0
+                )
                 logger.info("[Image] 图片URL: %s", image_urls[:2] if image_urls else [])
-                logger.info("[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n")
+                logger.info(
+                    "[Image] >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n"
+                )
 
                 return GenerationResult(
                     success=True,
@@ -195,6 +227,7 @@ class VolcanoAdapter(OpenAICompatibleAdapter):
             success=False,
             error_message="Volcano does not support video generation",
         )
+
 
 # 注册适配器
 AdapterRegistry.register("volcano", VolcanoAdapter)

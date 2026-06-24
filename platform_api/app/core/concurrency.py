@@ -9,8 +9,8 @@ Date: 2025
 
 import asyncio
 import logging
-from typing import Optional
 from contextlib import asynccontextmanager
+from typing import Optional
 
 import redis.asyncio as redis
 

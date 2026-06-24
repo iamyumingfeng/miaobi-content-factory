@@ -41,16 +41,17 @@ Author: Claude Code
 Date: 2025
 """
 
-import os
+import hashlib
 import io
 import logging
-import aiohttp
-import hashlib
-from typing import List, Optional, Tuple
+import os
 from datetime import datetime
-from pathlib import Path
-from urllib.parse import urlparse, unquote
 from enum import Enum
+from pathlib import Path
+from typing import List, Optional, Tuple
+from urllib.parse import unquote, urlparse
+
+import aiohttp
 
 from app.core.config import get_settings
 
@@ -59,6 +60,7 @@ logger = logging.getLogger(__name__)
 
 class ContentType(str, Enum):
     """内容类型枚举"""
+
     IMAGE = "images"
     VIDEO = "videos"
     TEXT = "text"
@@ -66,6 +68,7 @@ class ContentType(str, Enum):
 
 class ResourceType(str, Enum):
     """资源类型枚举"""
+
     IMAGE = "images"
     VIDEO = "videos"
     TEMPLATE = "templates"
@@ -84,19 +87,19 @@ def _is_safe_url(url: str) -> bool:
     try:
         parsed = urlparse(url)
         # 如果已经是本地路径或 data URL，直接通过
-        if not parsed.scheme or parsed.scheme in ('data', 'file'):
+        if not parsed.scheme or parsed.scheme in ("data", "file"):
             return True
         # 只允许 http/https 协议
-        if parsed.scheme not in ('http', 'https'):
+        if parsed.scheme not in ("http", "https"):
             return False
         # 允许 localhost 地址（我们会在之后规范化为本地路径）
-        hostname = parsed.hostname or ''
-        if hostname in ('localhost', '127.0.0.1', '0.0.0.0'):
+        hostname = parsed.hostname or ""
+        if hostname in ("localhost", "127.0.0.1", "0.0.0.0"):
             return True
         # 不允许访问其他内网地址
-        if hostname.startswith('192.168.') or hostname.startswith('10.'):
+        if hostname.startswith("192.168.") or hostname.startswith("10."):
             return False
-        if hostname.startswith('172.') and 16 <= int(hostname.split('.')[1]) <= 31:
+        if hostname.startswith("172.") and 16 <= int(hostname.split(".")[1]) <= 31:
             return False
         return True
     except Exception:
@@ -135,12 +138,12 @@ def _get_file_extension(url: str, default: str = "bin") -> str:
     try:
         # 从URL路径提取扩展名
         path = unquote(urlparse(url).path)
-        if '.' in path:
-            ext = path.rsplit('.', 1)[-1].lower()
+        if "." in path:
+            ext = path.rsplit(".", 1)[-1].lower()
             # 常见图片/视频扩展名白名单
-            if ext in ('jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'):
+            if ext in ("jpg", "jpeg", "png", "gif", "webp", "bmp", "svg"):
                 return ext
-            if ext in ('mp4', 'mov', 'avi', 'mkv', 'webm', 'flv'):
+            if ext in ("mp4", "mov", "avi", "mkv", "webm", "flv"):
                 return ext
     except Exception:
         pass
@@ -170,13 +173,29 @@ class StorageService:
         self.cos_mount_path = Path(self.settings.cos_mount_path)
         self.cos_bucket = self.settings.cos_bucket
         self.cos_region = self.settings.cos_region
-        self.cos_path_prefix = self.settings.cos_path_prefix.strip("/") if self.settings.cos_path_prefix else None
+        self.cos_path_prefix = (
+            self.settings.cos_path_prefix.strip("/")
+            if self.settings.cos_path_prefix
+            else None
+        )
         # 兼容旧配置：如果设置了 cos_url_prefix 则使用，否则自动构建
-        self._cos_url_prefix = self.settings.cos_url_prefix.rstrip("/") if self.settings.cos_url_prefix else None
+        self._cos_url_prefix = (
+            self.settings.cos_url_prefix.rstrip("/")
+            if self.settings.cos_url_prefix
+            else None
+        )
         # 存储 URL 类型配置："auto"、"local"、"cos"、"ip"
-        self.storage_url_type = self.settings.storage_url_type.lower() if self.settings.storage_url_type else "auto"
+        self.storage_url_type = (
+            self.settings.storage_url_type.lower()
+            if self.settings.storage_url_type
+            else "auto"
+        )
         # 服务器公网地址{storage_url_prefix}
-        self.storage_url_prefix = self.settings.storage_url_prefix.rstrip("/") if self.settings.storage_url_prefix else "http://127.0.0.1"
+        self.storage_url_prefix = (
+            self.settings.storage_url_prefix.rstrip("/")
+            if self.settings.storage_url_prefix
+            else "http://127.0.0.1"
+        )
 
         # 使用COS挂载路径作为唯一存储路径
         self.local_storage_path = self.cos_mount_path
@@ -192,7 +211,9 @@ class StorageService:
             test_file.touch()
             test_file.unlink()
         except Exception as e:
-            logger.error(f"[StorageService] Storage path not writable: {self.local_storage_path}, error: {e}")
+            logger.error(
+                f"[StorageService] Storage path not writable: {self.local_storage_path}, error: {e}"
+            )
 
     def _ensure_cos_mount(self) -> bool:
         """
@@ -203,16 +224,22 @@ class StorageService:
         """
         try:
             if not self.local_storage_path.exists():
-                logger.error(f"[StorageService] Storage path does not exist: {self.local_storage_path}")
+                logger.error(
+                    f"[StorageService] Storage path does not exist: {self.local_storage_path}"
+                )
                 return False
 
             if not os.access(self.local_storage_path, os.W_OK):
-                logger.error(f"[StorageService] Storage path is not writable: {self.local_storage_path}")
+                logger.error(
+                    f"[StorageService] Storage path is not writable: {self.local_storage_path}"
+                )
                 return False
 
             return True
         except Exception as e:
-            logger.error(f"[StorageService] Failed to check storage: {e}", exc_info=True)
+            logger.error(
+                f"[StorageService] Failed to check storage: {e}", exc_info=True
+            )
             return False
 
     @staticmethod
@@ -230,19 +257,19 @@ class StorageService:
             return url
 
         # 如果已经是本地路径或 data URL，直接返回
-        if url.startswith('/') or url.startswith('data:'):
+        if url.startswith("/") or url.startswith("data:"):
             return url
 
         try:
             parsed = urlparse(url)
             # 检查是否是 localhost URL
-            if parsed.hostname in ('localhost', '127.0.0.1', '0.0.0.0'):
+            if parsed.hostname in ("localhost", "127.0.0.1", "0.0.0.0"):
                 # 提取路径部分
                 path = unquote(parsed.path)
                 # 保持 /cos/ 开头的格式，这样 _download_image 能正确处理
-                if path.startswith('/cos/'):
+                if path.startswith("/cos/"):
                     return path
-                elif path.startswith('/'):
+                elif path.startswith("/"):
                     return path
         except Exception:
             pass
@@ -334,9 +361,11 @@ class StorageService:
         if resource_type != ResourceType.TEMPLATE:
             path = path / sub_dir
 
-        logger.debug(f"[StorageService] Material storage path: owner_admin_id={owner_admin_id}, "
-                    f"resource_type={resource_type.value}, resource_id={resource_id}, "
-                    f"sub_dir={sub_dir}, path={path}")
+        logger.debug(
+            f"[StorageService] Material storage path: owner_admin_id={owner_admin_id}, "
+            f"resource_type={resource_type.value}, resource_id={resource_id}, "
+            f"sub_dir={sub_dir}, path={path}"
+        )
 
         return path
 
@@ -361,7 +390,9 @@ class StorageService:
         """
         if include_timestamp:
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-            random_suffix = hashlib.md5(f"{timestamp}_{os.urandom(8)}".encode()).hexdigest()[:8]
+            random_suffix = hashlib.md5(
+                f"{timestamp}_{os.urandom(8)}".encode()
+            ).hexdigest()[:8]
             return f"{prefix}_{timestamp}_{random_suffix}.{extension}"
         else:
             random_suffix = hashlib.md5(f"{os.urandom(16)}".encode()).hexdigest()[:12]
@@ -379,7 +410,9 @@ class StorageService:
 
         if self._cos_url_prefix:
             # 检查是否是有效的 URL 前缀（不能以 https://. 开头）
-            if self._cos_url_prefix.startswith('https://.') or self._cos_url_prefix.startswith('http://.'):
+            if self._cos_url_prefix.startswith(
+                "https://."
+            ) or self._cos_url_prefix.startswith("http://."):
                 self._cos_configured_cache = False
                 return False
             self._cos_configured_cache = True
@@ -409,7 +442,9 @@ class StorageService:
             return self._cos_url_prefix
 
         if not self.cos_bucket or not self.cos_region:
-            logger.warning("COS bucket or region not configured, returning empty prefix")
+            logger.warning(
+                "COS bucket or region not configured, returning empty prefix"
+            )
             return ""
 
         url = f"https://{self.cos_bucket}.cos.{self.cos_region}.myqcloud.com"
@@ -441,11 +476,15 @@ class StorageService:
         double_prefix = expected_prefix + prefix + "/"
         if final_path.startswith(double_prefix):
             # 发现重复前缀，移除重复部分
-            logger.info(f"[StorageService] Found duplicate prefix, fixing: {relative_path}")
-            final_path = final_path[len(expected_prefix):]
+            logger.info(
+                f"[StorageService] Found duplicate prefix, fixing: {relative_path}"
+            )
+            final_path = final_path[len(expected_prefix) :]
         elif final_path.startswith(expected_prefix):
             # 只有一个前缀，保持不变
-            logger.info(f"[StorageService] Path already contains prefix: {relative_path}")
+            logger.info(
+                f"[StorageService] Path already contains prefix: {relative_path}"
+            )
         else:
             # 路径不包含前缀，正常添加
             final_path = f"{prefix}/{final_path}"
@@ -468,8 +507,10 @@ class StorageService:
         try:
             relative_path = file_path.relative_to(self.local_storage_path)
         except ValueError as e:
-            logger.error(f"[StorageService] Cannot compute relative path: file_path={file_path}, "
-                        f"storage_path={self.local_storage_path}, error={e}")
+            logger.error(
+                f"[StorageService] Cannot compute relative path: file_path={file_path}, "
+                f"storage_path={self.local_storage_path}, error={e}"
+            )
             return str(file_path)
 
         if not external:
@@ -513,27 +554,34 @@ class StorageService:
             return url
 
         # 安全检查：如果 URL 包含 localhost/127.0.0.1，强行替换
-        if (url.startswith('http://localhost') or url.startswith('https://localhost') or
-            url.startswith('http://127.0.0.1') or url.startswith('https://127.0.0.1')):
+        if (
+            url.startswith("http://localhost")
+            or url.startswith("https://localhost")
+            or url.startswith("http://127.0.0.1")
+            or url.startswith("https://127.0.0.1")
+        ):
             parsed = urlparse(url)
             path = parsed.path
-            if path.startswith('/cos/'):
+            if path.startswith("/cos/"):
                 relative_path = path[5:]
                 # 优先尝试 COS
-                if self._is_cos_configured() and self.storage_url_type in ["auto", "cos"]:
+                if self._is_cos_configured() and self.storage_url_type in [
+                    "auto",
+                    "cos",
+                ]:
                     return self._build_full_cos_url(relative_path)
                 # 否则使用配置的 storage_url_prefix
                 if self.storage_url_prefix:
                     return f"{self.storage_url_prefix}/cos/{relative_path}"
 
         # 检查是否是旧的 IP URL（需要重新处理）
-        if url.startswith('http://') or url.startswith('https://'):
+        if url.startswith("http://") or url.startswith("https://"):
             # 检查是否是我们自己生成的 IP URL（包含 /cos/ 路径）
             parsed = urlparse(url)
             path = parsed.path
 
             # 如果路径以 /cos/ 开头，说明这是我们之前生成的 IP URL
-            if path.startswith('/cos/'):
+            if path.startswith("/cos/"):
                 # 提取相对路径，重新处理
                 relative_path = path[5:]  # 去掉 /cos/
 
@@ -543,7 +591,7 @@ class StorageService:
                     expected_prefix = prefix + "/"
                     double_prefix = expected_prefix + prefix + "/"
                     if relative_path.startswith(double_prefix):
-                        relative_path = relative_path[len(expected_prefix):]
+                        relative_path = relative_path[len(expected_prefix) :]
 
                 # 按照新的配置重新生成 URL
                 if self.storage_url_type == "local":
@@ -567,17 +615,21 @@ class StorageService:
                     cos_prefix = self._get_cos_url_prefix()
                     if url.startswith(cos_prefix):
                         # 转换 COS URL 回本地路径
-                        relative_path = url[len(cos_prefix):].lstrip("/")
+                        relative_path = url[len(cos_prefix) :].lstrip("/")
                         local_url = f"/cos/{relative_path}"
-                        logger.info(f"[StorageService] Converting COS URL to local: {url} -> {local_url}")
+                        logger.info(
+                            f"[StorageService] Converting COS URL to local: {url} -> {local_url}"
+                        )
                         return local_url
                 # 检查是否是 IP URL
                 if self.storage_url_prefix and url.startswith(self.storage_url_prefix):
-                    relative_path = url[len(self.storage_url_prefix):].lstrip("/")
-                    if relative_path.startswith('cos/'):
+                    relative_path = url[len(self.storage_url_prefix) :].lstrip("/")
+                    if relative_path.startswith("cos/"):
                         relative_path = relative_path[4:]  # 去掉 cos/
                         local_url = f"/cos/{relative_path}"
-                        logger.info(f"[StorageService] Converting IP URL to local: {url} -> {local_url}")
+                        logger.info(
+                            f"[StorageService] Converting IP URL to local: {url} -> {local_url}"
+                        )
                         return local_url
 
             # 其他情况，检查是否是 COS URL 且配置了新的 URL 类型
@@ -589,7 +641,7 @@ class StorageService:
                 # 如果配置要求使用 COS URL，但当前是 IP URL，需要转换
                 if self.storage_url_type in ["cos", "auto"]:
                     # 尝试提取相对路径
-                    if path.startswith('/cos/'):
+                    if path.startswith("/cos/"):
                         relative_path = path[5:]
                         return self._build_full_cos_url(relative_path)
 
@@ -597,7 +649,7 @@ class StorageService:
             return url
 
         # 如果是本地 /cos/... 路径
-        if url.startswith('/cos/'):
+        if url.startswith("/cos/"):
             # 提取相对路径
             relative_path = url[5:]  # 去掉 /cos/
 
@@ -607,7 +659,7 @@ class StorageService:
                 expected_prefix = prefix + "/"
                 double_prefix = expected_prefix + prefix + "/"
                 if relative_path.startswith(double_prefix):
-                    relative_path = relative_path[len(expected_prefix):]
+                    relative_path = relative_path[len(expected_prefix) :]
 
             # 根据配置决定是否转换
             if self.storage_url_type == "local":
@@ -685,9 +737,11 @@ class StorageService:
 
             # 下载/复制图片（支持 HTTP URL 和本地文件路径）
             parsed = urlparse(image_url)
-            if not parsed.scheme or parsed.scheme == 'file':
+            if not parsed.scheme or parsed.scheme == "file":
                 # 本地文件路径：直接读取文件内容
-                local_path = Path(image_url) if not parsed.scheme else Path(unquote(parsed.path))
+                local_path = (
+                    Path(image_url) if not parsed.scheme else Path(unquote(parsed.path))
+                )
                 if not local_path.exists():
                     raise FileNotFoundError(f"Local file not found: {local_path}")
                 content = local_path.read_bytes()
@@ -790,9 +844,11 @@ class StorageService:
 
             # 下载图片（支持 HTTP URL 和本地文件路径）
             parsed = urlparse(image_url)
-            if not parsed.scheme or parsed.scheme == 'file':
+            if not parsed.scheme or parsed.scheme == "file":
                 # 本地文件路径：直接读取文件内容
-                local_path = Path(image_url) if not parsed.scheme else Path(unquote(parsed.path))
+                local_path = (
+                    Path(image_url) if not parsed.scheme else Path(unquote(parsed.path))
+                )
                 if not local_path.exists():
                     raise FileNotFoundError(f"Local file not found: {local_path}")
                 content = local_path.read_bytes()
@@ -815,15 +871,22 @@ class StorageService:
                 image = Image.open(io.BytesIO(content))
 
                 # 转换为 RGB（处理 RGBA 等模式）
-                if image.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', image.size, (255, 255, 255))
-                    if image.mode == 'P':
-                        image = image.convert('RGBA')
-                    if image.mode in ('RGBA', 'LA'):
-                        background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+                if image.mode in ("RGBA", "LA", "P"):
+                    background = Image.new("RGB", image.size, (255, 255, 255))
+                    if image.mode == "P":
+                        image = image.convert("RGBA")
+                    if image.mode in ("RGBA", "LA"):
+                        background.paste(
+                            image,
+                            mask=(
+                                image.split()[-1]
+                                if image.mode in ("RGBA", "LA")
+                                else None
+                            ),
+                        )
                         image = background
                     else:
-                        image = image.convert('RGB')
+                        image = image.convert("RGB")
 
                 # 等比例缩放
                 image.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
@@ -837,13 +900,22 @@ class StorageService:
                 thumbnail_file_path = thumbnail_path / thumb_filename
 
                 # 保存为 JPEG
-                image.save(thumbnail_file_path, 'JPEG', quality=thumbnail_quality, optimize=True)
+                image.save(
+                    thumbnail_file_path,
+                    "JPEG",
+                    quality=thumbnail_quality,
+                    optimize=True,
+                )
                 thumbnail_url = self._path_to_url(thumbnail_file_path)
 
-                logger.info(f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}")
+                logger.info(
+                    f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}"
+                )
 
             except Exception as e:
-                logger.warning(f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True)
+                logger.warning(
+                    f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True
+                )
                 # 缩略图生成失败不影响原图保存
 
             return public_url, thumbnail_url
@@ -877,8 +949,10 @@ class StorageService:
         thumbnail_urls = []
 
         for url in image_urls:
-            original_url, thumbnail_url = await self.save_generated_image_with_thumbnail(
-                url, owner_admin_id, task_id, item_id, date
+            original_url, thumbnail_url = (
+                await self.save_generated_image_with_thumbnail(
+                    url, owner_admin_id, task_id, item_id, date
+                )
             )
             original_urls.append(original_url or url)
             thumbnail_urls.append(thumbnail_url or url)  # 缩略图失败时使用原图
@@ -916,17 +990,20 @@ class StorageService:
 
         try:
             import base64
+
             from PIL import Image
 
             # 去除 data:image/xxx;base64, 前缀（如果存在）
-            if ';base64,' in base64_data:
-                pure_base64 = base64_data.split(';base64,')[1]
+            if ";base64," in base64_data:
+                pure_base64 = base64_data.split(";base64,")[1]
             else:
                 pure_base64 = base64_data
 
             # 解码 Base64
             img_bytes = base64.b64decode(pure_base64)
-            logger.info(f"[StorageService] Base64 解码完成 | size={len(img_bytes)} bytes")
+            logger.info(
+                f"[StorageService] Base64 解码完成 | size={len(img_bytes)} bytes"
+            )
 
             # 获取存储目录
             storage_path = self._get_task_storage_path(
@@ -949,15 +1026,22 @@ class StorageService:
                 image = Image.open(io.BytesIO(img_bytes))
 
                 # 转换为 RGB（处理 RGBA 等模式）
-                if image.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', image.size, (255, 255, 255))
-                    if image.mode == 'P':
-                        image = image.convert('RGBA')
-                    if image.mode in ('RGBA', 'LA'):
-                        background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+                if image.mode in ("RGBA", "LA", "P"):
+                    background = Image.new("RGB", image.size, (255, 255, 255))
+                    if image.mode == "P":
+                        image = image.convert("RGBA")
+                    if image.mode in ("RGBA", "LA"):
+                        background.paste(
+                            image,
+                            mask=(
+                                image.split()[-1]
+                                if image.mode in ("RGBA", "LA")
+                                else None
+                            ),
+                        )
                         image = background
                     else:
-                        image = image.convert('RGB')
+                        image = image.convert("RGB")
 
                 # 等比例缩放
                 image.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
@@ -971,13 +1055,22 @@ class StorageService:
                 thumbnail_file_path = thumbnail_path / thumb_filename
 
                 # 保存为 JPEG
-                image.save(thumbnail_file_path, 'JPEG', quality=thumbnail_quality, optimize=True)
+                image.save(
+                    thumbnail_file_path,
+                    "JPEG",
+                    quality=thumbnail_quality,
+                    optimize=True,
+                )
                 thumbnail_url = self._path_to_url(thumbnail_file_path)
 
-                logger.info(f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}")
+                logger.info(
+                    f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}"
+                )
 
             except Exception as e:
-                logger.warning(f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True)
+                logger.warning(
+                    f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True
+                )
                 # 缩略图生成失败不影响原图保存
 
             return public_url, thumbnail_url
@@ -1016,7 +1109,9 @@ class StorageService:
             )
             if original_url:
                 original_urls.append(original_url)
-                thumbnail_urls.append(thumbnail_url or original_url)  # 缩略图失败时使用原图
+                thumbnail_urls.append(
+                    thumbnail_url or original_url
+                )  # 缩略图失败时使用原图
 
         return original_urls, thumbnail_urls
 
@@ -1117,13 +1212,13 @@ class StorageService:
             # 生成文件名
             if not filename:
                 filename = self._generate_filename(prefix="content", extension="txt")
-            elif not filename.endswith('.txt'):
+            elif not filename.endswith(".txt"):
                 filename = f"{filename}.txt"
 
             file_path = storage_path / filename
 
             # 保存文案
-            file_path.write_text(content, encoding='utf-8')
+            file_path.write_text(content, encoding="utf-8")
 
             # 返回公网URL
             public_url = self._path_to_url(file_path)
@@ -1171,7 +1266,9 @@ class StorageService:
 
             # 生成文件名
             if not filename:
-                filename = self._generate_filename(prefix="material", extension=extension)
+                filename = self._generate_filename(
+                    prefix="material", extension=extension
+                )
 
             file_path = storage_path / filename
 
@@ -1254,17 +1351,23 @@ class StorageService:
         Returns:
             Tuple[Optional[str], Optional[str]]: (原图URL, 缩略图URL)
         """
-        logger.info(f"[StorageService] Starting save_material_image_with_thumbnail: "
-                   f"owner_admin_id={owner_admin_id}, material_id={material_id}, "
-                   f"file_content_size={len(file_content)}, filename={filename}, extension={extension}")
+        logger.info(
+            f"[StorageService] Starting save_material_image_with_thumbnail: "
+            f"owner_admin_id={owner_admin_id}, material_id={material_id}, "
+            f"file_content_size={len(file_content)}, filename={filename}, extension={extension}"
+        )
 
         if not self._ensure_cos_mount():
-            logger.error(f"[StorageService] COS mount check failed, cannot save image for material_id={material_id}")
+            logger.error(
+                f"[StorageService] COS mount check failed, cannot save image for material_id={material_id}"
+            )
             return None, None
 
         # 检查文件大小
         if len(file_content) > max_size:
-            logger.error(f"[StorageService] File size exceeds limit: {len(file_content)} > {max_size}")
+            logger.error(
+                f"[StorageService] File size exceeds limit: {len(file_content)} > {max_size}"
+            )
             return None, None
 
         try:
@@ -1272,11 +1375,15 @@ class StorageService:
 
             # 生成文件名
             if not filename:
-                filename = self._generate_filename(prefix="material", extension=extension)
+                filename = self._generate_filename(
+                    prefix="material", extension=extension
+                )
                 logger.debug(f"[StorageService] Generated filename: {filename}")
             else:
                 # 确保扩展名正确
-                if not filename.lower().endswith(('.', 'jpg', 'jpeg', 'png', 'gif', 'webp')):
+                if not filename.lower().endswith(
+                    (".", "jpg", "jpeg", "png", "gif", "webp")
+                ):
                     filename = f"{filename}.{extension}"
                 logger.debug(f"[StorageService] Using provided filename: {filename}")
 
@@ -1287,11 +1394,15 @@ class StorageService:
             logger.debug(f"[StorageService] Original path: {original_path}")
 
             original_path.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"[StorageService] Created directory (if needed): {original_path}")
+            logger.debug(
+                f"[StorageService] Created directory (if needed): {original_path}"
+            )
 
             original_file_path = original_path / filename
             original_file_path.write_bytes(file_content)
-            logger.info(f"[StorageService] Saved original file: {original_file_path}, size={len(file_content)}")
+            logger.info(
+                f"[StorageService] Saved original file: {original_file_path}, size={len(file_content)}"
+            )
 
             original_url = self._path_to_url(original_file_path)
             logger.info(f"[StorageService] Generated original URL: {original_url}")
@@ -1299,26 +1410,39 @@ class StorageService:
             # 验证文件是否真正写入
             if original_file_path.exists():
                 actual_size = original_file_path.stat().st_size
-                logger.info(f"[StorageService] Verified file exists: {original_file_path}, actual_size={actual_size}")
+                logger.info(
+                    f"[StorageService] Verified file exists: {original_file_path}, actual_size={actual_size}"
+                )
             else:
-                logger.error(f"[StorageService] File was not created: {original_file_path}")
+                logger.error(
+                    f"[StorageService] File was not created: {original_file_path}"
+                )
 
             # 生成缩略图
             thumbnail_url = None
             try:
                 image = Image.open(io.BytesIO(file_content))
-                logger.debug(f"[StorageService] Opened image for thumbnail: mode={image.mode}, size={image.size}")
+                logger.debug(
+                    f"[StorageService] Opened image for thumbnail: mode={image.mode}, size={image.size}"
+                )
 
                 # 转换为 RGB（处理 RGBA 等模式）
-                if image.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', image.size, (255, 255, 255))
-                    if image.mode == 'P':
-                        image = image.convert('RGBA')
-                    if image.mode in ('RGBA', 'LA'):
-                        background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+                if image.mode in ("RGBA", "LA", "P"):
+                    background = Image.new("RGB", image.size, (255, 255, 255))
+                    if image.mode == "P":
+                        image = image.convert("RGBA")
+                    if image.mode in ("RGBA", "LA"):
+                        background.paste(
+                            image,
+                            mask=(
+                                image.split()[-1]
+                                if image.mode in ("RGBA", "LA")
+                                else None
+                            ),
+                        )
                         image = background
                     else:
-                        image = image.convert('RGB')
+                        image = image.convert("RGB")
 
                 # 等比例缩放
                 image.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
@@ -1334,21 +1458,34 @@ class StorageService:
                 thumbnail_file_path = thumbnail_path / thumb_filename
 
                 # 保存为 JPEG
-                image.save(thumbnail_file_path, 'JPEG', quality=thumbnail_quality, optimize=True)
+                image.save(
+                    thumbnail_file_path,
+                    "JPEG",
+                    quality=thumbnail_quality,
+                    optimize=True,
+                )
                 thumbnail_url = self._path_to_url(thumbnail_file_path)
 
-                logger.info(f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}")
+                logger.info(
+                    f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}"
+                )
 
             except Exception as e:
-                logger.warning(f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True)
+                logger.warning(
+                    f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True
+                )
                 # 缩略图生成失败不影响原图保存
 
-            logger.info(f"[StorageService] Completed save_material_image_with_thumbnail: "
-                       f"original_url={original_url}, thumbnail_url={thumbnail_url}")
+            logger.info(
+                f"[StorageService] Completed save_material_image_with_thumbnail: "
+                f"original_url={original_url}, thumbnail_url={thumbnail_url}"
+            )
             return original_url, thumbnail_url
 
         except Exception as e:
-            logger.error(f"[StorageService] Failed to save material image: {e}", exc_info=True)
+            logger.error(
+                f"[StorageService] Failed to save material image: {e}", exc_info=True
+            )
             return None, None
 
     async def save_template_image_with_thumbnail(
@@ -1378,17 +1515,23 @@ class StorageService:
         Returns:
             Tuple[Optional[str], Optional[str]]: (原图URL, 缩略图URL)
         """
-        logger.info(f"[StorageService] Starting save_template_image_with_thumbnail: "
-                   f"owner_admin_id={owner_admin_id}, template_id={template_id}, "
-                   f"file_content_size={len(file_content)}, filename={filename}, extension={extension}")
+        logger.info(
+            f"[StorageService] Starting save_template_image_with_thumbnail: "
+            f"owner_admin_id={owner_admin_id}, template_id={template_id}, "
+            f"file_content_size={len(file_content)}, filename={filename}, extension={extension}"
+        )
 
         if not self._ensure_cos_mount():
-            logger.error(f"[StorageService] COS mount check failed, cannot save image for template_id={template_id}")
+            logger.error(
+                f"[StorageService] COS mount check failed, cannot save image for template_id={template_id}"
+            )
             return None, None
 
         # 检查文件大小
         if len(file_content) > max_size:
-            logger.error(f"[StorageService] File size exceeds limit: {len(file_content)} > {max_size}")
+            logger.error(
+                f"[StorageService] File size exceeds limit: {len(file_content)} > {max_size}"
+            )
             return None, None
 
         try:
@@ -1396,11 +1539,15 @@ class StorageService:
 
             # 生成文件名
             if not filename:
-                filename = self._generate_filename(prefix="template", extension=extension)
+                filename = self._generate_filename(
+                    prefix="template", extension=extension
+                )
                 logger.debug(f"[StorageService] Generated filename: {filename}")
             else:
                 # 确保扩展名正确
-                if not filename.lower().endswith(('.', 'jpg', 'jpeg', 'png', 'gif', 'webp')):
+                if not filename.lower().endswith(
+                    (".", "jpg", "jpeg", "png", "gif", "webp")
+                ):
                     filename = f"{filename}.{extension}"
                 logger.debug(f"[StorageService] Using provided filename: {filename}")
 
@@ -1418,7 +1565,9 @@ class StorageService:
             storage_path.mkdir(parents=True, exist_ok=True)
             original_file_path = storage_path / filename
             original_file_path.write_bytes(file_content)
-            logger.info(f"[StorageService] Saved original file: {original_file_path}, size={len(file_content)}")
+            logger.info(
+                f"[StorageService] Saved original file: {original_file_path}, size={len(file_content)}"
+            )
 
             original_url = self._path_to_url(original_file_path)
             logger.info(f"[StorageService] Generated original URL: {original_url}")
@@ -1427,18 +1576,27 @@ class StorageService:
             thumbnail_url = None
             try:
                 image = Image.open(io.BytesIO(file_content))
-                logger.debug(f"[StorageService] Opened image for thumbnail: mode={image.mode}, size={image.size}")
+                logger.debug(
+                    f"[StorageService] Opened image for thumbnail: mode={image.mode}, size={image.size}"
+                )
 
                 # 转换为 RGB（处理 RGBA 等模式）
-                if image.mode in ('RGBA', 'LA', 'P'):
-                    background = Image.new('RGB', image.size, (255, 255, 255))
-                    if image.mode == 'P':
-                        image = image.convert('RGBA')
-                    if image.mode in ('RGBA', 'LA'):
-                        background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+                if image.mode in ("RGBA", "LA", "P"):
+                    background = Image.new("RGB", image.size, (255, 255, 255))
+                    if image.mode == "P":
+                        image = image.convert("RGBA")
+                    if image.mode in ("RGBA", "LA"):
+                        background.paste(
+                            image,
+                            mask=(
+                                image.split()[-1]
+                                if image.mode in ("RGBA", "LA")
+                                else None
+                            ),
+                        )
                         image = background
                     else:
-                        image = image.convert('RGB')
+                        image = image.convert("RGB")
 
                 # 等比例缩放
                 image.thumbnail(thumbnail_size, Image.Resampling.LANCZOS)
@@ -1459,21 +1617,34 @@ class StorageService:
                 thumbnail_file_path = thumbnail_path / thumb_filename
 
                 # 保存为 JPEG
-                image.save(thumbnail_file_path, 'JPEG', quality=thumbnail_quality, optimize=True)
+                image.save(
+                    thumbnail_file_path,
+                    "JPEG",
+                    quality=thumbnail_quality,
+                    optimize=True,
+                )
                 thumbnail_url = self._path_to_url(thumbnail_file_path)
 
-                logger.info(f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}")
+                logger.info(
+                    f"[StorageService] Generated thumbnail: {thumbnail_file_path} -> {thumbnail_url}"
+                )
 
             except Exception as e:
-                logger.warning(f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True)
+                logger.warning(
+                    f"[StorageService] Failed to generate thumbnail: {e}", exc_info=True
+                )
                 # 缩略图生成失败不影响原图保存
 
-            logger.info(f"[StorageService] Completed save_template_image_with_thumbnail: "
-                       f"original_url={original_url}, thumbnail_url={thumbnail_url}")
+            logger.info(
+                f"[StorageService] Completed save_template_image_with_thumbnail: "
+                f"original_url={original_url}, thumbnail_url={thumbnail_url}"
+            )
             return original_url, thumbnail_url
 
         except Exception as e:
-            logger.error(f"[StorageService] Failed to save template image: {e}", exc_info=True)
+            logger.error(
+                f"[StorageService] Failed to save template image: {e}", exc_info=True
+            )
             return None, None
 
     async def save_template_video(
@@ -1665,15 +1836,21 @@ class StorageService:
             for path in [image_path, video_path]:
                 if path.exists():
                     import shutil
+
                     shutil.rmtree(path)
                     logger.info(f"[StorageService] Deleted template directory: {path}")
                 else:
-                    logger.warning(f"[StorageService] Template directory does not exist: {path}")
+                    logger.warning(
+                        f"[StorageService] Template directory does not exist: {path}"
+                    )
 
             return success
 
         except Exception as e:
-            logger.error(f"[StorageService] Failed to delete template directory: {e}", exc_info=True)
+            logger.error(
+                f"[StorageService] Failed to delete template directory: {e}",
+                exc_info=True,
+            )
             return False
 
     async def download_and_save_material(
@@ -1722,7 +1899,9 @@ class StorageService:
                 extension = _get_file_extension(source_url, "jpg")
 
             if not filename:
-                filename = self._generate_filename(prefix="resource", extension=extension)
+                filename = self._generate_filename(
+                    prefix="resource", extension=extension
+                )
 
             file_path = storage_path / filename
 
@@ -1772,38 +1951,47 @@ class StorageService:
             - 如果失败：返回 (None, None)
         """
         try:
-            from PIL import Image
 
             # 始终使用原始路径进行下载（支持本地路径和URL）
             download_path = image_url
 
-            logger.info(f"[StorageService] Processing reference image: {download_path}, no_compression={no_compression}")
+            logger.info(
+                f"[StorageService] Processing reference image: {download_path}, no_compression={no_compression}"
+            )
 
             # 下载/读取图片
             image_bytes = await self._download_image(download_path)
             if not image_bytes:
-                logger.error(f"[StorageService] Failed to download/read image: {download_path}")
+                logger.error(
+                    f"[StorageService] Failed to download/read image: {download_path}"
+                )
                 return None, None
 
             # 处理图片（如果 no_compression=True，跳过压缩）
             if no_compression:
                 processed_bytes = image_bytes
-                logger.info(f"[StorageService] Using original image (no compression), size={len(processed_bytes)} bytes")
+                logger.info(
+                    f"[StorageService] Using original image (no compression), size={len(processed_bytes)} bytes"
+                )
             else:
                 processed_bytes = self._resize_and_compress_image(
                     image_bytes,
                     max_dimension=max_dimension,
-                    max_size_bytes=max_size_bytes
+                    max_size_bytes=max_size_bytes,
                 )
 
             if not processed_bytes:
-                logger.error(f"[StorageService] Failed to process image: {download_path}")
+                logger.error(
+                    f"[StorageService] Failed to process image: {download_path}"
+                )
                 return None, None
 
             # 返回结果
             if prefer_url:
                 # 保存到临时位置并返回URL（强制使用COS公网URL）
-                temp_url = await self._save_temp_image(processed_bytes, image_url, force_cos_url=True)
+                temp_url = await self._save_temp_image(
+                    processed_bytes, image_url, force_cos_url=True
+                )
                 if temp_url:
                     return temp_url, None
                 # 如果保存失败，降级为Base64
@@ -1812,11 +2000,16 @@ class StorageService:
             else:
                 # 强制返回Base64（不返回任何URL，避免容器内访问问题）
                 base64_str = self._image_to_base64(processed_bytes, image_url)
-                logger.info(f"[StorageService] Converted image to Base64, length={len(base64_str)}")
+                logger.info(
+                    f"[StorageService] Converted image to Base64, length={len(base64_str)}"
+                )
                 return None, base64_str
 
         except Exception as e:
-            logger.error(f"[StorageService] Error processing reference image {image_url}: {e}", exc_info=True)
+            logger.error(
+                f"[StorageService] Error processing reference image {image_url}: {e}",
+                exc_info=True,
+            )
             return None, None
 
     def _ensure_full_url(self, url: str) -> Optional[str]:
@@ -1833,18 +2026,18 @@ class StorageService:
             return None
 
         # 如果已经是完整URL
-        if url.startswith(('http://', 'https://')):
+        if url.startswith(("http://", "https://")):
             return url
 
         # 如果是Base64字符串，直接返回
-        if url.startswith('data:'):
+        if url.startswith("data:"):
             return url
 
         # 如果是相对路径（如 /cos/...）
-        if url.startswith('/cos/'):
+        if url.startswith("/cos/"):
             # 构建完整URL
             cos_prefix = self._get_cos_url_prefix()
-            if cos_prefix and not cos_prefix.startswith('https://your-bucket'):
+            if cos_prefix and not cos_prefix.startswith("https://your-bucket"):
                 relative_path = url[5:]  # 去掉 /cos/
                 return f"{cos_prefix}/{relative_path}"
             # 如果没有配置COS，返回None表示使用本地路径
@@ -1870,25 +2063,33 @@ class StorageService:
             # 3. 云服务器: https://xxx/cos/...（公有云 URL 无法走本地路径，走 HTTP 下载）
             # 共性：所有 /cos/ 路径的 URL，优先尝试本地 COS 挂载目录读取
             parsed = urlparse(url)
-            if parsed.scheme in ('http', 'https') and parsed.path.startswith('/cos/'):
+            if parsed.scheme in ("http", "https") and parsed.path.startswith("/cos/"):
                 url = parsed.path
-                logger.info(f"[StorageService] Converted URL to local path: {url} (host={parsed.hostname})")
+                logger.info(
+                    f"[StorageService] Converted URL to local path: {url} (host={parsed.hostname})"
+                )
 
             # 检查是否是本地路径
-            if url.startswith('/cos/'):
+            if url.startswith("/cos/"):
                 # 将 /cos/ 开头的路径转换为本地文件路径
                 local_path = self.cos_mount_path / url[5:]
                 if local_path.exists():
                     content = local_path.read_bytes()
-                    logger.info(f"[StorageService] Read local image: {local_path}, size={len(content)}")
+                    logger.info(
+                        f"[StorageService] Read local image: {local_path}, size={len(content)}"
+                    )
                     return content
                 else:
-                    logger.warning(f"[StorageService] Local file not found: {local_path}, trying HTTP...")
+                    logger.warning(
+                        f"[StorageService] Local file not found: {local_path}, trying HTTP..."
+                    )
 
             # 检查是否是完整的本地文件路径
             if Path(url).exists():
                 content = Path(url).read_bytes()
-                logger.info(f"[StorageService] Read local image: {url}, size={len(content)}")
+                logger.info(
+                    f"[StorageService] Read local image: {url}, size={len(content)}"
+                )
                 return content
 
             # 尝试从URL下载
@@ -1896,7 +2097,9 @@ class StorageService:
                 async with session.get(url, timeout=60) as response:
                     response.raise_for_status()
                     content = await response.read()
-                    logger.info(f"[StorageService] Downloaded image: {url}, size={len(content)}")
+                    logger.info(
+                        f"[StorageService] Downloaded image: {url}, size={len(content)}"
+                    )
                     return content
         except Exception as e:
             logger.error(f"[StorageService] Failed to download/read image {url}: {e}")
@@ -1927,20 +2130,27 @@ class StorageService:
             original_mode = image.mode
             original_size = image.size
 
-            logger.debug(f"[StorageService] Original image: mode={original_mode}, size={original_size}, bytes={len(image_bytes)}")
+            logger.debug(
+                f"[StorageService] Original image: mode={original_mode}, size={original_size}, bytes={len(image_bytes)}"
+            )
 
             # 处理RGBA等模式
-            if image.mode in ('RGBA', 'LA', 'P'):
-                background = Image.new('RGB', image.size, (255, 255, 255))
-                if image.mode == 'P':
-                    image = image.convert('RGBA')
-                if image.mode in ('RGBA', 'LA'):
-                    background.paste(image, mask=image.split()[-1] if image.mode in ('RGBA', 'LA') else None)
+            if image.mode in ("RGBA", "LA", "P"):
+                background = Image.new("RGB", image.size, (255, 255, 255))
+                if image.mode == "P":
+                    image = image.convert("RGBA")
+                if image.mode in ("RGBA", "LA"):
+                    background.paste(
+                        image,
+                        mask=(
+                            image.split()[-1] if image.mode in ("RGBA", "LA") else None
+                        ),
+                    )
                     image = background
                 else:
-                    image = image.convert('RGB')
-            elif image.mode != 'RGB':
-                image = image.convert('RGB')
+                    image = image.convert("RGB")
+            elif image.mode != "RGB":
+                image = image.convert("RGB")
 
             # 1. 缩放到最大边长
             width, height = image.size
@@ -1954,7 +2164,9 @@ class StorageService:
                     new_width = int(width * (max_dimension / height))
 
                 image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                logger.debug(f"[StorageService] Resized image: {original_size} -> {(new_width, new_height)}")
+                logger.debug(
+                    f"[StorageService] Resized image: {original_size} -> {(new_width, new_height)}"
+                )
 
             # 2. 压缩到文件大小限制
             output_bytes = self._compress_to_size(image, max_size_bytes)
@@ -1963,12 +2175,14 @@ class StorageService:
             return output_bytes
 
         except Exception as e:
-            logger.error(f"[StorageService] Failed to resize/compress image: {e}", exc_info=True)
+            logger.error(
+                f"[StorageService] Failed to resize/compress image: {e}", exc_info=True
+            )
             return None
 
     def _compress_to_size(
         self,
-        image: 'Image.Image',
+        image,
         max_size_bytes: int,
         initial_quality: int = 95,
         min_quality: int = 10,
@@ -1985,22 +2199,28 @@ class StorageService:
         Returns:
             bytes: 压缩后的图片二进制数据
         """
+        from PIL import Image
+
         quality = initial_quality
 
         while quality >= min_quality:
             output_buffer = io.BytesIO()
-            image.save(output_buffer, format='JPEG', quality=quality, optimize=True)
+            image.save(output_buffer, format="JPEG", quality=quality, optimize=True)
             output_bytes = output_buffer.getvalue()
 
             if len(output_bytes) <= max_size_bytes:
-                logger.debug(f"[StorageService] Compressed image to {len(output_bytes)} bytes at quality={quality}")
+                logger.debug(
+                    f"[StorageService] Compressed image to {len(output_bytes)} bytes at quality={quality}"
+                )
                 return output_bytes
 
             # 降低质量
             quality -= 10
 
         # 如果即使最低质量也超过限制，尝试进一步缩小图片
-        logger.warning(f"[StorageService] Even min quality {min_quality} exceeds size limit, further resizing")
+        logger.warning(
+            f"[StorageService] Even min quality {min_quality} exceeds size limit, further resizing"
+        )
 
         # 渐进式缩小
         scale_factor = 0.9
@@ -2010,19 +2230,25 @@ class StorageService:
             resized = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
             output_buffer = io.BytesIO()
-            resized.save(output_buffer, format='JPEG', quality=min_quality, optimize=True)
+            resized.save(
+                output_buffer, format="JPEG", quality=min_quality, optimize=True
+            )
             output_bytes = output_buffer.getvalue()
 
             if len(output_bytes) <= max_size_bytes:
-                logger.debug(f"[StorageService] Compressed image to {len(output_bytes)} bytes by resizing to {new_width}x{new_height}")
+                logger.debug(
+                    f"[StorageService] Compressed image to {len(output_bytes)} bytes by resizing to {new_width}x{new_height}"
+                )
                 return output_bytes
 
             scale_factor -= 0.1
 
         # 最后尝试：返回最小尺寸
-        logger.warning(f"[StorageService] Could not reach target size, returning smallest possible")
+        logger.warning(
+            "[StorageService] Could not reach target size, returning smallest possible"
+        )
         output_buffer = io.BytesIO()
-        image.save(output_buffer, format='JPEG', quality=min_quality, optimize=True)
+        image.save(output_buffer, format="JPEG", quality=min_quality, optimize=True)
         return output_buffer.getvalue()
 
     def _image_to_base64(self, image_bytes: bytes, original_url: str) -> str:
@@ -2039,20 +2265,22 @@ class StorageService:
         import base64
 
         # 确定MIME类型
-        ext = _get_file_extension(original_url, 'jpg').lower()
-        mime_type = 'image/jpeg'  # 默认
-        if ext == 'png':
-            mime_type = 'image/png'
-        elif ext == 'gif':
-            mime_type = 'image/gif'
-        elif ext == 'webp':
-            mime_type = 'image/webp'
+        ext = _get_file_extension(original_url, "jpg").lower()
+        mime_type = "image/jpeg"  # 默认
+        if ext == "png":
+            mime_type = "image/png"
+        elif ext == "gif":
+            mime_type = "image/gif"
+        elif ext == "webp":
+            mime_type = "image/webp"
 
         # 编码
-        base64_data = base64.b64encode(image_bytes).decode('utf-8')
+        base64_data = base64.b64encode(image_bytes).decode("utf-8")
         return f"data:{mime_type};base64,{base64_data}"
 
-    async def _save_temp_image(self, image_bytes: bytes, original_url: str, force_cos_url: bool = False) -> Optional[str]:
+    async def _save_temp_image(
+        self, image_bytes: bytes, original_url: str, force_cos_url: bool = False
+    ) -> Optional[str]:
         """
         保存处理后的图片到临时位置并返回URL
 
@@ -2070,6 +2298,7 @@ class StorageService:
         try:
             # 生成临时路径
             import uuid
+
             temp_id = str(uuid.uuid4())[:8]
 
             # 保存到临时目录
@@ -2077,7 +2306,7 @@ class StorageService:
             temp_path.mkdir(parents=True, exist_ok=True)
 
             # 生成文件名
-            ext = _get_file_extension(original_url, 'jpg')
+            ext = _get_file_extension(original_url, "jpg")
             filename = f"processed_{temp_id}.{ext}"
             file_path = temp_path / filename
 
@@ -2092,23 +2321,33 @@ class StorageService:
                     # 构建完整的COS路径（带前缀）
                     cos_path = str(relative_path)
                     if self.cos_path_prefix:
-                        prefix = self.cos_path_prefix.strip('/')
-                        if not cos_path.startswith(prefix + '/'):
+                        prefix = self.cos_path_prefix.strip("/")
+                        if not cos_path.startswith(prefix + "/"):
                             cos_path = f"{prefix}/{cos_path}"
                     # 构建完整的公网URL
                     if self._cos_url_prefix:
-                        url = f"{self._cos_url_prefix.rstrip('/')}/{cos_path.lstrip('/')}"
-                        logger.info(f"[StorageService] Built COS URL from prefix: {url}")
+                        url = (
+                            f"{self._cos_url_prefix.rstrip('/')}/{cos_path.lstrip('/')}"
+                        )
+                        logger.info(
+                            f"[StorageService] Built COS URL from prefix: {url}"
+                        )
                         return url
                     elif self.cos_bucket and self.cos_region:
                         url = f"https://{self.cos_bucket}.cos.{self.cos_region}.myqcloud.com/{cos_path.lstrip('/')}"
-                        logger.info(f"[StorageService] Built COS URL from bucket/region: {url}")
+                        logger.info(
+                            f"[StorageService] Built COS URL from bucket/region: {url}"
+                        )
                         return url
                     else:
-                        logger.warning(f"[StorageService] COS not configured, falling back to normal URL")
+                        logger.warning(
+                            "[StorageService] COS not configured, falling back to normal URL"
+                        )
                         return self._path_to_url(file_path)
                 except Exception as e:
-                    logger.warning(f"[StorageService] Failed to build COS URL, falling back: {e}")
+                    logger.warning(
+                        f"[StorageService] Failed to build COS URL, falling back: {e}"
+                    )
                     return self._path_to_url(file_path)
             else:
                 return self._path_to_url(file_path)
@@ -2143,7 +2382,7 @@ class StorageService:
                 url,
                 max_dimension=max_dimension,
                 max_size_bytes=max_size_bytes,
-                prefer_url=prefer_url
+                prefer_url=prefer_url,
             )
 
             if processed_url:
@@ -2194,6 +2433,7 @@ class StorageService:
 
             if base_path.exists():
                 import shutil
+
                 shutil.rmtree(base_path)
                 logger.info(f"Deleted task content: {base_path}")
                 return True
@@ -2235,15 +2475,21 @@ class StorageService:
 
             if base_path.exists():
                 import shutil
+
                 shutil.rmtree(base_path)
                 logger.info(f"[StorageService] Deleted material directory: {base_path}")
                 return True
             else:
-                logger.warning(f"[StorageService] Material directory does not exist: {base_path}")
+                logger.warning(
+                    f"[StorageService] Material directory does not exist: {base_path}"
+                )
                 return False
 
         except Exception as e:
-            logger.error(f"[StorageService] Failed to delete material directory: {e}", exc_info=True)
+            logger.error(
+                f"[StorageService] Failed to delete material directory: {e}",
+                exc_info=True,
+            )
             return False
 
 

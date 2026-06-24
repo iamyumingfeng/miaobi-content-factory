@@ -11,10 +11,12 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import AsyncGenerator, Generator, Any
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import sessionmaker, declarative_base
+from typing import Any, AsyncGenerator, Generator
+
 from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from .config import get_settings
 
@@ -44,7 +46,7 @@ def _create_async_engine_for_current_process():
         pool_size=settings.database_pool_size,
         max_overflow=settings.database_max_overflow,
         pool_pre_ping=settings.database_pool_pre_ping,
-        pool_recycle=getattr(settings, 'database_pool_recycle', 1800),  # 连接回收时间
+        pool_recycle=getattr(settings, "database_pool_recycle", 1800),  # 连接回收时间
         echo=settings.database_echo,
     )
 
@@ -87,6 +89,7 @@ def _invalidate_process_async_engine():
     if _async_engine is not None:
         try:
             import asyncio
+
             # 同步等待 dispose 完成，避免异步调度导致引擎被置为 None 但资源未释放
             loop = asyncio.new_event_loop()
             try:
@@ -109,6 +112,7 @@ class _AsyncSessionContext:
     每次 `async with async_session_maker():` 创建一个新实例，
     彼此独立，避免并发冲突。
     """
+
     __slots__ = ("_maker", "_session")
 
     def __init__(self):
@@ -155,7 +159,7 @@ sync_engine = create_engine(
     pool_size=settings.database_pool_size,
     max_overflow=settings.database_max_overflow,
     pool_pre_ping=settings.database_pool_pre_ping,
-    pool_recycle=getattr(settings, 'database_pool_recycle', 1800),  # 连接回收时间
+    pool_recycle=getattr(settings, "database_pool_recycle", 1800),  # 连接回收时间
     echo=settings.database_echo,
 )
 

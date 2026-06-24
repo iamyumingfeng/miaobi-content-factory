@@ -15,19 +15,13 @@ Author: Claude Code
 Date: 2025
 """
 
-import json
 import logging
-import time
-from typing import Optional, Dict, Any
+from typing import Optional
 
-from .openai_compatible import OpenAICompatibleAdapter
-from .factory import AdapterRegistry
-from .params import TextGenParams, ImageGenParams
 from .base import GenerationResult
-
-from .image_prompts import enhance_image_prompt, get_negative_prompt
-
-
+from .factory import AdapterRegistry
+from .openai_compatible import OpenAICompatibleAdapter
+from .params import ImageGenParams
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +49,9 @@ class ZhipuAdapter(OpenAICompatibleAdapter):
         params: Optional[ImageGenParams] = None,
     ) -> GenerationResult:
         """智谱暂不支持图片生成"""
-        return GenerationResult(success=False, error_message="zhipu does not support image generation")
+        return GenerationResult(
+            success=False, error_message="zhipu does not support image generation"
+        )
 
     async def generate_video(
         self,
@@ -76,7 +72,10 @@ class ZhipuAdapter(OpenAICompatibleAdapter):
         Returns:
             GenerationResult: 生成结果
         """
-        return GenerationResult(success=False, error_message="zhipu does not support video generation")
+        return GenerationResult(
+            success=False, error_message="zhipu does not support video generation"
+        )
+
 
 # 注册适配器
 AdapterRegistry.register("zhipu", ZhipuAdapter)

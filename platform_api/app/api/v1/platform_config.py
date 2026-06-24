@@ -8,26 +8,43 @@ Date: 2026
 """
 
 import json
+from typing import Any, Dict, List
+
 from fastapi import APIRouter, Depends
-from typing import Dict, List, Any
 from sqlalchemy import select
 
-from app.utils.response import success_response, ApiResponse
-from app.utils.deps import get_token_payload_required
-from app.api.v1.creative_seeds import SEED_TYPE_INFO, CATEGORY_OPTIONS
+from app.api.v1.creative_seeds import CATEGORY_OPTIONS, SEED_TYPE_INFO
 from app.core.database import AsyncSessionLocal
 from app.models import ViralType
+from app.utils.deps import get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 
 
 # 图片尺寸比例选项
 IMAGE_SIZE_RATIOS: List[Dict[str, str]] = [
-    {"value": "1:1", "label": "正方形 1:1 (2048x2048)", "description": "适合封面、展示类"},
-    {"value": "4:3", "label": "横版 4:3 (2304x1728)", "description": "适合美食、产品展示"},
-    {"value": "16:9", "label": "宽屏 16:9 (2560x1440)", "description": "适合风景、场景展示"},
+    {
+        "value": "1:1",
+        "label": "正方形 1:1 (2048x2048)",
+        "description": "适合封面、展示类",
+    },
+    {
+        "value": "4:3",
+        "label": "横版 4:3 (2304x1728)",
+        "description": "适合美食、产品展示",
+    },
+    {
+        "value": "16:9",
+        "label": "宽屏 16:9 (2560x1440)",
+        "description": "适合风景、场景展示",
+    },
     {"value": "3:4", "label": "竖版 3:4 (1728x2304)", "description": "适合穿搭、人物"},
-    {"value": "9:16", "label": "长竖版 9:16 (1440x2560)", "description": "适合手机竖屏、短视频封面"},
+    {
+        "value": "9:16",
+        "label": "长竖版 9:16 (1440x2560)",
+        "description": "适合手机竖屏、短视频封面",
+    },
 ]
 
 # 内容类型选项
@@ -50,7 +67,7 @@ async def get_viral_types(
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(ViralType)
-            .where(ViralType.status == 'enabled')
+            .where(ViralType.status == "enabled")
             .order_by(ViralType.sort_order)
         )
         viral_types = result.scalars().all()
@@ -88,7 +105,7 @@ async def get_creative_seed_types(
             "seed_types": SEED_TYPE_INFO,
             "categories": CATEGORY_OPTIONS,
         },
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -101,10 +118,7 @@ async def get_image_size_ratios(
 
     返回所有可用的图片尺寸比例，用于模板配置。
     """
-    return success_response(
-        data=IMAGE_SIZE_RATIOS,
-        message="获取成功"
-    )
+    return success_response(data=IMAGE_SIZE_RATIOS, message="获取成功")
 
 
 @router.get("/content-types", response_model=ApiResponse[List[Dict[str, str]]])
@@ -116,10 +130,7 @@ async def get_content_types(
 
     返回所有可用的内容类型，用于模板配置。
     """
-    return success_response(
-        data=CONTENT_TYPES,
-        message="获取成功"
-    )
+    return success_response(data=CONTENT_TYPES, message="获取成功")
 
 
 @router.get("/template-options", response_model=ApiResponse[Dict[str, Any]])
@@ -136,7 +147,7 @@ async def get_all_template_options(
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(ViralType)
-            .where(ViralType.status == 'enabled')
+            .where(ViralType.status == "enabled")
             .order_by(ViralType.sort_order)
         )
         viral_types = result.scalars().all()
@@ -165,5 +176,5 @@ async def get_all_template_options(
             "categories": CATEGORY_OPTIONS,
             "seed_types": SEED_TYPE_INFO,
         },
-        message="获取成功"
+        message="获取成功",
     )

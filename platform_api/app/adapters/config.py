@@ -7,15 +7,16 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import Dict, List, Optional, Any
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-import logging
+from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.system import ModelConfig as DBModelConfig
+
 from .base import ModelConfig
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,7 @@ class PlatformConfig:
     """
     平台配置数据类
     """
+
     platform: str
     display_name: str
     default_qps: int = 5
@@ -293,9 +295,7 @@ class ModelConfigManager:
             return self._cache.copy()
 
         # 从数据库加载所有活跃的模型配置
-        query = select(DBModelConfig).where(
-            DBModelConfig.status == "active"
-        )
+        query = select(DBModelConfig).where(DBModelConfig.status == "active")
         result = await db.execute(query)
         db_configs = result.scalars().all()
 
@@ -309,15 +309,16 @@ class ModelConfigManager:
             # 从 config_json 中提取 api_key
             api_key = ""
             extra_params = {}
-            
+
             # 调试：打印原始 config_json
-            logger.debug(f"[ConfigManager] 加载模型配置 | id={db_config.id} | platform={db_config.platform} | model_id={db_config.model_id} | config_json_type={type(db_config.config_json)} | config_json={db_config.config_json}")
-            
+            logger.debug(
+                f"[ConfigManager] 加载模型配置 | id={db_config.id} | platform={db_config.platform} | model_id={db_config.model_id} | config_json_type={type(db_config.config_json)} | config_json={db_config.config_json}"
+            )
+
             if db_config.config_json:
                 api_key = db_config.config_json.get("api_key", "")
                 extra_params = {
-                    k: v for k, v in db_config.config_json.items()
-                    if k != "api_key"
+                    k: v for k, v in db_config.config_json.items() if k != "api_key"
                 }
 
             config = ModelConfig(
@@ -334,10 +335,14 @@ class ModelConfigManager:
 
             # 调试日志：验证 api_key 是否正确加载（仅对需要 api_key 的平台）
             if api_key:
-                logger.debug(f"[ConfigManager] 模型配置加载成功 | platform={db_config.platform} | model_id={db_config.model_id} | api_key_len={len(api_key)}")
+                logger.debug(
+                    f"[ConfigManager] 模型配置加载成功 | platform={db_config.platform} | model_id={db_config.model_id} | api_key_len={len(api_key)}"
+                )
             elif db_config.platform.lower() not in ["kling", "jimeng"]:
                 # kling/jimeng 使用 access_key，不需要 api_key
-                logger.warning(f"[ConfigManager] 模型配置缺少 api_key | platform={db_config.platform} | model_id={db_config.model_id} | config_json={bool(db_config.config_json)}")
+                logger.warning(
+                    f"[ConfigManager] 模型配置缺少 api_key | platform={db_config.platform} | model_id={db_config.model_id} | config_json={bool(db_config.config_json)}"
+                )
 
             # 按平台分组
             platform = db_config.platform.lower()
@@ -371,7 +376,7 @@ class ModelConfigManager:
         if not self._is_cache_valid():
             await self.load_all_configs(db, force_refresh=True)
 
-        return getattr(self, '_db_configs', {}).get(config_id)
+        return getattr(self, "_db_configs", {}).get(config_id)
 
     async def get_config(
         self,
@@ -455,9 +460,7 @@ class ModelConfigManager:
         Returns:
             默认模型配置，如果没有则返回 None
         """
-        result = await self.get_default_config_with_platform(
-            db, platform, model_type
-        )
+        result = await self.get_default_config_with_platform(db, platform, model_type)
         return result[0] if result else None
 
     async def get_default_config_with_platform(

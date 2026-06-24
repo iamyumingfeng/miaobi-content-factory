@@ -1,0 +1,97 @@
+# ============================================
+# 妙笔内容工场 - CNB 云原生构建配置
+# ============================================
+# 用于 CNB 平台的 CI/CD 配置
+# ============================================
+
+# ============================================
+# master 分支配置
+# ============================================
+master:
+  # 推送事件
+  push:
+    - name: build-and-test
+      stages:
+        - name: backend-lint
+          script: |
+            cd platform_api
+            echo "Running backend lint checks..."
+            python -m pip install --upgrade pip
+            pip install flake8 black isort
+            black --check app/ --diff || true
+            isort --check app/ --diff || true
+            flake8 app/ --max-line-length=100 --exclude=app/alembic/
+          condition: always
+
+        - name: backend-test
+          script: |
+            cd platform_api
+            echo "Running backend tests..."
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install pytest pytest-asyncio pytest-cov
+            echo "pytest --cov=app --cov-report=term"
+          condition: always
+
+        - name: frontend-build
+          script: |
+            cd platform_web
+            echo "Running frontend build..."
+            npm install
+            npm run build
+          condition: always
+
+  # PR 事件
+  pull_request:
+    - name: pr-checks
+      stages:
+        - name: lint-check
+          script: |
+            echo "Running PR lint checks..."
+            cd platform_api
+            python -m pip install --upgrade pip
+            pip install flake8 black isort
+            black --check app/ --diff || true
+            isort --check app/ --diff || true
+            flake8 app/ --max-line-length=100 --exclude=app/alembic/ || true
+
+        - name: backend-test
+          script: |
+            cd platform_api
+            echo "Running backend tests..."
+            pip install -r requirements.txt
+            pip install pytest pytest-asyncio
+            pytest tests/ -v --tb=short
+
+        - name: frontend-build
+          script: |
+            cd platform_web
+            echo "Running frontend build..."
+            npm install
+            npm run build
+
+# ============================================
+# develop 分支配置
+# ============================================
+develop:
+  push:
+    - name: develop-build
+      stages:
+        - name: quick-check
+          script: |
+            echo "Quick check on develop branch..."
+            cd platform_api
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            cd ../platform_web
+            npm install
+            npm run build
+          condition: always
+
+# ============================================
+# 失败处理
+# ============================================
+failStages:
+  - name: notify-failure
+    script: |
+      echo "Build failed! Please check the logs for details."

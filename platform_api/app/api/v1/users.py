@@ -5,32 +5,24 @@ Author: Claude Code
 Date: 2025
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.database import get_async_db
-from app.utils.response import success_response, ApiResponse
-from app.schemas import PaginatedResponse
-from app.utils.deps import get_token_payload_required, get_current_super_admin
-from app.services.user_service import UserService
-from app.schemas.users import (
-    SuperAdminCreate,
-    SuperAdminUpdate,
-    SuperAdminResponse,
-    OperatorCreate,
-    OperatorUpdate,
-    OperatorResponse,
-    SubUserCreate,
-    SubUserUpdate,
-    SubUserResponse,
-    UserTagCreate,
-    UserTagUpdate,
-    UserTagResponse,
-    UserTransferRequest,
-    ResetPasswordRequest,
-)
 from app.core.exceptions import UserNotFoundError
+from app.schemas import PaginatedResponse
+from app.schemas.users import (OperatorCreate, OperatorResponse,
+                               OperatorUpdate, ResetPasswordRequest,
+                               SubUserCreate, SubUserResponse, SubUserUpdate,
+                               SuperAdminCreate, SuperAdminResponse,
+                               SuperAdminUpdate, UserTagCreate,
+                               UserTagResponse, UserTagUpdate,
+                               UserTransferRequest)
+from app.services.user_service import UserService
+from app.utils.deps import get_current_super_admin, get_token_payload_required
+from app.utils.response import ApiResponse, success_response
 
 router = APIRouter()
 
@@ -38,7 +30,9 @@ router = APIRouter()
 # ============================================
 # 超级创作管理员（仅超级管理员可访问）
 # ============================================
-@router.get("/super-admins", response_model=ApiResponse[PaginatedResponse[SuperAdminResponse]])
+@router.get(
+    "/super-admins", response_model=ApiResponse[PaginatedResponse[SuperAdminResponse]]
+)
 async def list_super_admins(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
@@ -60,7 +54,7 @@ async def list_super_admins(
             limit=limit,
             total_pages=(total + limit - 1) // limit if total > 0 else 0,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -96,8 +90,7 @@ async def get_super_admin(
     super_admin = await UserService.get_super_admin(db, id)
     if not super_admin:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="超级管理员不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="超级管理员不存在"
         )
     return success_response(data=super_admin, message="获取成功")
 
@@ -120,10 +113,7 @@ async def update_super_admin(
         )
         return success_response(data=super_admin, message="更新成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/super-admins/{id}")
@@ -139,16 +129,15 @@ async def delete_super_admin(
         await UserService.delete_super_admin(db, id)
         return success_response(data=None, message="删除成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 # ============================================
 # 创作创作管理员（超级管理员和创作管理员可访问）
 # ============================================
-@router.get("/operators", response_model=ApiResponse[PaginatedResponse[OperatorResponse]])
+@router.get(
+    "/operators", response_model=ApiResponse[PaginatedResponse[OperatorResponse]]
+)
 async def list_operators(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
@@ -173,7 +162,12 @@ async def list_operators(
         created_by = None  # 超级管理员查看所有
 
     items, total = await UserService.list_operators(
-        db, page=page, limit=limit, created_by=created_by, status=status, keyword=keyword
+        db,
+        page=page,
+        limit=limit,
+        created_by=created_by,
+        status=status,
+        keyword=keyword,
     )
     # 手动将 Operator 模型转换为 OperatorResponse Pydantic 模型
     response_items = [OperatorResponse.model_validate(item) for item in items]
@@ -185,7 +179,7 @@ async def list_operators(
             limit=limit,
             total_pages=(total + limit - 1) // limit if total > 0 else 0,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -223,8 +217,7 @@ async def get_operator(
     operator = await UserService.get_operator(db, id)
     if not operator:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="创作管理员不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="创作管理员不存在"
         )
     return success_response(data=operator, message="获取成功")
 
@@ -247,10 +240,7 @@ async def update_operator(
         )
         return success_response(data=operator, message="更新成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/operators/{id}")
@@ -266,15 +256,9 @@ async def delete_operator(
         await UserService.delete_operator(db, id)
         return success_response(data=None, message="删除成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 @router.post("/operators/{id}/reset-password")
@@ -295,10 +279,7 @@ async def reset_operator_password(
         )
         return success_response(data=None, message="密码重置成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/super-admins/{id}/reset-password")
@@ -319,10 +300,7 @@ async def reset_super_admin_password(
         )
         return success_response(data=None, message="密码重置成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/operators/transfer")
@@ -340,19 +318,25 @@ async def transfer_operators(
         from_operator_id=request.from_operator_id,
         to_operator_id=request.to_operator_id,
     )
-    return success_response(data={"transferred_count": count}, message=f"成功转移 {count} 个创作者")
+    return success_response(
+        data={"transferred_count": count}, message=f"成功转移 {count} 个创作者"
+    )
 
 
 # ============================================
 # 创作员管理（创作管理员可访问）
 # ============================================
-@router.get("/sub-users", response_model=ApiResponse[PaginatedResponse[SubUserResponse]])
+@router.get(
+    "/sub-users", response_model=ApiResponse[PaginatedResponse[SubUserResponse]]
+)
 async def list_sub_users(
     page: int = Query(1, ge=1, description="页码"),
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
     status: Optional[str] = Query(None, description="状态筛选"),
     tag_id: Optional[int] = Query(None, description="标签筛选"),
-    operator_id: Optional[int] = Query(None, description="创作管理员筛选（超级管理员专用）"),
+    operator_id: Optional[int] = Query(
+        None, description="创作管理员筛选（超级管理员专用）"
+    ),
     keyword: Optional[str] = Query(None, description="关键词搜索"),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
@@ -390,7 +374,7 @@ async def list_sub_users(
             limit=limit,
             total_pages=(total + limit - 1) // limit if total > 0 else 0,
         ),
-        message="获取成功"
+        message="获取成功",
     )
 
 
@@ -438,8 +422,7 @@ async def get_sub_user(
     )
     if not sub_user:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="创作者不存在"
+            status_code=status.HTTP_404_NOT_FOUND, detail="创作者不存在"
         )
     return success_response(data=sub_user, message="获取成功")
 
@@ -474,10 +457,7 @@ async def update_sub_user(
         )
         return success_response(data=sub_user, message="更新成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/sub-users/{id}")
@@ -494,10 +474,7 @@ async def delete_sub_user(
         await UserService.delete_sub_user(db, id, owner_operator_id)
         return success_response(data=None, message="删除成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/sub-users/{id}/reset-password")
@@ -520,10 +497,7 @@ async def reset_sub_user_password(
         )
         return success_response(data=None, message="密码重置成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.post("/sub-users/transfer")
@@ -542,17 +516,13 @@ async def transfer_sub_users(
             from_operator_id=request.from_operator_id,
             to_operator_id=request.to_operator_id,
         )
-        return success_response(data={"transferred_count": count}, message=f"成功转移 {count} 个创作者")
+        return success_response(
+            data={"transferred_count": count}, message=f"成功转移 {count} 个创作者"
+        )
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 # ============================================
@@ -561,7 +531,9 @@ async def transfer_sub_users(
 @router.get("/tags", response_model=ApiResponse[list[UserTagResponse]])
 async def list_user_tags(
     tag_type: Optional[str] = Query(None, description="标签类型筛选"),
-    operator_id: Optional[int] = Query(None, description="创作管理员ID（超级管理员专用）"),
+    operator_id: Optional[int] = Query(
+        None, description="创作管理员ID（超级管理员专用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):
@@ -627,10 +599,7 @@ async def update_user_tag(
         )
         return success_response(data=tag, message="更新成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.delete("/tags/{id}")
@@ -647,15 +616,14 @@ async def delete_user_tag(
         await UserService.delete_user_tag(db, id, created_by)
         return success_response(data=None, message="删除成功")
     except UserNotFoundError as e:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
 
 
 @router.get("/tags/counts", response_model=ApiResponse[dict])
 async def get_tag_counts(
-    operator_id: Optional[int] = Query(None, description="创作管理员ID（超级管理员专用）"),
+    operator_id: Optional[int] = Query(
+        None, description="创作管理员ID（超级管理员专用）"
+    ),
     payload: dict = Depends(get_token_payload_required),
     db: AsyncSession = Depends(get_async_db),
 ):

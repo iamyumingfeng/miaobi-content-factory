@@ -7,7 +7,8 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import Generic, Optional, TypeVar, Any, List
+from typing import Generic, List, Optional, TypeVar
+
 from pydantic import BaseModel, Field
 
 T = TypeVar("T")
@@ -19,6 +20,7 @@ class ApiResponse(BaseModel, Generic[T]):
 
     所有 API 端点都应该使用这个格式返回响应。
     """
+
     success: bool = Field(default=True, description="是否成功")
     data: Optional[T] = Field(default=None, description="数据负载")
     message: Optional[str] = Field(default=None, description="消息")
@@ -85,6 +87,7 @@ class ListResponse(BaseModel, Generic[T]):
     """
     列表响应（非分页）
     """
+
     items: List[T] = Field(description="数据列表")
     total: int = Field(description="总数量")
 

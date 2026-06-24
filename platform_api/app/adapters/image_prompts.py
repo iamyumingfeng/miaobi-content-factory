@@ -15,7 +15,6 @@ Date: 2026
 
 from typing import Optional
 
-
 # ========== 真实感增强提示词 ==========
 # 用于自动为图像生成提示词添加专业摄影质量要素
 REALISM_ENHANCEMENT_SUFFIX = (
@@ -77,6 +76,7 @@ BASE_NEGATIVE_PROMPT = (
 
 # ========== 公共函数 ==========
 
+
 def enhance_image_prompt(prompt: str, has_reference: bool = False) -> str:
     """
     V4.0 真实感增强：自动为短提示词补全高质量要素
@@ -91,10 +91,7 @@ def enhance_image_prompt(prompt: str, has_reference: bool = False) -> str:
         增强后的提示词
     """
     # 检查是否已经有足够的真实感要素
-    has_realism_terms = any(
-        keyword in prompt.lower()
-        for keyword in REALISM_KEYWORDS
-    )
+    has_realism_terms = any(keyword in prompt.lower() for keyword in REALISM_KEYWORDS)
 
     # 如果已经有完整的真实感要素，直接返回
     if has_realism_terms:

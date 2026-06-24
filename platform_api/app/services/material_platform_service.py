@@ -7,20 +7,16 @@ Author: Claude Code
 Date: 2025
 """
 
-from typing import List, Optional, Dict, Any
 from datetime import datetime
-from sqlalchemy import select, and_, or_, func
+from typing import Any, Dict, List, Optional
+
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.exceptions import NotFoundError, DuplicateResourceError
-from app.models import (
-    MaterialPlatform,
-    MaterialCategory,
-    MaterialTag,
-    MaterialTagRel,
-    Material,
-)
+from app.core.exceptions import DuplicateResourceError, NotFoundError
+from app.models import (Material, MaterialCategory, MaterialPlatform,
+                        MaterialTag, MaterialTagRel)
 
 
 class MaterialPlatformService:
@@ -59,7 +55,7 @@ class MaterialPlatformService:
     ) -> MaterialPlatform:
         """
         创建素材平台
-        
+
         检查同一创作管理员下是否已有同名平台
         """
         # 检查重复
@@ -95,7 +91,7 @@ class MaterialPlatformService:
     ) -> List[MaterialPlatform]:
         """
         获取素材平台列表
-        
+
         Args:
             owner_operator_id: 创作管理员ID，None表示查询所有（仅超级管理员可用）
             keyword: 搜索关键词（匹配名称或描述）
@@ -126,14 +122,18 @@ class MaterialPlatformService:
     ) -> Optional[MaterialPlatform]:
         """
         获取素材平台详情
-        
+
         Args:
             platform_id: 平台ID
             owner_operator_id: 创作管理员ID，None表示超级管理员（可查看所有）
         """
-        query = select(MaterialPlatform).options(
-            selectinload(MaterialPlatform.categories),
-        ).where(MaterialPlatform.id == platform_id)
+        query = (
+            select(MaterialPlatform)
+            .options(
+                selectinload(MaterialPlatform.categories),
+            )
+            .where(MaterialPlatform.id == platform_id)
+        )
 
         if owner_operator_id is not None:
             query = query.where(MaterialPlatform.owner_operator_id == owner_operator_id)
@@ -142,14 +142,11 @@ class MaterialPlatformService:
         return result.scalar_one_or_none()
 
     async def update_platform(
-        self,
-        platform_id: int,
-        owner_operator_id: Optional[int] = None,
-        **kwargs
+        self, platform_id: int, owner_operator_id: Optional[int] = None, **kwargs
     ) -> MaterialPlatform:
         """
         更新素材平台
-        
+
         Args:
             platform_id: 平台ID
             owner_operator_id: 创作管理员ID，None表示超级管理员
@@ -165,7 +162,8 @@ class MaterialPlatformService:
                 select(MaterialPlatform).where(
                     and_(
                         MaterialPlatform.name == kwargs["name"],
-                        MaterialPlatform.owner_operator_id == platform.owner_operator_id,
+                        MaterialPlatform.owner_operator_id
+                        == platform.owner_operator_id,
                         MaterialPlatform.id != platform_id,
                     )
                 )
@@ -190,7 +188,7 @@ class MaterialPlatformService:
     ) -> bool:
         """
         删除素材平台（级联删除关联的分类和标签）
-        
+
         删除前检查：
         - 平台下是否有素材关联
         """
@@ -251,6 +249,7 @@ class MaterialPlatformService:
         }
         """
         import logging
+
         logger = logging.getLogger(__name__)
 
         # 加载平台数据
@@ -262,8 +261,9 @@ class MaterialPlatformService:
             # 尝试加载关联数据
             try:
                 query = query.options(
-                    selectinload(MaterialPlatform.categories)
-                    .selectinload(MaterialCategory.tags)
+                    selectinload(MaterialPlatform.categories).selectinload(
+                        MaterialCategory.tags
+                    )
                 )
             except Exception as e:
                 logger.warning(f"加载关联数据失败: {e}")
@@ -273,10 +273,7 @@ class MaterialPlatformService:
             platforms = result.scalars().all()
         except Exception as e:
             logger.error(f"加载平台数据失败: {e}")
-            return {
-                "platforms": [],
-                "material_total": 0
-            }
+            return {"platforms": [], "material_total": 0}
 
         # 获取所有标签的关联数量统计
         material_tag_counts = await self._get_material_tag_counts(owner_operator_id)
@@ -309,17 +306,22 @@ class MaterialPlatformService:
                     tagged_material_count += count
 
                 # 计算该分类下无标签素材数量
-                category_no_tag_count = await self.db.scalar(
-                    select(func.count(func.distinct(MaterialTagRel.material_id)))
-                    .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
-                    .join(Material, Material.id == MaterialTagRel.material_id)
-                    .where(MaterialTag.category_id == category.id)
-                ) or 0
+                category_no_tag_count = (
+                    await self.db.scalar(
+                        select(func.count(func.distinct(MaterialTagRel.material_id)))
+                        .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
+                        .join(Material, Material.id == MaterialTagRel.material_id)
+                        .where(MaterialTag.category_id == category.id)
+                    )
+                    or 0
+                )
                 # 无标签 = 该分类下总素材数 - 有标签的素材数
                 # 但这里我们无法直接获取分类总素材数，所以用标签统计推导
                 # 实际上 "无标签" 指的是没有关联任何标签的素材
                 # 需要查询该分类下所有素材，排除有标签关联的
-                no_tag_material_count = await self._get_category_no_tag_count(category.id)
+                no_tag_material_count = await self._get_category_no_tag_count(
+                    category.id
+                )
 
                 category_data = {
                     "id": category.id,
@@ -332,7 +334,9 @@ class MaterialPlatformService:
                     "tags": tags_list,
                 }
                 categories_list.append(category_data)
-                platform_material_count += category_material_count + no_tag_material_count
+                platform_material_count += (
+                    category_material_count + no_tag_material_count
+                )
 
             total_materials += platform_material_count
 
@@ -358,21 +362,20 @@ class MaterialPlatformService:
     ) -> Dict[int, int]:
         """获取素材标签关联数量统计"""
         try:
-            query = select(
-                MaterialTagRel.tag_id,
-                func.count().label("count")
-            ).group_by(MaterialTagRel.tag_id)
+            query = select(MaterialTagRel.tag_id, func.count().label("count")).group_by(
+                MaterialTagRel.tag_id
+            )
 
             if owner_operator_id is not None:
                 query = query.join(
-                    Material,
-                    Material.id == MaterialTagRel.material_id
+                    Material, Material.id == MaterialTagRel.material_id
                 ).where(Material.owner_operator_id == owner_operator_id)
 
             result = await self.db.execute(query)
             return {row[0]: row[1] for row in result.all()}
         except Exception as e:
             import logging
+
             logging.getLogger(__name__).warning(f"获取素材标签统计失败: {e}")
             return {}
 
@@ -386,7 +389,7 @@ class MaterialPlatformService:
     ) -> Dict[str, Any]:
         """
         获取素材平台统计信息
-        
+
         Returns:
             {
                 "platform_id": int,
@@ -406,12 +409,15 @@ class MaterialPlatformService:
         tag_count = sum(len(cat.tags) for cat in platform.categories)
 
         # 统计关联内容数量
-        total_materials = await self.db.scalar(
-            select(func.count(func.distinct(MaterialTagRel.material_id)))
-            .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
-            .join(MaterialCategory, MaterialTag.category_id == MaterialCategory.id)
-            .where(MaterialCategory.material_platform_id == platform_id)
-        ) or 0
+        total_materials = (
+            await self.db.scalar(
+                select(func.count(func.distinct(MaterialTagRel.material_id)))
+                .join(MaterialTag, MaterialTagRel.tag_id == MaterialTag.id)
+                .join(MaterialCategory, MaterialTag.category_id == MaterialCategory.id)
+                .where(MaterialCategory.material_platform_id == platform_id)
+            )
+            or 0
+        )
 
         return {
             "platform_id": platform_id,

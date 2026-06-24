@@ -7,9 +7,9 @@ Author: Claude Code
 Date: 2026-05-13
 """
 
-from typing import Optional, List
-from pydantic import BaseModel, Field
+from typing import List, Optional
 
+from pydantic import BaseModel, Field
 
 # 支持的图片比例列表
 SUPPORTED_RATIOS = ["1:1", "4:3", "16:9", "3:4", "9:16", "3:2", "2:3", "21:9"]
@@ -39,22 +39,32 @@ def calc_pixel_size(ratio: str, max_pixels: int, separator: str = "x") -> str:
 
 class TextGenParams(BaseModel):
     """文本生成标准参数"""
-    model_id: Optional[str] = Field(default=None, description="模型 ID（默认使用 config.model_id）")
+
+    model_id: Optional[str] = Field(
+        default=None, description="模型 ID（默认使用 config.model_id）"
+    )
     max_tokens: int = Field(default=32000, description="最大输出 token 数")
     temperature: float = Field(default=0.7, description="温度参数")
     top_p: float = Field(default=0.8, description="Top-p 采样参数")
-    enable_thinking: bool = Field(default=True, description="是否启用思考模式（bailian 专用）")
+    enable_thinking: bool = Field(
+        default=True, description="是否启用思考模式（bailian 专用）"
+    )
 
 
 class ImageGenParams(BaseModel):
     """图片生成标准参数"""
-    model_id: Optional[str] = Field(default=None, description="模型 ID（默认使用 config.model_id）")
+
+    model_id: Optional[str] = Field(
+        default=None, description="模型 ID（默认使用 config.model_id）"
+    )
     count: int = Field(default=1, ge=1, description="生成数量")
     ratio: str = Field(default="3:4", description=f"图片比例，支持: {SUPPORTED_RATIOS}")
     quality: str = Field(default="high", description="图片质量：low / medium / high")
     watermark: bool = Field(default=False, description="是否添加水印")
     reference_images: Optional[List[str]] = Field(
         default=None,
-        description="参考图本地路径列表（等比例缩放图），适配器自行转为 URL/Base64"
+        description="参考图本地路径列表（等比例缩放图），适配器自行转为 URL/Base64",
     )
-    benchmark_image_count: int = Field(default=0, ge=0, description="参考图中对标图的数量（前N张为对标图）")
+    benchmark_image_count: int = Field(
+        default=0, ge=0, description="参考图中对标图的数量（前N张为对标图）"
+    )

@@ -7,11 +7,11 @@ Author: Claude Code
 Date: 2025
 """
 
-import json
 import asyncio
-from typing import Dict, Set, Optional, Any, List
 from datetime import datetime
-from fastapi import WebSocket, WebSocketDisconnect
+from typing import Any, Dict, Optional, Set
+
+from fastapi import WebSocket
 
 
 class ConnectionManager:
@@ -44,14 +44,16 @@ class ConnectionManager:
             if user_status == "disabled":
                 # 用户已被禁用，拒绝连接并通知
                 await websocket.accept()
-                await websocket.send_json({
-                    "type": "account_disabled",
-                    "message": "账号已被禁用，请联系管理员",
-                    "timestamp": datetime.utcnow().isoformat(),
-                })
+                await websocket.send_json(
+                    {
+                        "type": "account_disabled",
+                        "message": "账号已被禁用，请联系管理员",
+                        "timestamp": datetime.utcnow().isoformat(),
+                    }
+                )
                 await websocket.close(code=4001, reason="Account disabled")
                 return False
-        
+
         await websocket.accept()
         async with self._lock:
             if operator_id not in self.active_connections:
@@ -71,6 +73,7 @@ class ConnectionManager:
             用户状态或 None
         """
         from sqlalchemy import select
+
         from app.models.operator import Operator
 
         try:
@@ -152,7 +155,7 @@ class ConnectionManager:
                 "message": "账号已被禁用，请联系管理员",
                 "timestamp": datetime.utcnow().isoformat(),
             },
-            operator_id
+            operator_id,
         )
 
     async def subscribe_to_task(self, websocket: WebSocket, task_id: int):

@@ -10,18 +10,19 @@ Author: Claude Code
 Date: 2025
 """
 
-import logging
 import json
+import logging
 from pathlib import Path
-from typing import Optional, List, Dict, Any
+from typing import Optional
+
 import yaml
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.core.security import get_password_hash
-from app.core.config import get_settings
-from app.models import SuperAdmin, CreativeSeed
+from app.models import CreativeSeed, SuperAdmin
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -52,7 +53,7 @@ async def init_super_admin(db: AsyncSession) -> Optional[SuperAdmin]:
         # 创建初始超级管理员
         password = settings.initial_super_admin_password
         # bcrypt有72字节限制，确保密码不超过限制
-        if len(password.encode('utf-8')) > 72:
+        if len(password.encode("utf-8")) > 72:
             password = password[:72]
             logger.warning("初始密码过长，已截断到72字节")
 
@@ -145,9 +146,21 @@ async def init_creative_seeds(db: AsyncSession) -> None:
                 seed_type=seed_data.get("seed_type"),
                 template=seed_data.get("template"),
                 description=seed_data.get("description"),
-                forbidden_patterns=json.dumps(seed_data.get("forbidden_patterns", [])) if seed_data.get("forbidden_patterns") else None,
-                example_phrases=json.dumps(seed_data.get("example_phrases", [])) if seed_data.get("example_phrases") else None,
-                avoid_phrases=json.dumps(seed_data.get("avoid_phrases", [])) if seed_data.get("avoid_phrases") else None,
+                forbidden_patterns=(
+                    json.dumps(seed_data.get("forbidden_patterns", []))
+                    if seed_data.get("forbidden_patterns")
+                    else None
+                ),
+                example_phrases=(
+                    json.dumps(seed_data.get("example_phrases", []))
+                    if seed_data.get("example_phrases")
+                    else None
+                ),
+                avoid_phrases=(
+                    json.dumps(seed_data.get("avoid_phrases", []))
+                    if seed_data.get("avoid_phrases")
+                    else None
+                ),
                 category=seed_data.get("category", "通用"),
                 status=seed_data.get("status", "enabled"),
                 is_system=seed_data.get("is_system", False),
@@ -157,7 +170,9 @@ async def init_creative_seeds(db: AsyncSession) -> None:
             created_count += 1
 
         await db.commit()
-        logger.info(f"[DB Init] 创意种子库初始化完成，共创建 {created_count} 条系统种子")
+        logger.info(
+            f"[DB Init] 创意种子库初始化完成，共创建 {created_count} 条系统种子"
+        )
 
     except Exception as e:
         await db.rollback()
