@@ -1,0 +1,7 @@
+{
+  "name": "miaobi-content-factory-web",
+  "installCommand": "cd platform_web && npm install",
+  "buildCommand": "cd platform_web && npm run build",
+  "outputDirectory": "platform_web/dist",
+  "nodeVersion": "22.11.0"
+}

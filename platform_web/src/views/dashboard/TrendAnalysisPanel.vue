@@ -310,25 +310,44 @@ const updatePublishChart = () => {
         name: generatedLabel,
         type: 'line',
         smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
         data: data.map((item: any) => item.generated),
-        itemStyle: { color: '#8B7CF6' }, // 柔和紫主题色
-        areaStyle: { color: 'rgba(139, 124, 246, 0.1)' }
+        itemStyle: { color: '#6366F1' }, // 极光 Indigo
+        lineStyle: { width: 3, color: '#6366F1' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(99, 102, 241, 0.28)' },
+            { offset: 1, color: 'rgba(99, 102, 241, 0.02)' }
+          ])
+        }
       },
       {
         name: '发布数量',
         type: 'line',
         smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
         data: data.map((item: any) => item.published),
-        itemStyle: { color: '#34C759' } // 苹果绿
+        itemStyle: { color: '#22D3EE' }, // 极光 Cyan
+        lineStyle: { width: 3, color: '#22D3EE' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(34, 211, 238, 0.22)' },
+            { offset: 1, color: 'rgba(34, 211, 238, 0.02)' }
+          ])
+        }
       },
       {
         name: '成功率',
         type: 'line',
         smooth: true,
         yAxisIndex: 1,
+        symbol: 'circle',
+        symbolSize: 6,
         data: data.map((item: any) => item.success_rate),
-        itemStyle: { color: '#FF9500' }, // 苹果橙
-        lineStyle: { type: 'dashed' }
+        itemStyle: { color: '#F59E0B' }, // 极光 Amber
+        lineStyle: { width: 2, type: 'dashed', color: '#F59E0B' }
       }
     ]
   }
@@ -415,10 +434,17 @@ onUnmounted(() => {
 
 .filter-toolbar {
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-default);
   padding: 16px 20px;
   margin-bottom: 20px;
+  transition: border-color 240ms ease, box-shadow 240ms ease;
+
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 8px 24px rgba(11, 14, 23, 0.10);
+  }
 }
 
 .filter-label {
@@ -429,10 +455,17 @@ onUnmounted(() => {
 
 .card {
   background: var(--bg-secondary);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-default);
   padding: 20px;
   height: 100%;
+  transition: border-color 240ms ease, box-shadow 240ms ease;
+
+  &:hover {
+    border-color: rgba(99, 102, 241, 0.45);
+    box-shadow: 0 8px 24px rgba(11, 14, 23, 0.10);
+  }
 }
 
 .card-header {

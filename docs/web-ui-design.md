@@ -37,23 +37,24 @@
 
 ### 设计系统
 
-- **风格**：专业商务、简洁布局、高信息密度
+- **风格**：专业商务、简洁布局、高信息密度、妙笔内容工场品牌个性
 - **UI 库**：Element Plus
-- **主色调**：#409EFF（Element Plus 默认蓝色）
-- **字体**：Noto Sans
+- **主色调**：#2563EB（妙笔 Ink Blue，自定义主色，演进自 Ant 风格的 #1677FF / Element Plus 的 #2563EB）
+- **创意签名色**：`#8B5CF6 → #EC4899` 的 bloom 渐变（仅用于 Logo、品牌区、关键强调，不承载正文）
+- **字体**：PingFang SC / 微软雅黑（中文环境兜底）；Inter 可选自托管增强
 
 ### 状态配色
 
 | 状态 | 颜色值 | 说明 |
 |------|--------|------|
 | 排队中 | #909399 | queued 状态 |
-| 生成中 | #409EFF | generating 状态 |
-| 已完成 | #67C23A | completed 状态 |
-| 失败 | #F56C6C | failed 状态 |
-| 已暂停 | #E6A23C | paused 状态 |
-| 已分发 | #409EFF | distributed 状态 |
-| 待发布 | #E6A23C | pending_publish 状态 |
-| 已发布 | #67C23A | published 状态 |
+| 生成中 | #2563EB | generating 状态 |
+| 已完成 | #00B42A | completed 状态 |
+| 失败 | #F53F3F | failed 状态 |
+| 已暂停 | #FF7D00 | paused 状态 |
+| 已分发 | #2563EB | distributed 状态 |
+| 待发布 | #FF7D00 | pending_publish 状态 |
+| 已发布 | #00B42A | published 状态 |
 
 ---
 
@@ -76,13 +77,13 @@
 | 用途 | 颜色值 | 说明 |
 |------|--------|------|
 | 排队中 | #909399 | queued 状态 |
-| 生成中 | #409EFF | generating 状态 |
-| 已完成 | #67C23A | completed 状态 |
-| 失败 | #F56C6C | failed 状态 |
-| 已暂停 | #E6A23C | paused 状态 |
-| 已分发 | #409EFF | distributed 状态 |
-| 待发布 | #E6A23C | pending_publish 状态 |
-| 已发布 | #67C23A | published 状态 |
+| 生成中 | #2563EB | generating 状态 |
+| 已完成 | #00B42A | completed 状态 |
+| 失败 | #F53F3F | failed 状态 |
+| 已暂停 | #FF7D00 | paused 状态 |
+| 已分发 | #2563EB | distributed 状态 |
+| 待发布 | #FF7D00 | pending_publish 状态 |
+| 已发布 | #00B42A | published 状态 |
 
 ### 新增图标映射
 
@@ -1260,7 +1261,7 @@ const steps = [
       font-weight: 600;
       color: #303133;
       &.highlight {
-        color: #409EFF;
+        color: #2563EB;
       }
     }
   }
@@ -2641,7 +2642,7 @@ onUnmounted(() => {
         <el-table-column label="默认" width="80">
           <template #default="{ row }">
             <el-tooltip v-if="row.is_default" content="默认模型">
-              <el-icon class="is-warning" color="#E6A23C"><StarFilled /></el-icon>
+              <el-icon class="is-warning" color="#FF7D00"><StarFilled /></el-icon>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -3349,9 +3350,9 @@ const goToPending = () => router.push('/distribution?status=pending_publish')
         color: white;
       }
       &.subuser { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-      &.generating { background: linear-gradient(135deg, #409EFF 0%, #66b1ff 100%); }
-      &.pending { background: linear-gradient(135deg, #E6A23C 0%, #f3d19e 100%); }
-      &.published { background: linear-gradient(135deg, #67C23A 0%, #95d475 100%); }
+      &.generating { background: linear-gradient(135deg, #2563EB 0%, #60A5FA 100%); }
+      &.pending { background: linear-gradient(135deg, #FF7D00 0%, #f3d19e 100%); }
+      &.published { background: linear-gradient(135deg, #00B42A 0%, #95d475 100%); }
     }
     .stat-content {
       flex: 1;
@@ -3361,8 +3362,8 @@ const goToPending = () => router.push('/distribution?status=pending_publish')
         color: #303133;
         line-height: 1.2;
         margin-bottom: 4px;
-        &.warning { color: #E6A23C; }
-        &.success { color: #67C23A; }
+        &.warning { color: #FF7D00; }
+        &.success { color: #00B42A; }
       }
       .stat-label {
         font-size: 14px;
@@ -3375,7 +3376,7 @@ const goToPending = () => router.push('/distribution?status=pending_publish')
         display: flex;
         align-items: center;
         gap: 4px;
-        &.up { color: #67C23A; }
+        &.up { color: #00B42A; }
       }
       .stat-action {
         padding: 0;
@@ -3405,7 +3406,7 @@ const goToPending = () => router.push('/distribution?status=pending_publish')
       cursor: pointer;
       transition: all 0.3s;
       &:hover {
-        border-color: #409EFF;
+        border-color: #2563EB;
         background: #f5f7fa;
       }
       .task-info {
@@ -3426,7 +3427,7 @@ const goToPending = () => router.push('/distribution?status=pending_publish')
         gap: 12px;
         .progress-stats {
           font-size: 14px;
-          .completed { color: #67C23A; font-weight: 500; }
+          .completed { color: #00B42A; font-weight: 500; }
         }
       }
     }

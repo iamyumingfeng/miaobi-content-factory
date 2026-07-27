@@ -1,0 +1,70 @@
+// ============================================================
+// 深夜极光 (Midnight Aurora) 设计令牌
+// 仅用于登录页 / 看板页的 UI 样式重设计，不修改全局 --color-primary，
+// 避免影响其他页面与 Element Plus 组件的功能。
+// ============================================================
+
+// ---- 暗色墨蓝 (Ink) ----
+$ink-950: #0B0E17;
+$ink-900: #111527;
+$ink-850: #161B30;
+$ink-800: #1C2240;
+$ink-700: #2E365A;
+$ink-600: #454E73;
+$ink-500: #636D93;
+$ink-400: #8E96B3;
+$ink-300: #B8BED3;
+$ink-200: #D8DCE8;
+$ink-100: #ECEEF4;
+$ink-50:  #F6F7FA;
+
+// ---- 极光签名色 ----
+$aurora-blue:   #6366F1;
+$aurora-blue-d: #4F46E5;
+$aurora-blue-l: #818CF8;
+$aurora-sky:    #38BDF8;
+$aurora-cyan:   #22D3EE;
+
+// ---- 语义状态色（与极光协调）----
+$aurora-success: #0D9668;
+$aurora-success-l: #34D399;
+$aurora-warning: #D97706;
+$aurora-warning-l: #FBBF24;
+$aurora-error:   #DC2626;
+$aurora-error-l: #FB7185;
+$aurora-info:    #636D93;
+$aurora-info-l:  #8E96B3;
+
+// ---- 渐变 ----
+$aurora-gradient:      linear-gradient(135deg, $aurora-blue 0%, $aurora-sky 100%);
+$aurora-gradient-deep: linear-gradient(135deg, $aurora-blue-d 0%, $aurora-blue 45%, $aurora-sky 100%);
+$brand-gradient:       linear-gradient(160deg, $ink-950 0%, $ink-850 50%, $ink-800 100%);
+
+// ---- 圆角 ----
+$r-sm: 8px;
+$r-md: 12px;
+$r-lg: 16px;
+$r-xl: 22px;
+$r-2xl: 28px;
+
+// ---- 缓动 ----
+$ease-aurora: 260ms cubic-bezier(.33, 0, .15, 1);
+
+// ---- 颗粒纹理（SVG 噪点）----
+$grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.4'/%3E%3C/svg%3E");
+
+// ---- 关键帧 ----
+@keyframes aurora-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-10px); }
+}
+
+@keyframes aurora-grain-shift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 160px 80px; }
+}
+
+@keyframes aurora-pulse {
+  0%, 100% { opacity: 0.5; }
+  50%      { opacity: 1; }
+}

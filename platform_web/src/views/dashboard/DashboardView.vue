@@ -847,12 +847,12 @@ const workerUsagePercentage = computed(() => {
   return Math.round((running / total) * 100)
 })
 
-// Worker 使用率颜色
+// Worker 使用率颜色（极光语义色）
 const workerUsageColor = computed(() => {
   const percentage = workerUsagePercentage.value
-  if (percentage >= 90) return '#f56c6c'  // 红色：接近满载
-  if (percentage >= 70) return '#e6a23c'  // 橙色：较高
-  return '#67c23a'  // 绿色：正常
+  if (percentage >= 90) return 'linear-gradient(90deg, #DC2626 0%, #F87171 100%)'  // 红色：接近满载
+  if (percentage >= 70) return 'linear-gradient(90deg, #D97706 0%, #FBBF24 100%)'  // 橙色：较高
+  return 'linear-gradient(90deg, #0D9668 0%, #34D399 100%)'  // 绿色：正常
 })
 
 // 计算任务运行时长
@@ -946,8 +946,8 @@ onActivated(async () => {
 
 .card {
   background: var(--bg-secondary);
-  border-radius: 10px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-border-default);
   padding: 20px;
 }
@@ -970,13 +970,19 @@ onActivated(async () => {
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--color-border-default);
-    transition: all var(--transition-normal) var(--easing-standard);
+    transition: transform 0.25s var(--easing-standard),
+                box-shadow 0.25s var(--easing-standard),
+                border-color 0.25s var(--easing-standard);
 
     &:hover {
-      box-shadow: var(--shadow-md);
-      border-color: var(--color-border-hover);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 28px rgba(11, 14, 23, 0.10);
+      border-color: rgba(99, 102, 241, 0.5);
     }
   }
+
+  // 首张统计卡：深夜极光暗色签名卡
+
 
   .stat-icon {
     width: 48px;
@@ -986,34 +992,39 @@ onActivated(async () => {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    transition: transform 0.25s var(--easing-standard);
+
+    .stat-card:hover & {
+      transform: scale(1.08);
+    }
 
     &.stat-icon-primary {
-      background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+      background: linear-gradient(135deg, $aurora-blue 0%, $aurora-sky 100%);
       color: #fff;
-      box-shadow: 0 4px 12px rgba(22, 119, 255, 0.20);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.30);
     }
 
     &.stat-icon-success {
-      background: linear-gradient(135deg, var(--color-success) 0%, #23C343 100%);
+      background: linear-gradient(135deg, $aurora-success 0%, $aurora-success-l 100%);
       color: #fff;
-      box-shadow: 0 4px 12px rgba(0, 180, 42, 0.20);
+      box-shadow: 0 4px 12px rgba(13, 150, 104, 0.28);
     }
 
     &.stat-icon-warning {
-      background: linear-gradient(135deg, var(--color-warning) 0%, #FF9A2E 100%);
+      background: linear-gradient(135deg, $aurora-warning 0%, $aurora-warning-l 100%);
       color: #fff;
-      box-shadow: 0 4px 12px rgba(255, 125, 0, 0.20);
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.28);
     }
 
     &.stat-icon-info {
-      background: linear-gradient(135deg, var(--color-info) 0%, #9DA4AE 100%);
+      background: linear-gradient(135deg, $aurora-info 0%, $aurora-info-l 100%);
       color: #fff;
     }
 
     &.stat-icon-danger {
-      background: linear-gradient(135deg, var(--color-error) 0%, #FF6B6B 100%);
+      background: linear-gradient(135deg, $aurora-error 0%, $aurora-error-l 100%);
       color: #fff;
-      box-shadow: 0 4px 12px rgba(245, 63, 63, 0.20);
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.28);
     }
   }
 
@@ -1541,16 +1552,16 @@ onActivated(async () => {
   }
 
   &.active {
-    border-left: 4px solid var(--color-primary);
+    border-left: 4px solid $aurora-blue;
   }
   &.waiting {
-    border-left: 4px solid var(--color-warning);
+    border-left: 4px solid $aurora-warning;
   }
   &.running {
-    border-left: 4px solid var(--color-error);
+    border-left: 4px solid $aurora-error;
   }
   &.idle {
-    border-left: 4px solid var(--color-success);
+    border-left: 4px solid $aurora-success;
   }
 }
 
@@ -1566,23 +1577,23 @@ onActivated(async () => {
 }
 
 .queue-icon-primary {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
-  box-shadow: 0 4px 12px rgba(22, 119, 255, 0.25);
+  background: linear-gradient(135deg, $aurora-blue 0%, $aurora-sky 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
 }
 
 .queue-icon-warning {
-  background: linear-gradient(135deg, var(--color-warning) 0%, #FF9A2E 100%);
-  box-shadow: 0 4px 12px rgba(255, 125, 0, 0.25);
+  background: linear-gradient(135deg, $aurora-warning 0%, $aurora-warning-l 100%);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.25);
 }
 
 .queue-icon-danger {
-  background: linear-gradient(135deg, var(--color-error) 0%, #FF6B6B 100%);
-  box-shadow: 0 4px 12px rgba(245, 63, 63, 0.25);
+  background: linear-gradient(135deg, $aurora-error 0%, $aurora-error-l 100%);
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25);
 }
 
 .queue-icon-success {
-  background: linear-gradient(135deg, var(--color-success) 0%, #23C343 100%);
-  box-shadow: 0 4px 12px rgba(0, 180, 42, 0.25);
+  background: linear-gradient(135deg, $aurora-success 0%, $aurora-success-l 100%);
+  box-shadow: 0 4px 12px rgba(13, 150, 104, 0.25);
 }
 
 .queue-stat-content {

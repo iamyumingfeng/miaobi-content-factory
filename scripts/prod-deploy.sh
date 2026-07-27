@@ -356,12 +356,34 @@ build_images() {
         print_info "使用 --no-cache 构建以确保依赖更新"
     fi
 
+    # 执行构建：单独捕获 docker compose build 的真实退出码，
+    # 避免被 grep 管道 / "|| true" 掩盖导致"假成功"
+    local build_log
+    build_log=$(mktemp)
+    local build_rc=0
+
+    set +e
     if [ "$VERBOSE" = true ]; then
         $DOCKER_COMPOSE -f docker/docker-compose.yml build $build_flags
+        build_rc=$?
     else
-        $DOCKER_COMPOSE -f docker/docker-compose.yml build $build_flags 2>&1 | grep -E "(Building|Step|Successfully|ERROR|Downloading|Installing|aiomysql)" || true
+        $DOCKER_COMPOSE -f docker/docker-compose.yml build $build_flags > "$build_log" 2>&1
+        build_rc=$?
+        grep -E "(Building|Step|Successfully|ERROR|Downloading|Installing|aiomysql)" "$build_log" || true
+    fi
+    set -e
+
+    if [ "$build_rc" -ne 0 ]; then
+        print_error "镜像构建失败（退出码: $build_rc）"
+        if [ "$VERBOSE" != true ]; then
+            print_info "完整构建日志（末尾 50 行）:"
+            tail -n 50 "$build_log"
+        fi
+        rm -f "$build_log"
+        exit 1
     fi
 
+    rm -f "$build_log"
     print_success "镜像构建完成"
 }
 
@@ -384,13 +406,33 @@ start_services() {
     # 强制清理旧容器
     force_cleanup_containers
 
-    # 启动新服务
+    # 启动新服务：同样捕获真实退出码，失败即退出
+    local up_log
+    up_log=$(mktemp)
+    local up_rc=0
+
+    set +e
     if [ "$VERBOSE" = true ]; then
         $DOCKER_COMPOSE -f docker/docker-compose.yml up -d
+        up_rc=$?
     else
-        $DOCKER_COMPOSE -f docker/docker-compose.yml up -d 2>&1 | grep -E "(Creating|Starting|Up|ERROR)" || true
+        $DOCKER_COMPOSE -f docker/docker-compose.yml up -d > "$up_log" 2>&1
+        up_rc=$?
+        grep -E "(Creating|Starting|Up|ERROR)" "$up_log" || true
+    fi
+    set -e
+
+    if [ "$up_rc" -ne 0 ]; then
+        print_error "服务启动失败（退出码: $up_rc）"
+        if [ "$VERBOSE" != true ]; then
+            print_info "完整启动日志（末尾 50 行）:"
+            tail -n 50 "$up_log"
+        fi
+        rm -f "$up_log"
+        exit 1
     fi
 
+    rm -f "$up_log"
     print_success "服务启动完成"
 }
 

@@ -15,11 +15,13 @@
             <div class="logo-container">
               <svg width="52" height="52" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect width="64" height="64" rx="16" fill="url(#logoGrad)"/>
-                <path d="M20 32L28 40L44 24" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M22 42c8 6 14 6 22 0" stroke="rgba(255,255,255,0.35)" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M27 48c5 3.5 9 3.5 13 0" stroke="rgba(255,255,255,0.20)" stroke-width="2.5" stroke-linecap="round"/>
+                <path d="M32 16c5 7 9 12 9 17a9 9 0 0 1-18 0c0-5 4-10 9-17z" fill="white"/>
                 <defs>
                   <linearGradient id="logoGrad" x1="0" y1="0" x2="64" y2="64">
-                    <stop offset="0%" stop-color="var(--color-primary)"/>
-                    <stop offset="100%" stop-color="var(--color-primary-light)"/>
+                    <stop offset="0%" stop-color="#4F46E5"/>
+                    <stop offset="100%" stop-color="#1C2240"/>
                   </linearGradient>
                 </defs>
               </svg>
@@ -93,7 +95,7 @@
           <div class="form-card">
             <div class="form-header">
               <div class="header-icon">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
                   <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                   <circle cx="12" cy="7" r="4"/>
                 </svg>
@@ -206,6 +208,7 @@ const handleLogin = async () => {
 
 <style lang="scss" scoped>
 @import '@/assets/styles/variables.scss';
+@import '@/assets/styles/aurora.scss';
 
 // ============================================
 // 页面容器
@@ -214,7 +217,7 @@ const handleLogin = async () => {
   position: relative;
   width: 100%;
   height: 100vh;
-  background: var(--color-bg-primary);
+  background: #0B0E17;
   overflow: hidden;
 }
 
@@ -230,19 +233,19 @@ const handleLogin = async () => {
   z-index: 0;
 
   &.glow-1 {
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, var(--color-primary-bg), transparent 70%);
-    top: -200px;
-    left: -100px;
+    width: 620px;
+    height: 620px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.35), transparent 70%);
+    top: -220px;
+    left: -120px;
   }
 
   &.glow-2 {
-    width: 400px;
-    height: 400px;
-    background: radial-gradient(circle, rgba(var(--color-primary-rgb, 22, 119, 255), 0.06), transparent 70%);
-    bottom: -100px;
-    right: -50px;
+    width: 460px;
+    height: 460px;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.22), transparent 70%);
+    bottom: -120px;
+    right: -60px;
   }
 }
 
@@ -267,12 +270,11 @@ const handleLogin = async () => {
   justify-content: center;
   padding: 80px 72px;
   position: relative;
-  background: linear-gradient(160deg, 
-    var(--color-primary-bg) 0%, 
-    var(--color-bg-primary) 40%, 
-    var(--color-bg-secondary) 100%
-  );
-  border-right: 1px solid var(--color-border-default);
+  background-image: $grain,
+    radial-gradient(circle at 88% 12%, rgba(56, 189, 248, 0.20), transparent 55%),
+    $brand-gradient;
+  background-blend-mode: soft-light, screen, normal;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
 
   // 装饰性细线
   .brand-accent {
@@ -283,9 +285,9 @@ const handleLogin = async () => {
     height: 2px;
     background: linear-gradient(90deg,
       transparent 0%,
-      var(--color-primary) 20%,
-      var(--color-primary-light) 50%,
-      var(--color-primary) 80%,
+      $aurora-blue-l 20%,
+      $aurora-sky 50%,
+      $aurora-blue-l 80%,
       transparent 100%
     );
   }
@@ -318,8 +320,9 @@ const handleLogin = async () => {
   font-family: var(--font-family-heading);
   font-size: 12px;
   font-weight: 600;
-  color: var(--color-primary);
-  background: var(--color-primary-bg);
+  color: #B8BED3;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   padding: 2px 8px;
   border-radius: 10px;
   letter-spacing: 0.05em;
@@ -340,7 +343,7 @@ const handleLogin = async () => {
     font-family: var(--font-family-heading);
     font-size: 44px;
     font-weight: 800;
-    color: var(--color-text-primary);
+    color: #F6F7FA;
     line-height: 1.1;
     letter-spacing: -0.03em;
   }
@@ -350,7 +353,7 @@ const handleLogin = async () => {
     font-family: var(--font-family-heading);
     font-size: 14px;
     font-weight: 500;
-    color: var(--color-text-muted);
+    color: #8E96B3;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     margin-top: 8px;
@@ -359,7 +362,7 @@ const handleLogin = async () => {
 
 .brand-description {
   font-size: 16px;
-  color: var(--color-text-secondary);
+  color: #B8BED3;
   line-height: 1.9;
   margin: 0;
 }
@@ -379,15 +382,17 @@ const handleLogin = async () => {
   align-items: center;
   gap: 18px;
   padding: 16px 20px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border-default);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-xl);
-  transition: border-color 240ms ease, box-shadow 240ms ease, background 240ms ease;
+  backdrop-filter: blur(8px);
+  transition: border-color 240ms ease, box-shadow 240ms ease, background 240ms ease, transform 240ms ease;
 
   &:hover {
-    background: var(--color-bg-primary);
-    border-color: var(--color-primary);
-    box-shadow: var(--shadow-md);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(99, 102, 241, 0.55);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.30);
+    transform: translateY(-2px);
   }
 }
 
@@ -398,9 +403,9 @@ const handleLogin = async () => {
   justify-content: center;
   width: 44px;
   height: 44px;
-  background: var(--color-primary-bg);
+  background: rgba(99, 102, 241, 0.18);
   border-radius: var(--radius-lg);
-  color: var(--color-primary);
+  color: #A5B4FC;
 }
 
 .feature-text {
@@ -410,13 +415,13 @@ const handleLogin = async () => {
 .feature-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: #FFFFFF;
   margin-bottom: 3px;
 }
 
 .feature-desc {
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: #8E96B3;
   line-height: 1.4;
 }
 
@@ -430,7 +435,7 @@ const handleLogin = async () => {
 
 .brand-footer-text {
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: #636D93;
 }
 
 // ============================================
@@ -474,9 +479,10 @@ const handleLogin = async () => {
     justify-content: center;
     width: 56px;
     height: 56px;
-    background: var(--color-primary-bg);
+    background: linear-gradient(135deg, $aurora-blue-d 0%, $aurora-sky 100%);
     border-radius: 50%;
     margin-bottom: 20px;
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.30);
   }
 }
 
@@ -527,8 +533,8 @@ const handleLogin = async () => {
 
     &.is-focus {
       background: var(--color-bg-secondary);
-      border-color: var(--color-primary);
-      box-shadow: 0 0 0 3px var(--color-primary-bg);
+      border-color: $aurora-blue;
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.14);
     }
   }
 
@@ -568,14 +574,14 @@ const handleLogin = async () => {
   font-weight: 600;
   border-radius: var(--radius-lg);
   letter-spacing: 0.06em;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-light) 100%);
+  background: linear-gradient(135deg, $aurora-blue-d 0%, $aurora-blue 45%, $aurora-sky 100%);
   border: none;
-  box-shadow: 0 4px 16px rgba(var(--color-primary-rgb, 22, 119, 255), 0.25);
+  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.35);
   transition: all 240ms ease;
 
   &:hover {
-    box-shadow: 0 6px 24px rgba(var(--color-primary-rgb, 22, 119, 255), 0.35);
-    transform: translateY(-1px);
+    box-shadow: 0 12px 32px rgba(56, 189, 248, 0.40);
+    transform: translateY(-2px);
   }
 
   &:active {
@@ -602,7 +608,7 @@ const handleLogin = async () => {
 
   svg {
     flex-shrink: 0;
-    color: var(--color-primary);
+    color: $aurora-blue-l;
   }
 }
 
