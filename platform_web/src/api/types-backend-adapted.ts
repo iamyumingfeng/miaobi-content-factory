@@ -775,6 +775,8 @@ export class ApiClient {
 }
 
 // 创建默认的API客户端实例
-export const apiClient = new ApiClient()
+// 部署到独立静态托管时，可通过环境变量 VITE_API_BASE_URL 指定后端完整地址
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+export const apiClient = new ApiClient(API_BASE_URL)
 
 export default apiClient

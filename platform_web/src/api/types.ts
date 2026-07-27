@@ -2786,7 +2786,11 @@ export class ApiClient {
   }
 }
 
-// 创建默认的API客户端实例 - 使用相对路径通过Vite代理
-export const apiClient = new ApiClient('/api/v1')
+// 创建默认的API客户端实例
+// 默认使用相对路径 /api/v1（本地开发经 Vite proxy 转发到后端）
+// 部署到独立静态托管（如 EdgeOne Pages）时，可通过环境变量 VITE_API_BASE_URL
+// 指定后端完整地址，例如 https://api.example.com/api/v1
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+export const apiClient = new ApiClient(API_BASE_URL)
 
 export default apiClient
