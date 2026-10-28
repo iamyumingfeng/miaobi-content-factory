@@ -115,6 +115,7 @@ storage/
 /data/redis/
 /backups/
 /storage/
+.ua/
 
 # SSL certificates and keys
 *.pem

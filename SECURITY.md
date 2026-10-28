@@ -17,10 +17,9 @@
 
 请通过以下方式私密报告安全漏洞:
 
-1. **邮件报告**: 发送详细信息到 **[安全邮箱]**
-2. **GitHub Security**: 使用 [GitHub Security Advisories](../../security/advisories) 功能
+1. **GitHub Security**: 使用 [GitHub Security Advisories](../../security/advisories/new) 功能提交私密报告
 
-**注意**: 请勿通过 GitHub Issues 公开报告安全漏洞。
+**注意**: 请勿通过 GitHub Issues 公开报告安全漏洞，也请勿通过普通邮件发送漏洞详情。
 
 ### 报告内容
 

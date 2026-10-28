@@ -10,7 +10,7 @@
 
 **面向自媒体运营团队的 AI 内容生产与分发中枢**
 
-[产品介绍](#产品介绍) • [核心功能](#核心功能) • [技术架构](#技术架构) • [快速开始](#快速开始) • [文档](#文档)
+[产品介绍](#产品介绍) • [核心功能](#核心功能) • [技术架构](#技术架构) • [快速开始](#快速开始) • [常见问题](#常见问题) • [文档](#文档) • [贡献](#贡献指南)
 
 </div>
 
@@ -489,6 +489,54 @@ npm run test:coverage
 
 ---
 
+## 常见问题
+
+### 部署与环境
+
+**Q1：项目支持哪些部署方式？**
+
+推荐使用 Docker Compose 部署（开发环境 `make dev-deploy-docker`，生产环境 `make prod-deploy`），确保环境一致性。也可以分别启动 `platform_api`（uvicorn + Celery）和 `platform_web`（Vite）进行本地开发，详见 [开发环境部署指南](docs/dev-deploy-guide.md)。
+
+**Q2：必须使用 MySQL 吗？可以换其他数据库吗？**
+
+当前生产与开发环境以 MySQL 8.0+ 为准，数据模型、迁移脚本（Alembic）和部署配置均围绕 MySQL 编写。如需更换数据库，需要自行调整模型与迁移，不在官方支持范围内。
+
+**Q3：`.env` 里哪些配置是必须改的？**
+
+开发环境至少修改 `SECRET_KEY`；生产环境还必须修改数据库密码、Redis 密码、`CORS_ORIGINS`、`VITE_API_BASE_URL` 及对象存储配置。完整清单见 [环境变量配置指南](docs/env-config-guide.md)。
+
+### AI 生成与模型
+
+**Q4：支持哪些 AI 模型平台？如何接入自己的 Key？**
+
+内置百炼、火山引擎、即梦、可灵、AutoGLM、月之暗面、DeepSeek、灵牙 AI 八类适配器（见 [技术架构](#ai-模型适配器)）。在系统「模型配置」页面填入对应平台的 API Key 或 AK/SK 即可启用，无需改代码。
+
+**Q5：批量生成任务卡在「进行中」不动了怎么办？**
+
+批量生成由 Celery 异步执行，先到后端「任务详情」查看执行日志确认失败原因（常见为模型限流或 Key 失效），再使用失败重试。若整体无任务消费，检查 Celery worker 容器状态与 `CELERY_CONCURRENCY` 配置，详见 [任务队列管理](docs/task-queue-management.md)。
+
+### 账号与权限
+
+**Q6：首次部署后如何登录？默认账号是什么？**
+
+使用默认账号 `admin_root`（密码见 [默认账号](#默认账号)），首次登录后请立即修改密码。创作者账号支持邀请码注册，由创作管理员在后台生成。
+
+**Q7：三类角色分别能看什么数据？**
+
+超级管理员管理全局配置与用户；创作管理员管理自己租户（`owner_admin_id` 维度）下的素材、模板与任务；创作者只接收被分发的内容并确认发布。数据边界详见 [核心数据模型分析](docs/data-model-analysis.md)。
+
+### 合规与安全
+
+**Q8：AI 生成的内容可以直接发布吗？**
+
+不可以未经审核直接发布。使用者需自行审核生成内容的合法合规性，并遵守目标内容平台的规则；本项目与任何第三方平台无官方合作关系，完整责任划分见 [免责声明](DISCLAIMER.md)。
+
+**Q9：发现安全漏洞如何报告？**
+
+请勿在 GitHub Issues 公开报告，请通过 [GitHub Security Advisories](https://github.com/iamyumingfeng/miaobi-content-factory/security/advisories/new) 私密提交，流程与响应时效见 [安全政策](SECURITY.md)。
+
+---
+
 ## 版本历史
 
 ### v1.0.0（当前版本，2026-Q2）
@@ -513,13 +561,24 @@ npm run test:coverage
 
 ## 贡献指南
 
-欢迎提交 Issue、Pull Request 或产品建议。参与开发前请阅读：
+欢迎提交 Issue、Pull Request 或产品建议。完整的开发流程、代码规范与 Pull Request 要求请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)，参与项目即表示你同意遵守 [行为准则](CODE_OF_CONDUCT.md)。
+
+快速上手：
 
 1. Fork 项目
 2. 创建特性分支（`git checkout -b feature/amazing-feature`）
 3. 提交更改（`git commit -m 'feat: add some amazing feature'`）
 4. 推送到分支（`git push origin feature/amazing-feature`）
 5. 创建 Pull Request
+
+### 贡献方式
+
+| 方式 | 说明 |
+|------|------|
+| 🐛 报告 Bug | 先在 [Issues](https://github.com/iamyumingfeng/miaobi-content-factory/issues) 中搜索确认未重复，再使用 Bug 模板附上复现步骤 |
+| 💡 功能建议 | 通过 Issue 讨论方向，维护者确认后再实现 |
+| 💻 提交代码 | 遵守下方审查清单，一个 PR 聚焦一个变更 |
+| 📖 文档改进 | 接口、数据模型、部署方式变化时同步更新文档，欢迎纠错与补充 |
 
 ### 代码审查清单
 
@@ -554,7 +613,7 @@ npm run test:coverage
 
 ### 🔒 安全报告
 
-如发现安全问题,请参考 [安全政策](SECURITY.md) 进行私密报告。
+如发现安全问题，请通过 [GitHub Security Advisories](https://github.com/iamyumingfeng/miaobi-content-factory/security/advisories/new) 私密报告，具体流程参考 [安全政策](SECURITY.md)。
 
 ---
 
@@ -566,10 +625,22 @@ Copyright © 2025 Miaobi Content Factory Contributors
 
 ---
 
+## Star 历史
+
+<div align="center">
+
+[![Star History Chart](https://api.star-history.com/svg?repos=iamyumingfeng/miaobi-content-factory&type=Date)](https://star-history.com/#iamyumingfeng/miaobi-content-factory&Date)
+
+</div>
+
+如果项目对你有帮助，欢迎点击右上角 **Star** 支持，帮助我们触达更多内容团队。
+
+---
+
 ## 联系方式
 
 - 问题反馈: [GitHub Issues](https://github.com/iamyumingfeng/miaobi-content-factory/issues)
-- 安全问题: iamyumingfeng@163.com
+- 安全报告: [GitHub Security Advisories](https://github.com/iamyumingfeng/miaobi-content-factory/security/advisories/new)
 
 ---
 
