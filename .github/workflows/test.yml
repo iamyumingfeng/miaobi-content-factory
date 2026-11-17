@@ -69,6 +69,8 @@ jobs:
     
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
+      # 配额/上传失败不应阻断质量门禁
+      continue-on-error: true
       with:
         file: ./platform_api/coverage.xml
         flags: backend

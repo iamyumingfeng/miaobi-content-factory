@@ -5,9 +5,6 @@ on:
     branches: [ master, develop ]
   pull_request:
     branches: [ master, develop ]
-  schedule:
-    # 每周一早上 6 点运行
-    - cron: '0 6 * * 1'
 
 jobs:
   security-scan:

@@ -10,6 +10,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  # 每个镜像包保留的最近版本数（不含被保护的 semver 发布标签）
+  KEEP_VERSIONS: '2'
 
 jobs:
   build-and-push-api:
@@ -99,3 +101,25 @@ jobs:
         labels: ${{ steps.meta-web.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+  cleanup-old-versions:
+    needs: [build-and-push-api, build-and-push-web]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [api, web]
+
+    steps:
+    - name: Delete old ${{ matrix.component }} image versions (keep latest ${{ env.KEEP_VERSIONS }})
+      uses: actions/delete-package-versions@v5
+      with:
+        package-name: ${{ github.event.repository.name }}-${{ matrix.component }}
+        package-type: container
+        min-versions-to-keep: ${{ env.KEEP_VERSIONS }}
+        # 保护 semver 发布标签（如 1.2.3 / 1.2 / v1.2.3），避免误删生产引用的版本
+        ignore-versions: '^v?\d+\.\d+(\.\d+)?$'
+      continue-on-error: true
