@@ -133,4 +133,5 @@ jobs:
 
     - name: Run Flake8
       working-directory: ./platform_api
-      run: flake8 app/ --max-line-length=100 --exclude=app/alembic/
+      # 规则由 platform_api/.flake8 统一管理
+      run: flake8 app/

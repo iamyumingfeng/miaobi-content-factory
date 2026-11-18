@@ -120,7 +120,7 @@ class BailianAdapter(BaseModelAdapter):
         """
         from .params import calc_pixel_size
 
-        if has_reference == True:
+        if has_reference:
             max_px = 2048
         else:
             max_px = self.model_max_pixels(model_id)
@@ -176,7 +176,6 @@ class BailianAdapter(BaseModelAdapter):
             max_tokens = params.max_tokens if params else 32000
             temperature = params.temperature if params else 0.7
             top_p = params.top_p if params else 0.8
-            enable_thinking = params.enable_thinking if params else True
 
             # 构建 messages（支持 system_prompt）
             messages = []

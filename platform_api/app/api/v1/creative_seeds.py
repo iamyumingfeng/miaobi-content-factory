@@ -147,7 +147,7 @@ async def get_seeds_grouped(
         CreativeSeed.status == "enabled",
         or_(
             CreativeSeed.owner_operator_id == current_user_id,
-            CreativeSeed.is_system == True,
+            CreativeSeed.is_system.is_(True),
         ),
     ]
 
@@ -232,14 +232,12 @@ async def list_creative_seeds(
     - 创作管理员：可查看自己的种子和系统种子
     """
     current_user_id = int(payload.get("sub"))
-    user_type = payload.get("user_type")
-    is_super_admin = user_type == "super_admin"
 
     # 构建查询条件
     conditions = [
         or_(
             CreativeSeed.owner_operator_id == current_user_id,
-            CreativeSeed.is_system == True,
+            CreativeSeed.is_system.is_(True),
         )
     ]
 
@@ -314,7 +312,7 @@ async def get_creative_seed(
             CreativeSeed.id == seed_id,
             or_(
                 CreativeSeed.owner_operator_id == current_user_id,
-                CreativeSeed.is_system == True,
+                CreativeSeed.is_system.is_(True),
             ),
         )
     )

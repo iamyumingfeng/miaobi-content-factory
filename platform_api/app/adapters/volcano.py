@@ -149,7 +149,7 @@ class VolcanoAdapter(OpenAICompatibleAdapter):
                         error_msg = error_data.get("error", {}).get(
                             "message", response_text[:200]
                         )
-                    except:
+                    except (ValueError, AttributeError):
                         error_msg = response_text[:200]
 
                     return GenerationResult(

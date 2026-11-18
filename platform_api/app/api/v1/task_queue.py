@@ -70,7 +70,7 @@ async def get_worker_status(
                 # 有些情况下返回字符串，尝试解析
                 try:
                     max_concurrency = int(max_concurrency)
-                except:
+                except (TypeError, ValueError):
                     max_concurrency = 0
 
             worker_total += max_concurrency
@@ -391,7 +391,6 @@ async def recover_stale_tasks(
                 if elapsed > timedelta(minutes=timeout_minutes):
                     # 超时任务，重新入队
                     item_id = task_info.get("item_id")
-                    owner_operator_id = None
 
                     # 需要从数据库查询 owner_operator_id
                     # 简化处理：从 task_info 中获取或查询数据库

@@ -933,7 +933,6 @@ async def upload_material(
     # 验证文件类型和大小
     if files:
         allowed_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
-        max_size = 5 * 1024 * 1024  # 5MB
         for idx, file in enumerate(files):
             if file.filename:
                 ext = (
@@ -1827,7 +1826,6 @@ async def add_material_attachment(
     """
     user_type = payload.get("user_type")
     current_user_id = int(payload.get("sub"))
-    is_super_admin = user_type == "super_admin"
 
     # 超级管理员不能上传素材附件
     if user_type == "super_admin":
@@ -2004,7 +2002,6 @@ async def update_material_with_attachments(
         # 验证文件类型和大小
         allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
         allowed_video_extensions = {"mp4", "webm", "mov"}
-        max_size = 50 * 1024 * 1024  # 50MB
         for idx, file in enumerate(files):
             if file.filename:
                 ext = (

@@ -13,7 +13,6 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
-
 class DashboardStatsResponse(BaseModel):
     """
     AIGC看板统计数据响应

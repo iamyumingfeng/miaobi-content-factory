@@ -1,0 +1,9 @@
+# flake8 配置（CI lint 门禁与本地检查共用）
+# 策略：保留代码质量类检查（F 系列、E7xx 等），忽略纯风格项：
+#   E501 行长由 black --line-length=100 管理，不做硬门禁
+#   E203 切片冒号前空格，与 black 格式化冲突
+#   E402 部分模块有意在初始化代码后导入（main.py / templates.py 等）
+[flake8]
+max-line-length = 100
+exclude = app/alembic/
+extend-ignore = E501, E203, E402

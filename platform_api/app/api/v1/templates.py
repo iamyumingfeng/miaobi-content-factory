@@ -1256,7 +1256,6 @@ async def update_template_with_attachments(
         # 验证文件类型和大小
         allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
         allowed_video_extensions = {"mp4", "webm", "mov"}
-        max_size = 50 * 1024 * 1024  # 50MB
         for idx, file in enumerate(files):
             if file.filename:
                 ext = (
@@ -1877,7 +1876,6 @@ async def upload_template(
     if files:
         allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
         allowed_video_extensions = {"mp4", "webm", "mov"}
-        max_size = 50 * 1024 * 1024  # 50MB
         for idx, file in enumerate(files):
             if file.filename:
                 ext = (

@@ -62,7 +62,7 @@ def _get_async_engine():
 
 def _get_async_sessionmaker():
     """获取当前进程的异步 sessionmaker（懒创建）。"""
-    global _async_sessionmaker, _process_async_initialized
+    global _async_sessionmaker
     if not _process_async_initialized:
         engine = _get_async_engine()
         _async_sessionmaker = async_sessionmaker(

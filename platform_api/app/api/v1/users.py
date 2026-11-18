@@ -489,7 +489,7 @@ async def reset_sub_user_password(
     """
     owner_operator_id = int(payload.get("sub"))
     try:
-        sub_user = await UserService.reset_sub_user_password(
+        await UserService.reset_sub_user_password(
             db,
             sub_user_id=id,
             new_password=request.new_password,

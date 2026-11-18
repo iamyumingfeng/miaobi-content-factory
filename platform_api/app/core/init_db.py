@@ -110,7 +110,7 @@ async def init_creative_seeds(db: AsyncSession) -> None:
     try:
         # 检查是否已有系统种子
         result = await db.execute(
-            select(CreativeSeed).where(CreativeSeed.is_system == True).limit(1)
+            select(CreativeSeed).where(CreativeSeed.is_system.is_(True)).limit(1)
         )
         existing_seed = result.scalar_one_or_none()
 
